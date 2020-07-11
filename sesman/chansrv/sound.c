@@ -520,12 +520,12 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
     if (g_fdk_aac_encoder == 0)
     {
         /* init fdk aac encoder */
-        LOG(0, ("sound_wave_compress_fdk_aac: using fdk aac"));
+        LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: using fdk aac"));
 
         error = aacEncOpen(&g_fdk_aac_encoder, 0, 2);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncOpen() failed"));
+            LOGM((LOG_LEVEL_ERROR, "sound_wave_compress_fdk_aac: aacEncOpen() failed"));
             return rv;
         }
 
@@ -533,7 +533,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
         error = aacEncoder_SetParam(g_fdk_aac_encoder, AACENC_AOT, aot);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_AOT failed"));
         }
 
@@ -542,7 +542,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
                                     sample_rate);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_SAMPLERATE failed"));
         }
 
@@ -551,7 +551,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
                                     AACENC_CHANNELMODE, mode);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_CHANNELMODE failed"));
         }
 
@@ -560,7 +560,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
                                     channel_order);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_CHANNELORDER failed"));
         }
 
@@ -570,14 +570,14 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
                                     bitrate);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_BITRATE failed"));
         }
 
         error = aacEncoder_SetParam(g_fdk_aac_encoder, AACENC_TRANSMUX, 0);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_TRANSMUX failed"));
         }
 
@@ -586,14 +586,14 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
                                     afterburner);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncoder_SetParam() "
                     "AACENC_AFTERBURNER failed"));
         }
 
         error = aacEncEncode(g_fdk_aac_encoder, NULL, NULL, NULL, NULL);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: Unable to initialize "
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: Unable to initialize "
                     "the encoder"));
         }
 
@@ -601,24 +601,24 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
         error = aacEncInfo(g_fdk_aac_encoder, &info);
         if (error != AACENC_OK)
         {
-            LOG(0, ("sound_wave_compress_fdk_aac: aacEncInfo failed"));
+            LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac: aacEncInfo failed"));
         }
 
-        LOG(0, ("sound_wave_compress_fdk_aac:"));
-        LOG(0, ("  AACENC_InfoStruct"));
-        LOG(0, ("    maxOutBufBytes %d", info.maxOutBufBytes));
-        LOG(0, ("    maxAncBytes %d", info.maxAncBytes));
-        LOG(0, ("    inBufFillLevel %d", info.inBufFillLevel));
-        LOG(0, ("    inputChannels %d", info.inputChannels));
-        LOG(0, ("    frameLength %d", info.frameLength));
+        LOGM((LOG_LEVEL_INFO, "sound_wave_compress_fdk_aac:"));
+        LOGM((LOG_LEVEL_INFO, "  AACENC_InfoStruct"));
+        LOGM((LOG_LEVEL_INFO, "    maxOutBufBytes %d", info.maxOutBufBytes));
+        LOGM((LOG_LEVEL_INFO, "    maxAncBytes %d", info.maxAncBytes));
+        LOGM((LOG_LEVEL_INFO, "    inBufFillLevel %d", info.inBufFillLevel));
+        LOGM((LOG_LEVEL_INFO, "    inputChannels %d", info.inputChannels));
+        LOGM((LOG_LEVEL_INFO, "    frameLength %d", info.frameLength));
 #if AACENCODER_LIB_VER_GTEQ(4, 0, 0)
-        LOG(0, ("    nDelay %d", info.nDelay));
-        LOG(0, ("    nDelayCore %d", info.nDelayCore));
+        LOGM((LOG_LEVEL_INFO, "    nDelay %d", info.nDelay));
+        LOGM((LOG_LEVEL_INFO, "    nDelayCore %d", info.nDelayCore));
 #else
-        LOG(0, ("    encoderDelay %d", info.encoderDelay));
+        LOGM((LOG_LEVEL_INFO, "    encoderDelay %d", info.encoderDelay));
 #endif
-        LOG(0, ("    confBuf"));
-        LOG(0, ("    confSize %d", info.confSize));
+        LOGM((LOG_LEVEL_INFO, "    confBuf"));
+        LOGM((LOG_LEVEL_INFO, "    confSize %d", info.confSize));
     }
 
     rv = data_bytes;
@@ -662,7 +662,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
     if (error == AACENC_OK)
     {
         cdata_bytes = out_args.numOutBytes;
-        LOG(10, ("sound_wave_compress_fdk_aac: aacEncEncode ok "
+        LOGM((LOG_LEVEL_DEBUG, "sound_wave_compress_fdk_aac: aacEncEncode ok "
                  "cdata_bytes %d", cdata_bytes));
         *format_index = g_client_fdk_aac_index;
         g_memcpy(data, cdata, cdata_bytes);
@@ -670,7 +670,7 @@ sound_wave_compress_fdk_aac(char *data, int data_bytes, int *format_index)
     }
     else
     {
-        LOG(0, ("sound_wave_compress_fdk_aac: aacEncEncode failed"));
+        LOGM((LOG_LEVEL_ERROR, "sound_wave_compress_fdk_aac: aacEncEncode failed"));
     }
     g_free(cdata);
 
