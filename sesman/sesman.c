@@ -209,8 +209,7 @@ main(int argc, char **argv)
 
     if (1 == argc)
     {
-        /* no options on command line. normal startup */
-        g_printf("starting sesman...\n");
+        /* start in daemon mode if no cli options */
         daemon = 1;
     }
     else if ((2 == argc) && ((0 == g_strcasecmp(argv[1], "--nodaemon")) ||
@@ -312,6 +311,12 @@ main(int argc, char **argv)
         g_exit(1);
     }
 
+    /* not to spit on the console, show config summary only when running in foreground */
+    if (!daemon)
+    {
+        config_dump(g_cfg);
+    }
+
     g_snprintf(cfg_file, 255, "%s/sesman.ini", XRDP_CFG_PATH);
 
     /* starting logging subsystem */
@@ -337,28 +342,18 @@ main(int argc, char **argv)
         g_exit(1);
     }
 
-    /* libscp initialization */
-    scp_init();
+    log_message(LOG_LEVEL_TRACE, "config loaded in %s at %s:%d", __func__, __FILE__, __LINE__);
+    log_message(LOG_LEVEL_TRACE, "    listen_address    = %s", g_cfg->listen_address);
+    log_message(LOG_LEVEL_TRACE, "    listen_port       = %s", g_cfg->listen_port);
+    log_message(LOG_LEVEL_TRACE, "    enable_user_wm    = %d", g_cfg->enable_user_wm);
+    log_message(LOG_LEVEL_TRACE, "    default_wm        = %s", g_cfg->default_wm);
+    log_message(LOG_LEVEL_TRACE, "    user_wm           = %s", g_cfg->user_wm);
+    log_message(LOG_LEVEL_TRACE, "    reconnect_sh      = %s", g_cfg->reconnect_sh);
+    log_message(LOG_LEVEL_TRACE, "    auth_file_path    = %s", g_cfg->auth_file_path);
 
     if (daemon)
     {
-        /* start of daemonizing code */
-        g_pid = g_fork();
-
-        if (0 != g_pid)
-        {
-            if (sesman_listen_test(g_cfg) != 0)
-	    {
-
-                log_message(LOG_LEVEL_ERROR, "Failed to start xrdp-sesman daemon, "
-                                             "possibly address already in use.");
-                g_deinit();
-                g_exit(1);
-            }
-            g_deinit();
-            g_exit(0);
-        }
-
+        /* not to spit on the console, shut up stdout/stderr before anything's logged */
         g_file_close(0);
         g_file_close(1);
         g_file_close(2);
@@ -374,6 +369,30 @@ main(int argc, char **argv)
         if (g_file_open("/dev/null") < 0)
         {
         }
+    }
+
+    /* libscp initialization */
+    scp_init();
+
+
+    if (daemon)
+    {
+        /* start of daemonizing code */
+        if (sesman_listen_test(g_cfg) != 0)
+        {
+
+            log_message(LOG_LEVEL_ERROR, "Failed to start xrdp-sesman daemon, "
+                                         "possibly address already in use.");
+            g_deinit();
+            g_exit(1);
+        }
+
+        if (0 != g_fork())
+        {
+            g_deinit();
+            g_exit(0);
+        }
+
     }
 
     /* signal handling */
@@ -418,7 +437,7 @@ main(int argc, char **argv)
                 "starting xrdp-sesman with pid %d", g_pid);
 
     /* make sure the socket directory exists */
-    g_mk_temp_dir("xrdp-sesman");
+    g_mk_socket_path("xrdp-sesman");
 
     /* make sure the /tmp/.X11-unix directory exists */
     if (!g_directory_exist("/tmp/.X11-unix"))

@@ -138,7 +138,7 @@ file_read_ini_line(struct stream *s, char *text, int text_bytes)
     while (c != 10 && c != 13)
     {
         /* these mean skip the rest of the line */
-        if (c == '#' || c == '!' || c == ';')
+        if (c == '#' || c == ';')
         {
             skip_to_end = 1;
         }
@@ -213,7 +213,7 @@ file_split_name_value(char *text, char *name, char *value)
 
     for (i = 0; i < len; i++)
     {
-        if (text[i] == '=')
+        if (text[i] == '=' && !on_to)
         {
             on_to = 1;
         }

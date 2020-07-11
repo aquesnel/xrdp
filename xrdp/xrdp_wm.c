@@ -25,7 +25,20 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "xrdp.h"
+#include "ms-rdpbcgr.h"
 #include "log.h"
+
+#define LLOG_LEVEL 1
+#define LLOGLN(_level, _args) \
+  do \
+  { \
+    if (_level < LLOG_LEVEL) \
+    { \
+        g_write("xrdp:xrdp_wm [%10.10u]: ", g_time3()); \
+        g_writeln _args ; \
+    } \
+  } \
+  while (0)
 
 /*****************************************************************************/
 struct xrdp_wm *
@@ -405,7 +418,7 @@ xrdp_wm_load_static_colors_plus(struct xrdp_wm *self, char *autorun_name)
     g_snprintf(cfg_file, 255, "%s/xrdp.ini", XRDP_CFG_PATH);
     fd = g_file_open(cfg_file);
 
-    if (fd > 0)
+    if (fd >= 0)
     {
         names = list_create();
         names->auto_free = 1;
@@ -563,11 +576,74 @@ xrdp_wm_init(struct xrdp_wm *self)
 
     load_xrdp_config(self->xrdp_config, self->screen->bpp);
 
+    /* global channels allow */
+    names = list_create();
+    names->auto_free = 1;
+    values = list_create();
+    values->auto_free = 1;
+    g_snprintf(cfg_file, 255, "%s/xrdp.ini", XRDP_CFG_PATH);
+    if (file_by_name_read_section(cfg_file, "Channels", names, values) == 0)
+    {
+        int error;
+        int ii;
+        int chan_id;
+        int chan_flags;
+        int disabled;
+        char chan_name[16];
+
+        ii = 0;
+        error = libxrdp_query_channel(self->session, ii, chan_name,
+                                      &chan_flags);
+        while (error == 0)
+        {
+            r = NULL;
+            for (index = 0; index < names->count; index++)
+            {
+                q = (char *) list_get_item(names, index);
+                if (g_strcasecmp(q, chan_name) == 0)
+                {
+                    r = (char *) list_get_item(values, index);
+                    break;
+                }
+            }
+            if (r == NULL)
+            {
+                /* not found, disable the channel */
+                chan_id = libxrdp_get_channel_id(self->session, chan_name);
+                libxrdp_disable_channel(self->session, chan_id, 1);
+                g_writeln("xrdp_wm_init: channel %s channel id %d is "
+                          "disabled", chan_name, chan_id);
+            }
+            else
+            {
+                /* found */
+                chan_id = libxrdp_get_channel_id(self->session, q);
+                disabled = !g_text2bool(r);
+                libxrdp_disable_channel(self->session, chan_id, disabled);
+                if (disabled)
+                {
+                    g_writeln("xrdp_wm_init: channel %s channel id %d is "
+                              "disabled", chan_name, chan_id);
+                }
+                else
+                {
+                    g_writeln("xrdp_wm_init: channel %s channel id %d is "
+                              "allowed", chan_name, chan_id);
+                }
+            }
+            ii++;
+            error = libxrdp_query_channel(self->session, ii, chan_name,
+                                          &chan_flags);
+        }
+    }
+    list_delete(names);
+    list_delete(values);
+
     xrdp_wm_load_static_colors_plus(self, autorun_name);
     xrdp_wm_load_static_pointers(self);
     self->screen->bg_color = self->xrdp_config->cfg_globals.ls_top_window_bg_color;
 
-    if (self->session->client_info->rdp_autologin || self->hide_log_window)
+    if (self->session->client_info->rdp_autologin)
     {
         /*
          * NOTE: this should eventually be accessed from self->xrdp_config
@@ -837,7 +913,7 @@ xrdp_wm_xor_pat(struct xrdp_wm *self, int x, int y, int cx, int cy)
     self->painter->brush.pattern[6] = 0xaa;
     self->painter->brush.pattern[7] = 0x55;
     self->painter->brush.x_origin = 0;
-    self->painter->brush.x_origin = 0;
+    self->painter->brush.y_origin = 0;
     self->painter->brush.style = 3;
     self->painter->bg_color = self->black;
     self->painter->fg_color = self->white;
@@ -1264,6 +1340,24 @@ xrdp_wm_mouse_click(struct xrdp_wm *self, int x, int y, int but, int down)
                     self->mm->mod->mod_event(self->mm->mod, WM_BUTTON3UP, x, y, 0, 0);
                 }
 
+                if (but == 8 && down)
+                {
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON8DOWN, x, y, 0, 0);
+                }
+                else if (but == 8 && !down)
+                {
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON8UP, x, y, 0, 0);
+                }
+                if (but == 9 && down)
+                {
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON9DOWN, x, y, 0, 0);
+                }
+                else if (but == 9 && !down)
+                {
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON9UP, x, y, 0, 0);
+                }
+                /* vertical scroll */
+
                 if (but == 4)
                 {
                     self->mm->mod->mod_event(self->mm->mod, WM_BUTTON4DOWN,
@@ -1279,21 +1373,23 @@ xrdp_wm_mouse_click(struct xrdp_wm *self, int x, int y, int but, int down)
                     self->mm->mod->mod_event(self->mm->mod, WM_BUTTON5UP,
                                              self->mouse_x, self->mouse_y, 0, 0);
                 }
-                if (but == 6 && down)
+
+                /* horizontal scroll */
+
+                if (but == 6)
                 {
-                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON6DOWN, x, y, 0, 0);
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON6DOWN,
+                                             self->mouse_x, self->mouse_y, 0, 0);
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON6UP,
+                                             self->mouse_x, self->mouse_y, 0, 0);
                 }
-                else if (but == 6 && !down)
+
+                if (but == 7)
                 {
-                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON6UP, x, y, 0, 0);
-                }
-                if (but == 7 && down)
-                {
-                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON7DOWN, x, y, 0, 0);
-                }
-                else if (but == 7 && !down)
-                {
-                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON7UP, x, y, 0, 0);
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON7DOWN,
+                                             self->mouse_x, self->mouse_y, 0, 0);
+                    self->mm->mod->mod_event(self->mm->mod, WM_BUTTON7UP,
+                                             self->mouse_x, self->mouse_y, 0, 0);
                 }
             }
         }
@@ -1433,6 +1529,12 @@ xrdp_wm_key(struct xrdp_wm *self, int device_flags, int scan_code)
     if (self->popup_wnd != 0)
     {
         xrdp_wm_clear_popup(self);
+        return 0;
+    }
+
+    // workaround odd shift behavior
+    // see https://github.com/neutrinolabs/xrdp/issues/397
+    if (scan_code == 42 && device_flags == (KBD_FLAG_UP | KBD_FLAG_EXT)) {
         return 0;
     }
 
@@ -1638,14 +1740,14 @@ xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
 {
     DEBUG(("mouse event flags %4.4x x %d y %d", device_flags, x, y));
 
-    if (device_flags & MOUSE_FLAG_MOVE) /* 0x0800 */
+    if (device_flags & PTRFLAGS_MOVE)
     {
         xrdp_wm_mouse_move(self, x, y);
     }
 
-    if (device_flags & MOUSE_FLAG_BUTTON1) /* 0x1000 */
+    if (device_flags & PTRFLAGS_BUTTON1)
     {
-        if (device_flags & MOUSE_FLAG_DOWN) /* 0x8000 */
+        if (device_flags & PTRFLAGS_DOWN)
         {
             xrdp_wm_mouse_click(self, x, y, 1, 1);
         }
@@ -1655,9 +1757,9 @@ xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
         }
     }
 
-    if (device_flags & MOUSE_FLAG_BUTTON2) /* 0x2000 */
+    if (device_flags & PTRFLAGS_BUTTON2)
     {
-        if (device_flags & MOUSE_FLAG_DOWN) /* 0x8000 */
+        if (device_flags & PTRFLAGS_DOWN)
         {
             xrdp_wm_mouse_click(self, x, y, 2, 1);
         }
@@ -1667,9 +1769,9 @@ xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
         }
     }
 
-    if (device_flags & MOUSE_FLAG_BUTTON3) /* 0x4000 */
+    if (device_flags & PTRFLAGS_BUTTON3)
     {
-        if (device_flags & MOUSE_FLAG_DOWN) /* 0x8000 */
+        if (device_flags & PTRFLAGS_DOWN)
         {
             xrdp_wm_mouse_click(self, x, y, 3, 1);
         }
@@ -1679,15 +1781,34 @@ xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
         }
     }
 
-    if (device_flags & 0x200) /* PTRFLAGS_WHEEL */
+    /* vertical mouse wheel */
+    if (device_flags & PTRFLAGS_WHEEL)
     {
-        if (device_flags & 0x100) /* PTRFLAGS_WHEEL_NEGATIVE */
+        if (device_flags & PTRFLAGS_WHEEL_NEGATIVE)
         {
             xrdp_wm_mouse_click(self, 0, 0, 5, 0);
         }
         else
         {
             xrdp_wm_mouse_click(self, 0, 0, 4, 0);
+        }
+    }
+
+    /* horizontal mouse wheel */
+
+    /**
+     * As mstsc does MOUSE not MOUSEX for horizontal scrolling,
+     * PTRFLAGS_HWHEEL must be handled here.
+     */
+    if (device_flags & PTRFLAGS_HWHEEL)
+    {
+        if (device_flags & PTRFLAGS_WHEEL_NEGATIVE)
+        {
+            xrdp_wm_mouse_click(self, 0, 0, 6, 0);
+        }
+        else
+        {
+            xrdp_wm_mouse_click(self, 0, 0, 7, 0);
         }
     }
 
@@ -1699,26 +1820,26 @@ static int
 xrdp_wm_process_input_mousex(struct xrdp_wm* self, int device_flags,
                              int x, int y)
 {
-    if (device_flags & 0x8000) /* PTRXFLAGS_DOWN */
+    if (device_flags & PTRXFLAGS_DOWN)
     {
-        if (device_flags & 0x0001) /* PTRXFLAGS_BUTTON1 */
+        if (device_flags & PTRXFLAGS_BUTTON1)
         {
-            xrdp_wm_mouse_click(self, x, y, 6, 1);
+            xrdp_wm_mouse_click(self, x, y, 8, 1);
         }
-        else if (device_flags & 0x0002) /* PTRXFLAGS_BUTTON2 */
+        else if (device_flags & PTRXFLAGS_BUTTON2)
         {
-            xrdp_wm_mouse_click(self, x, y, 7, 1);
+            xrdp_wm_mouse_click(self, x, y, 9, 1);
         }
     }
     else
     {
-        if (device_flags & 0x0001) /* PTRXFLAGS_BUTTON1 */
+        if (device_flags & PTRXFLAGS_BUTTON1)
         {
-            xrdp_wm_mouse_click(self, x, y, 6, 0);
+            xrdp_wm_mouse_click(self, x, y, 8, 0);
         }
-        else if (device_flags & 0x0002) /* PTRXFLAGS_BUTTON2 */
+        else if (device_flags & PTRXFLAGS_BUTTON2)
         {
-            xrdp_wm_mouse_click(self, x, y, 7, 0);
+            xrdp_wm_mouse_click(self, x, y, 9, 0);
         }
     }
     return 0;
@@ -1735,27 +1856,21 @@ xrdp_wm_process_channel_data(struct xrdp_wm *self,
                              tbus param3, tbus param4)
 {
     int rv;
-    int chanid ;
     rv = 1;
 
     if (self->mm->mod != 0)
     {
-        chanid = LOWORD(param1);
-
-        if (is_channel_allowed(self, chanid))
+        if (self->mm->usechansrv)
         {
-            if (self->mm->usechansrv)
+            rv = xrdp_mm_process_channel_data(self->mm, param1, param2,
+                                              param3, param4);
+        }
+        else
+        {
+            if (self->mm->mod->mod_event != 0)
             {
-                rv = xrdp_mm_process_channel_data(self->mm, param1, param2,
-                                                  param3, param4);
-            }
-            else
-            {
-                if (self->mm->mod->mod_event != 0)
-                {
-                    rv = self->mm->mod->mod_event(self->mm->mod, 0x5555, param1, param2,
-                                                  param3, param4);
-                }
+                rv = self->mm->mod->mod_event(self->mm->mod, 0x5555, param1, param2,
+                                              param3, param4);
             }
         }
     }
@@ -1789,19 +1904,19 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     switch (msg)
     {
-        case 0: /* RDP_INPUT_SYNCHRONIZE */
+        case RDP_INPUT_SYNCHRONIZE:
             rv = xrdp_wm_key_sync(wm, param3, param1);
             break;
-        case 4: /* RDP_INPUT_SCANCODE */
+        case RDP_INPUT_SCANCODE:
             rv = xrdp_wm_key(wm, param3, param1);
             break;
-        case 5: /* RDP_INPUT_UNICODE */
+        case RDP_INPUT_UNICODE:
             rv = xrdp_wm_key_unicode(wm, param3, param1);
             break;
-        case 0x8001: /* RDP_INPUT_MOUSE */
+        case RDP_INPUT_MOUSE:
             rv = xrdp_wm_process_input_mouse(wm, param3, param1, param2);
             break;
-        case 0x8002: /* RDP_INPUT_MOUSEX (INPUT_EVENT_MOUSEX) */
+        case RDP_INPUT_MOUSEX:
             rv = xrdp_wm_process_input_mousex(wm, param3, param1, param2);
             break;
         case 0x4444: /* invalidate, this is not from RDP_DATA_PDU_INPUT */
@@ -1820,6 +1935,14 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
         case 0x5557:
             //g_writeln("callback: frame ack %d", param1);
             xrdp_mm_frame_ack(wm->mm, param1);
+            break;
+        case 0x5558:
+            xrdp_mm_drdynvc_up(wm->mm);
+            break;
+        case 0x5559:
+            xrdp_mm_suppress_output(wm->mm, param1,
+                                    LOWORD(param2), HIWORD(param2),
+                                    LOWORD(param3), HIWORD(param3));
             break;
     }
     return rv;

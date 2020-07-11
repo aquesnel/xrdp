@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script
 
 AC_PREREQ(2.65)
-AC_INIT([xrdp], [0.9.3], [xrdp-devel@googlegroups.com])
+AC_INIT([xrdp], [0.9.13], [xrdp-devel@googlegroups.com])
 AC_CONFIG_HEADERS(config_ac.h:config_ac-h.in)
 AM_INIT_AUTOMAKE([1.7.2 foreign])
 AC_CONFIG_MACRO_DIR([m4])
@@ -40,12 +40,16 @@ case $host_os in
 	*openbsd*)
 		openbsd=yes
 		;;
+	*darwin*)
+		macos=yes
+		;;
 esac
 
 AM_CONDITIONAL(LINUX, [test "x$linux" = xyes])
 AM_CONDITIONAL(FREEBSD, [test "x$freebsd" = xyes])
 AM_CONDITIONAL(OPENBSD, [test "x$openbsd" = xyes])
 AM_CONDITIONAL(NETBSD, [test "x$netbsd" = xyes])
+AM_CONDITIONAL(MACOS, [test "x$macos" = xyes])
 
 AC_ARG_WITH([socketdir],
   [AS_HELP_STRING([--with-socketdir=DIR],
@@ -54,7 +58,7 @@ AC_ARG_WITH([socketdir],
 AC_SUBST([socketdir], [$with_socketdir])
 
 AC_ARG_WITH([systemdsystemunitdir],
-        AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
+        AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files, no to disable]),
         [], [
 if test "x$linux" = xyes; then
   with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)
@@ -70,6 +74,9 @@ AC_ARG_ENABLE(pam, AS_HELP_STRING([--disable-pam],
               [Build PAM support (default: yes)]),
               [], [enable_pam=yes])
 AM_CONDITIONAL(SESMAN_NOPAM, [test x$enable_pam != xyes])
+AC_ARG_ENABLE(vsock, AS_HELP_STRING([--enable-vsock],
+              [Build AF_VSOCK support (default: no)]),
+              [], [enable_vsock=no])
 AC_ARG_ENABLE(ipv6, AS_HELP_STRING([--enable-ipv6],
               [Build IPv6 support (default: no, experimental)]),
               [], [enable_ipv6=no])
@@ -89,7 +96,7 @@ AC_ARG_ENABLE(pamuserpass, AS_HELP_STRING([--enable-pamuserpass],
               [], [enable_pamuserpass=no])
 AM_CONDITIONAL(SESMAN_PAMUSERPASS, [test x$enable_pamuserpass = xyes])
 AC_ARG_ENABLE(pam-config, AS_HELP_STRING([--enable-pam-config=CONF],
-              [Select PAM config to install: debian, redhat, suse, unix
+              [Select PAM config to install: arch, debian, redhat, suse, freebsd, macos, unix
                (default: autodetect)]))
 
 AC_ARG_ENABLE(xrdpdebug, AS_HELP_STRING([--enable-xrdpdebug],
@@ -116,6 +123,10 @@ AC_ARG_ENABLE(xrdpvr, AS_HELP_STRING([--enable-xrdpvr],
               [Build xrdpvr module (default: no)]),
               [], [enable_xrdpvr=no])
 AM_CONDITIONAL(XRDP_XRDPVR, [test x$enable_xrdpvr = xyes])
+AC_ARG_ENABLE(fdkaac, AS_HELP_STRING([--enable-fdkaac],
+              [Build aac(audio codec) (default: no)]),
+              [], [enable_fdkaac=no])
+AM_CONDITIONAL(XRDP_FDK_AAC, [test x$enable_fdkaac = xyes])
 AC_ARG_ENABLE(opus, AS_HELP_STRING([--enable-opus],
               [Build opus(audio codec) (default: no)]),
               [], [enable_opus=no])
@@ -138,6 +149,11 @@ AC_ARG_ENABLE(rfxcodec, AS_HELP_STRING([--disable-rfxcodec],
               [Do not use included librfxcodec library (default: no)]),
               [], [enable_rfxcodec=yes])
 AM_CONDITIONAL(XRDP_RFXCODEC, [test x$enable_rfxcodec = xyes])
+
+AC_ARG_ENABLE(rdpsndaudin, AS_HELP_STRING([--enable-rdpsndaudin],
+              [Use rdpsnd audio in (default: no)]),
+              [], [enable_rdpsndaudin=no])
+AM_CONDITIONAL(XRDP_RDPSNDAUDIN, [test x$enable_rdpsndaudin = xyes])
 
 # Don't fail without working nasm if rfxcodec is not enabled
 if test "x$enable_rfxcodec" != xyes; then
@@ -193,6 +209,15 @@ fi
 
 AC_SUBST(PAM_RULES)
 
+if test "x$enable_vsock" = "xyes"
+then
+  enable_vsock=yes
+  AC_CHECK_HEADERS([linux/socket.h linux/vm_sockets.h],
+                   [AC_DEFINE([XRDP_ENABLE_VSOCK], 1, [Enable AF_VSOCK])],
+                   [],
+                   [#include <sys/socket.h>])
+fi
+
 if test "x$enable_ipv6only" = "xyes"
 then
   enable_ipv6=yes
@@ -228,6 +253,13 @@ if test "x$enable_fuse" = "xyes"
 then
   PKG_CHECK_MODULES([FUSE], [fuse >= 2.6], [],
     [AC_MSG_ERROR([please install libfuse-dev or fuse-devel])])
+fi
+
+# checking for fdk aac
+if test "x$enable_fdkaac" = "xyes"
+then
+  PKG_CHECK_MODULES([FDKAAC], [fdk-aac >= 0.1.0], [],
+    [AC_MSG_ERROR([please install libfdk-aac-dev or fdk-aac-devel])])
 fi
 
 # checking for opus
@@ -301,7 +333,8 @@ AC_SUBST([moduledir], '${libdir}/xrdp')
 AC_ARG_ENABLE([strict-locations],
   [AS_HELP_STRING([--enable-strict-locations],
                   [Use standard Autoconf install directories unless overridden
-                   (default: use /etc and /var)])])
+                   (default: use /etc and /var)])],
+                  [], [enable_strict_locations=no])
 
 if test "x$enable_strict_locations" != "xyes"; then
   sysconfdir="/etc";
@@ -343,3 +376,36 @@ AC_CONFIG_FILES([
 ])
 
 AC_OUTPUT
+
+echo ""
+echo "xrdp will be compiled with:"
+echo ""
+echo "  mp3lame         $enable_mp3lame"
+echo "  opus            $enable_opus"
+echo "  fdkaac          $enable_fdkaac"
+echo "  jpeg            $enable_jpeg"
+echo "  turbo jpeg      $enable_tjpeg"
+echo "  rfxcodec        $enable_rfxcodec"
+echo "  painter         $enable_painter"
+echo "  pixman          $enable_pixman"
+echo "  fuse            $enable_fuse"
+echo "  ipv6            $enable_ipv6"
+echo "  ipv6only        $enable_ipv6only"
+echo "  vsock           $enable_vsock"
+echo "  pam             $enable_pam"
+echo "  kerberos        $enable_kerberos"
+echo "  debug           $enable_xrdpdebug"
+echo "  rdpsndaudin     $enable_rdpsndaudin"
+echo ""
+echo "  strict_locations        $enable_strict_locations"
+echo "  prefix                  $prefix"
+echo "  exec_prefix             $exec_prefix"
+echo "  libdir                  $libdir"
+echo "  bindir                  $bindir"
+echo "  sysconfdir              $sysconfdir"
+
+# xrdp_configure_options.h will be written to the build directory, not the source directory
+echo '#define XRDP_CONFIGURE_OPTIONS \' > ./xrdp_configure_options.h
+./config.status --config | xargs -n 1 | sed -e 's/^/"      /' -e 's/$/\\n" \\/' >> ./xrdp_configure_options.h
+echo '""' >> ./xrdp_configure_options.h
+

@@ -226,6 +226,11 @@ lib_mod_connect(struct mod *mod)
             break;
         }
 
+        if (mod->server_is_term(mod))
+        {
+            break;
+        }
+
         i++;
 
         if (i >= 60)
@@ -1106,6 +1111,19 @@ process_server_paint_rect_shmem(struct mod *amod, struct stream *s)
             amod->screen_shmem_id_mapped = 1;
         }
     }
+    else if (amod->screen_shmem_id != shmem_id)
+    {
+        amod->screen_shmem_id = shmem_id;
+        g_shmdt(amod->screen_shmem_pixels);
+        amod->screen_shmem_pixels = (char *) g_shmat(amod->screen_shmem_id);
+        if (amod->screen_shmem_pixels == (void*)-1)
+        {
+            /* failed */
+            amod->screen_shmem_id = 0;
+            amod->screen_shmem_pixels = 0;
+            amod->screen_shmem_id_mapped = 0;
+        }
+    }
     if (amod->screen_shmem_pixels != 0)
     {
         bmpdata = amod->screen_shmem_pixels + shmem_offset;
@@ -1134,6 +1152,33 @@ send_paint_rect_ex_ack(struct mod *mod, int flags, int frame_id)
     out_uint16_le(s, 106);
     out_uint32_le(s, flags);
     out_uint32_le(s, frame_id);
+    s_mark_end(s);
+    len = (int)(s->end - s->data);
+    s_pop_layer(s, iso_hdr);
+    out_uint32_le(s, len);
+    lib_send_copy(mod, s);
+    free_stream(s);
+    return 0;
+}
+
+/******************************************************************************/
+/* return error */
+static int
+send_suppress_output(struct mod *mod, int suppress,
+                     int left, int top, int right, int bottom)
+{
+    int len;
+    struct stream *s;
+
+    make_stream(s);
+    init_stream(s, 8192);
+    s_push_layer(s, iso_hdr, 4);
+    out_uint16_le(s, 108);
+    out_uint32_le(s, suppress);
+    out_uint32_le(s, left);
+    out_uint32_le(s, top);
+    out_uint32_le(s, right);
+    out_uint32_le(s, bottom);
     s_mark_end(s);
     len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
@@ -1215,6 +1260,19 @@ process_server_paint_rect_shmem_ex(struct mod *amod, struct stream *s)
             else
             {
                 amod->screen_shmem_id_mapped = 1;
+            }
+        }
+        else if (amod->screen_shmem_id != shmem_id)
+        {
+            amod->screen_shmem_id = shmem_id;
+            g_shmdt(amod->screen_shmem_pixels);
+            amod->screen_shmem_pixels = (char *) g_shmat(amod->screen_shmem_id);
+            if (amod->screen_shmem_pixels == (void*)-1)
+            {
+                /* failed */
+                amod->screen_shmem_id = 0;
+                amod->screen_shmem_pixels = 0;
+                amod->screen_shmem_id_mapped = 0;
             }
         }
         if (amod->screen_shmem_pixels != 0)
@@ -1557,6 +1615,18 @@ lib_mod_frame_ack(struct mod *amod, int flags, int frame_id)
 }
 
 /******************************************************************************/
+/* return error */
+int
+lib_mod_suppress_output(struct mod *amod, int suppress,
+                        int left, int top, int right, int bottom)
+{
+    LLOGLN(10, ("lib_mod_suppress_output: suppress 0x%8.8x left %d top %d "
+           "right %d bottom %d", suppress, left, top, right, bottom));
+    send_suppress_output(amod, suppress, left, top, right, bottom);
+    return 0;
+}
+
+/******************************************************************************/
 tintptr EXPORT_CC
 mod_init(void)
 {
@@ -1575,6 +1645,7 @@ mod_init(void)
     mod->mod_get_wait_objs = lib_mod_get_wait_objs;
     mod->mod_check_wait_objs = lib_mod_check_wait_objs;
     mod->mod_frame_ack = lib_mod_frame_ack;
+    mod->mod_suppress_output = lib_mod_suppress_output;
     return (tintptr) mod;
 }
 

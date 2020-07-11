@@ -7,6 +7,14 @@ endif
 EXTRA_DIST = pixman-region.c
 
 include_HEADERS = \
+  ms-erref.h \
+  ms-fscc.h \
+  ms-rdpbcgr.h \
+  ms-rdpefs.h \
+  ms-rdpegdi.h \
+  ms-rdpele.h \
+  ms-rdperp.h \
+  ms-smb2.h \
   xrdp_client_info.h \
   xrdp_constants.h \
   xrdp_rail.h \
@@ -31,7 +39,8 @@ module_LTLIBRARIES = \
 
 libcommon_la_SOURCES = \
   arch.h \
-  crc16.h \
+  base64.h \
+  base64.c \
   defines.h \
   fifo.c \
   fifo.h \

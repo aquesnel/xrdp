@@ -23,6 +23,7 @@
 #endif
 
 #include "libxrdp.h"
+#include "ms-rdpbcgr.h"
 #include "log.h"
 #include "ssl_calls.h"
 
@@ -269,7 +270,7 @@ xrdp_rdp_read_config(struct xrdp_client_info *client_info)
                 g_strncpy(client_info->key_file, value, 1023);
             }
 
-	    if (!g_file_readable(client_info->key_file))
+            if (!g_file_readable(client_info->key_file))
             {
                 log_message(LOG_LEVEL_ERROR, "Cannot read private key file %s: %s",
                             client_info->key_file, g_get_strerror());
@@ -561,7 +562,7 @@ xrdp_rdp_send_data(struct xrdp_rdp *self, struct stream *s,
     DEBUG(("in xrdp_rdp_send_data"));
     s_pop_layer(s, rdp_hdr);
     len = (int)(s->end - s->p);
-    pdutype = 0x10 | RDP_PDU_DATA;
+    pdutype = 0x10 | PDUTYPE_DATAPDU;
     pdulen = len;
     dlen = len;
     ctype = 0;
@@ -1044,9 +1045,12 @@ xrdp_rdp_process_data_sync(struct xrdp_rdp *self)
 }
 
 /*****************************************************************************/
+/* 2.2.11.2.1 Refresh Rect PDU Data (TS_REFRESH_RECT_PDU) */
 static int
 xrdp_rdp_process_screen_update(struct xrdp_rdp *self, struct stream *s)
 {
+    int index;
+    int num_rects;
     int left;
     int top;
     int right;
@@ -1054,19 +1058,34 @@ xrdp_rdp_process_screen_update(struct xrdp_rdp *self, struct stream *s)
     int cx;
     int cy;
 
-    in_uint8s(s, 4); /* op */
-    in_uint16_le(s, left);
-    in_uint16_le(s, top);
-    in_uint16_le(s, right);
-    in_uint16_le(s, bottom);
-    cx = (right - left) + 1;
-    cy = (bottom - top) + 1;
-
-    if (self->session->callback != 0)
+    if (!s_check_rem(s, 4))
     {
-        self->session->callback(self->session->id, 0x4444, left, top, cx, cy);
+        return 1;
     }
-
+    in_uint8(s, num_rects);
+    in_uint8s(s, 3); /* pad */
+    g_writeln("xrdp_rdp_process_screen_update: num_rects %d", num_rects);
+    for (index = 0; index < num_rects; index++)
+    {
+        if (!s_check_rem(s, 8))
+        {
+            return 1;
+        }
+        /* Inclusive Rectangle (TS_RECTANGLE16) */
+        in_uint16_le(s, left);
+        in_uint16_le(s, top);
+        in_uint16_le(s, right);
+        in_uint16_le(s, bottom);
+        g_writeln("  left %d top %d right %d bottom %d",
+                  left, top, right, bottom);
+        cx = (right - left) + 1;
+        cy = (bottom - top) + 1;
+        if (self->session->callback != 0)
+        {
+            self->session->callback(self->session->id, 0x4444,
+                                    left, top, cx, cy);
+        }
+    }
     return 0;
 }
 
@@ -1125,6 +1144,7 @@ xrdp_rdp_process_data_font(struct xrdp_rdp *self, struct stream *s)
         g_writeln("yeah, up_and_running");
         DEBUG(("up_and_running set"));
         xrdp_rdp_send_data_update_sync(self);
+        xrdp_channel_drdynvc_start(self->sec_layer->chan_layer);
     }
 
     DEBUG(("out xrdp_rdp_process_data_font"));
@@ -1209,20 +1229,90 @@ xrdp_rdp_process_frame_ack(struct xrdp_rdp *self, struct stream *s)
 }
 
 /*****************************************************************************/
+static int
+xrdp_rdp_process_suppress(struct xrdp_rdp *self, struct stream *s)
+{
+    int allowDisplayUpdates;
+    int left;
+    int top;
+    int right;
+    int bottom;
+
+    if (!s_check_rem(s, 1))
+    {
+        return 1;
+    }
+    in_uint8(s, allowDisplayUpdates);
+    g_writeln("xrdp_rdp_process_suppress: allowDisplayUpdates %d bytes "
+              "left %d", allowDisplayUpdates, (int) (s->end - s->p));
+    switch (allowDisplayUpdates)
+    {
+        case 0: /* SUPPRESS_DISPLAY_UPDATES */
+            self->client_info.suppress_output = 1;
+            g_writeln("xrdp_rdp_process_suppress: suppress_output %d",
+                      self->client_info.suppress_output);
+            if (self->session->callback != 0)
+            {
+                self->session->callback(self->session->id, 0x5559, 1,
+                                        0, 0, 0);
+            }
+            break;
+        case 1: /* ALLOW_DISPLAY_UPDATES */
+            self->client_info.suppress_output = 0;
+            if (!s_check_rem(s, 11))
+            {
+                return 1;
+            }
+            in_uint8s(s, 3); /* pad */
+            in_uint16_le(s, left);
+            in_uint16_le(s, top);
+            in_uint16_le(s, right);
+            in_uint16_le(s, bottom);
+            g_writeln("xrdp_rdp_process_suppress: suppress_output %d "
+                      "left %d top %d right %d bottom %d",
+                      self->client_info.suppress_output,
+                      left, top, right, bottom);
+            if (self->session->callback != 0)
+            {
+                self->session->callback(self->session->id, 0x5559, 0,
+                                        MAKELONG(left, top),
+                                        MAKELONG(right, bottom), 0);
+            }
+            break;
+    }
+    return 0;
+}
+
+/*****************************************************************************/
 /* RDP_PDU_DATA */
 int
 xrdp_rdp_process_data(struct xrdp_rdp *self, struct stream *s)
 {
-    int data_type;
+    int uncompressedLength;
+    int pduType2;
+    int compressedType;
+    int compressedLength;
 
+    if (!s_check_rem(s, 12))
+    {
+        return 1;
+    }
     in_uint8s(s, 6);
-    in_uint8s(s, 2); /* len */
-    in_uint8(s, data_type);
-    in_uint8s(s, 1); /* ctype */
-    in_uint8s(s, 2); /* clen */
-    DEBUG(("xrdp_rdp_process_data code %d", data_type));
-
-    switch (data_type)
+    in_uint16_le(s, uncompressedLength);
+    in_uint8(s, pduType2);
+    in_uint8(s, compressedType);
+    in_uint16_le(s, compressedLength);
+    if (compressedType != 0)
+    {
+        /* don't support compression */
+        return 1;
+    }
+    if (compressedLength > uncompressedLength)
+    {
+        return 1;
+    }
+    DEBUG(("xrdp_rdp_process_data pduType2 %d", pduType2));
+    switch (pduType2)
     {
         case RDP_DATA_PDU_POINTER: /* 27(0x1b) */
             xrdp_rdp_process_data_pointer(self, s);
@@ -1236,14 +1326,11 @@ xrdp_rdp_process_data(struct xrdp_rdp *self, struct stream *s)
         case RDP_DATA_PDU_SYNCHRONISE: /* 31(0x1f) */
             xrdp_rdp_process_data_sync(self);
             break;
-        case 33: /* 33(0x21) ?? Invalidate an area I think */
+        case PDUTYPE2_REFRESH_RECT:
             xrdp_rdp_process_screen_update(self, s);
             break;
-        case 35: /* 35(0x23) */
-            /* 35 ?? this comes when minimizing a full screen mstsc.exe 2600 */
-            /* I think this is saying the client no longer wants screen */
-            /* updates and it will issue a 33 above to catch up */
-            /* so minimized apps don't take bandwidth */
+        case 35: /* 35(0x23) PDUTYPE2_SUPPRESS_OUTPUT */
+            xrdp_rdp_process_suppress(self, s);
             break;
         case 36: /* 36(0x24) ?? disconnect query? */
             /* when this message comes, send a 37 back so the client */
@@ -1258,10 +1345,9 @@ xrdp_rdp_process_data(struct xrdp_rdp *self, struct stream *s)
             xrdp_rdp_process_frame_ack(self, s);
             break;
         default:
-            g_writeln("unknown in xrdp_rdp_process_data %d", data_type);
+            g_writeln("unknown in xrdp_rdp_process_data pduType2 %d", pduType2);
             break;
     }
-
     return 0;
 }
 /*****************************************************************************/
@@ -1295,7 +1381,7 @@ xrdp_rdp_send_deactivate(struct xrdp_rdp *self)
 
     s_mark_end(s);
 
-    if (xrdp_rdp_send(self, s, RDP_PDU_DEACTIVATE) != 0)
+    if (xrdp_rdp_send(self, s, PDUTYPE_DEACTIVATEALLPDU) != 0)
     {
         free_stream(s);
         DEBUG(("out xrdp_rdp_send_deactivate error"));

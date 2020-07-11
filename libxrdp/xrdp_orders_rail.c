@@ -21,6 +21,7 @@
 #endif
 
 #include "libxrdp.h"
+#include "ms-rdpegdi.h"
 #include "xrdp_rail.h"
 
 /* [MS-RDPERP]: Remote Desktop Protocol:
@@ -43,7 +44,7 @@ xrdp_orders_send_window_delete(struct xrdp_orders *self, int window_id)
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -76,7 +77,7 @@ xrdp_orders_send_window_cached_icon(struct xrdp_orders *self,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -170,7 +171,7 @@ xrdp_orders_send_window_icon(struct xrdp_orders *self,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -373,7 +374,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -517,7 +518,7 @@ xrdp_orders_send_notify_delete(struct xrdp_orders *self, int window_id,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -611,7 +612,7 @@ xrdp_orders_send_notify_new_update(struct xrdp_orders *self,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */
@@ -705,7 +706,7 @@ xrdp_orders_send_monitored_desktop(struct xrdp_orders *self,
         return 1;
     }
     self->order_count++;
-    order_flags = RDP_ORDER_SECONDARY;
+    order_flags = TS_SECONDARY;
     order_flags |= 0xb << 2; /* type TS_ALTSEC_WINDOW */
     out_uint8(self->out_s, order_flags);
     /* orderSize (2 bytes) */

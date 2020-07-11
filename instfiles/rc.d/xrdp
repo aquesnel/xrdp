@@ -1,6 +1,7 @@
 #!/bin/sh
 #
-# Copyright (c) 1992-2015 The FreeBSD Project. All rights reserved.
+# Copyright (c) 1992-2018 The FreeBSD Project. All rights reserved.
+# Copyright (c) 2015-2018 Koichiro Iwao <meta@FreeBSD.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,55 +27,56 @@
 # $FreeBSD$
 #
 # REQUIRE: DAEMON
-# PROVIDE: xrdp xrdp_sesman
+# PROVIDE: xrdp
 #
+# Add the following line to /etc/rc.conf to enable xrdp:
+#
+#  xrdp_enable="YES"
+#  xrdp_sesman_enable="YES"
 
 . /etc/rc.subr
 
 name="xrdp"
-rcvar=xrdp_enable
-xrdp_daemons="xrdp"
+rcvar="xrdp_enable"
 
-# Read settings and set default values.
 load_rc_config "$name"
 : ${xrdp_enable="NO"}
 
-# Enable/disable dependent daemon.
-if [ -n "${rcvar}" ] && checkyesno "xrdp_sesman_enable"; then
-	xrdp_daemons="xrdp xrdp_sesman"
-fi
+extra_commands="status allstart allstop allrestart"
+command="%%PREFIX%%/sbin/xrdp"
 
-# Commands.
-extra_commands="reload status"
-start_cmd="xrdp_cmd"
-stop_cmd="xrdp_cmd"
-status_cmd="xrdp_cmd"
-reload_cmd="xrdp_cmd"
-rcvar_cmd="xrdp_cmd"
+allstart_cmd="xrdp_allstart"
+allstop_cmd="xrdp_allstop"
+allrestart_cmd="xrdp_allrestart"
 
-# Command wrapper to call each of them per daemon.
-xrdp_cmd() {
-    local name rcvar command pidfile xrdp_daemons
-    # Prevent recursive calling.
-    unset "${rc_arg}_cmd"
-    # Stop processes in the reverse to order.
-    if [ "${rc_arg}" = "stop" ] ; then
-	xrdp_daemons=$(reverse_list ${xrdp_daemons})
+xrdp_allstart()
+{
+     run_rc_command "start"
+
+    if checkyesno "xrdp_sesman_enable" && \
+        ! %%PREFIX%%/etc/rc.d/xrdp-sesman forcestatus 1>/dev/null 2>&1; then
+        %%PREFIX%%/etc/rc.d/xrdp-sesman start || return 1
+    fi
+}
+
+xrdp_allstop()
+{
+    if checkyesno "xrdp_sesman_enable" && \
+        %%PREFIX%%/etc/rc.d/xrdp-sesman forcestatus 1>/dev/null 2>&1; then
+        %%PREFIX%%/etc/rc.d/xrdp-sesman stop || return 1
     fi
 
-    # Apply to all the daemons.
-    for name in ${xrdp_daemons}; do
-	rcvar=${name}_enable
-	if [ "${name}" = "xrdp_sesman" ]; then
-		command="%%PREFIX%%/sbin/xrdp-sesman"
-		pidfile="/var/run/xrdp-sesman.pid"
-	else
-		command="%%PREFIX%%/sbin/${name}"
-		pidfile="/var/run/${name}.pid"
-	fi
+    run_rc_command "stop"
+}
 
-	run_rc_command "${_rc_prefix}${rc_arg}" ${rc_extra_args}
-    done
+xrdp_allrestart()
+{
+    if checkyesno "xrdp_sesman_enable" && \
+        %%PREFIX%%/etc/rc.d/xrdp-sesman forcestatus 1>/dev/null 2>&1; then
+        %%PREFIX%%/etc/rc.d/xrdp-sesman restart || return 1
+    fi
+
+    run_rc_command "restart"
 }
 
 run_rc_command "$1"

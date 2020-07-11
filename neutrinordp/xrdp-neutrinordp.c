@@ -27,6 +27,12 @@
 #include "log.h"
 #include <freerdp/settings.h>
 
+#if defined(VERSION_STRUCT_RDP_FREERDP)
+#if VERSION_STRUCT_RDP_FREERDP > 1
+#define NEUTRINORDP_HAS_SUPPRESS_OUTPUT
+#endif
+#endif
+
 #ifdef XRDP_DEBUG
 #define LOG_LEVEL 99
 #else
@@ -538,6 +544,24 @@ lxrdp_check_wait_objs(struct mod *mod)
         return 1;
     }
 
+    return 0;
+}
+
+/******************************************************************************/
+static int
+lxrdp_frame_ack(struct mod* mod, int flags, int frame_id)
+{
+    return 0;
+}
+
+/******************************************************************************/
+static int
+lxrdp_suppress_output(struct mod* mod, int suppress,
+                      int left, int top, int right, int bottom)
+{
+#if defined(NEUTRINORDP_HAS_SUPPRESS_OUTPUT)
+    mod->inst->SendSuppressOutput(mod->inst, !suppress, left, top, right, bottom);
+#endif
     return 0;
 }
 
@@ -1468,7 +1492,9 @@ lfreerdp_pre_connect(freerdp *instance)
 
     instance->settings->glyph_cache = true;
     /* GLYPH_SUPPORT_FULL and GLYPH_SUPPORT_PARTIAL seem to be the same */
-    instance->settings->glyphSupportLevel = GLYPH_SUPPORT_FULL;
+    /* disabled as workaround for corrupted display like black bars left of cmd with W2K8 */
+    /* instance->settings->glyphSupportLevel = GLYPH_SUPPORT_FULL; */
+    instance->settings->glyphSupportLevel = GLYPH_SUPPORT_NONE;
 
     instance->settings->order_support[NEG_DSTBLT_INDEX] = 1; /* 0x00 */
     instance->settings->order_support[NEG_PATBLT_INDEX] = 1;
@@ -1497,7 +1523,10 @@ lfreerdp_pre_connect(freerdp *instance)
     instance->settings->order_support[NEG_FAST_GLYPH_INDEX] = 0; /* 0x18 */
     instance->settings->order_support[NEG_ELLIPSE_SC_INDEX] = 0;
     instance->settings->order_support[NEG_ELLIPSE_CB_INDEX] = 0;
-    instance->settings->order_support[NEG_GLYPH_INDEX_INDEX] = 1;
+    /* disabled as workaround for corrupted display like black bars left of cmd with W2K8 */
+    /* instance->settings->order_support[NEG_GLYPH_INDEX_INDEX] = 1; */
+    instance->settings->order_support[NEG_GLYPH_INDEX_INDEX] = 0;
+    
     instance->settings->order_support[NEG_GLYPH_WEXTTEXTOUT_INDEX] = 0;
     instance->settings->order_support[NEG_GLYPH_WLONGTEXTOUT_INDEX] = 0;
     instance->settings->order_support[NEG_GLYPH_WLONGEXTTEXTOUT_INDEX] = 0;
@@ -1522,7 +1551,7 @@ lfreerdp_pre_connect(freerdp *instance)
     instance->settings->password = g_strdup(mod->password);
     instance->settings->domain = g_strdup(mod->domain);
 
-    if (mod->client_info.rail_support_level > 0)
+    if (mod->client_info.rail_enable && (mod->client_info.rail_support_level > 0))
     {
         LLOGLN(0, ("Railsupport !!!!!!!!!!!!!!!!!!"));
         instance->settings->remote_app = 1;
@@ -2004,6 +2033,8 @@ mod_init(void)
     mod->mod_session_change = lxrdp_session_change;
     mod->mod_get_wait_objs = lxrdp_get_wait_objs;
     mod->mod_check_wait_objs = lxrdp_check_wait_objs;
+    mod->mod_frame_ack = lxrdp_frame_ack;
+    mod->mod_suppress_output = lxrdp_suppress_output;
 
     mod->inst = freerdp_new();
     mod->inst->PreConnect = lfreerdp_pre_connect;

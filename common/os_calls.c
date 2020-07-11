@@ -41,6 +41,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#if defined(XRDP_ENABLE_VSOCK)
+#include <linux/vm_sockets.h>
+#endif
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/times.h>
@@ -109,17 +112,17 @@ g_rm_temp_dir(void)
 
 /*****************************************************************************/
 int
-g_mk_temp_dir(const char *app_name)
+g_mk_socket_path(const char *app_name)
 {
     if (!g_directory_exist(XRDP_SOCKET_PATH))
     {
-        if (!g_create_dir(XRDP_SOCKET_PATH))
+        if (!g_create_path(XRDP_SOCKET_PATH"/"))
         {
             /* if failed, still check if it got created by someone else */
             if (!g_directory_exist(XRDP_SOCKET_PATH))
             {
                 log_message(LOG_LEVEL_ERROR,
-                            "g_mk_temp_dir: g_create_dir(%s) failed",
+                            "g_mk_socket_path: g_create_path(%s) failed",
                             XRDP_SOCKET_PATH);
                 return 1;
             }
@@ -153,7 +156,7 @@ g_init(const char *app_name)
         setlocale(LC_CTYPE, "en_US.UTF-8");
     }
 
-    g_mk_temp_dir(app_name);
+    g_mk_socket_path(app_name);
 }
 
 /*****************************************************************************/
@@ -163,6 +166,8 @@ g_deinit(void)
 #if defined(_WIN32)
     WSACleanup();
 #endif
+    fflush(stdout);
+    fflush(stderr);
     g_rm_temp_dir();
 }
 
@@ -576,9 +581,20 @@ int
 g_sck_local_socket(void)
 {
 #if defined(_WIN32)
-    return 0;
+    return -1;
 #else
     return socket(PF_LOCAL, SOCK_STREAM, 0);
+#endif
+}
+
+/*****************************************************************************/
+int
+g_sck_vsock_socket(void)
+{
+#if defined(XRDP_ENABLE_VSOCK)
+    return socket(PF_VSOCK, SOCK_STREAM, 0);
+#else
+    return -1;
 #endif
 }
 
@@ -656,6 +672,9 @@ g_sck_close(int sck)
 #if defined(XRDP_ENABLE_IPV6)
         struct sockaddr_in6 sock_addr_in6;
 #endif
+#if defined(XRDP_ENABLE_VSOCK)
+        struct sockaddr_vm sock_addr_vm;
+#endif
     } sock_info;
     socklen_t sock_len = sizeof(sock_info);
 
@@ -694,6 +713,22 @@ g_sck_close(int sck)
             case AF_UNIX:
                 g_snprintf(sockname, sizeof(sockname), "AF_UNIX");
                 break;
+
+#if defined(XRDP_ENABLE_VSOCK)
+
+            case AF_VSOCK:
+            {
+                struct sockaddr_vm *sock_addr_vm = &sock_info.sock_addr_vm;
+
+                g_snprintf(sockname,
+                           sizeof(sockname),
+                           "AF_VSOCK cid %d port %d",
+                           sock_addr_vm->svm_cid,
+                           sock_addr_vm->svm_port);
+                break;
+            }
+
+#endif
 
             default:
                 g_snprintf(sockname, sizeof(sockname), "unknown family %d",
@@ -753,7 +788,7 @@ connect_loopback(int sck, const char *port)
     }
 
     // else IPv4
-    g_memset(&sa, 0, sizeof(s));
+    g_memset(&s, 0, sizeof(s));
     s.sin_family = AF_INET;
     s.sin_addr.s_addr = htonl(INADDR_LOOPBACK);  // IPv4 127.0.0.1
     s.sin_port = htons((tui16)atoi(port));
@@ -944,7 +979,7 @@ g_tcp_bind(int sck, const char *port)
     errno6 = errno;
 
     // else IPv4
-    g_memset(&sa, 0, sizeof(s));
+    g_memset(&s, 0, sizeof(s));
     s.sin_family = AF_INET;
     s.sin_addr.s_addr = htonl(INADDR_ANY);     // IPv4 0.0.0.0
     s.sin_port = htons((tui16)atoi(port));
@@ -989,6 +1024,43 @@ g_sck_local_bind(int sck, const char *port)
     return bind(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_un));
 #endif
 }
+
+/*****************************************************************************/
+int
+g_sck_vsock_bind(int sck, const char *port)
+{
+#if defined(XRDP_ENABLE_VSOCK)
+    struct sockaddr_vm s;
+
+    g_memset(&s, 0, sizeof(struct sockaddr_vm));
+    s.svm_family = AF_VSOCK;
+    s.svm_port = atoi(port);
+    s.svm_cid = VMADDR_CID_ANY;
+
+    return bind(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_vm));
+#else
+    return -1;
+#endif
+}
+
+/*****************************************************************************/
+int
+g_sck_vsock_bind_address(int sck, const char *port, const char *address)
+{
+#if defined(XRDP_ENABLE_VSOCK)
+    struct sockaddr_vm s;
+
+    g_memset(&s, 0, sizeof(struct sockaddr_vm));
+    s.svm_family = AF_VSOCK;
+    s.svm_port = atoi(port);
+    s.svm_cid = atoi(address);
+
+    return bind(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_vm));
+#else
+    return -1;
+#endif
+}
+
 
 #if defined(XRDP_ENABLE_IPV6)
 /*****************************************************************************/
@@ -1180,9 +1252,9 @@ g_tcp_accept(int sck)
             {
                 struct sockaddr_in *sock_addr_in = &sock_info.sock_addr_in;
 
-                snprintf(msg, sizeof(msg), "A connection received from %s port %d",
-                         inet_ntoa(sock_addr_in->sin_addr),
-                         ntohs(sock_addr_in->sin_port));
+                g_snprintf(msg, sizeof(msg), "A connection received from %s port %d",
+                           inet_ntoa(sock_addr_in->sin_addr),
+                           ntohs(sock_addr_in->sin_port));
                 log_message(LOG_LEVEL_INFO, "%s", msg);
 
                 break;
@@ -1197,8 +1269,8 @@ g_tcp_accept(int sck)
 
                 inet_ntop(sock_addr_in6->sin6_family,
                           &sock_addr_in6->sin6_addr, addr, sizeof(addr));
-                snprintf(msg, sizeof(msg), "A connection received from %s port %d",
-                         addr, ntohs(sock_addr_in6->sin6_port));
+                g_snprintf(msg, sizeof(msg), "A connection received from %s port %d",
+                           addr, ntohs(sock_addr_in6->sin6_port));
                 log_message(LOG_LEVEL_INFO, "%s", msg);
 
                 break;
@@ -1226,6 +1298,9 @@ g_sck_accept(int sck, char *addr, int addr_bytes, char *port, int port_bytes)
         struct sockaddr_in6 sock_addr_in6;
 #endif
         struct sockaddr_un sock_addr_un;
+#if defined(XRDP_ENABLE_VSOCK)
+        struct sockaddr_vm sock_addr_vm;
+#endif
     } sock_info;
 
     socklen_t sock_len = sizeof(sock_info);
@@ -1273,6 +1348,26 @@ g_sck_accept(int sck, char *addr, int addr_bytes, char *port, int port_bytes)
                 g_snprintf(msg, sizeof(msg), "AF_UNIX connection received");
                 break;
             }
+
+#if defined(XRDP_ENABLE_VSOCK)
+
+            case AF_VSOCK:
+            {
+                struct sockaddr_vm *sock_addr_vm = &sock_info.sock_addr_vm;
+
+                g_snprintf(addr, addr_bytes - 1, "%d", sock_addr_vm->svm_cid);
+                g_snprintf(port, addr_bytes - 1, "%d", sock_addr_vm->svm_port);
+
+                g_snprintf(msg,
+                           sizeof(msg),
+                           "AF_VSOCK connection received from cid: %s port: %s",
+                           addr,
+                           port);
+
+                break;
+            }
+
+#endif
             default:
             {
                 g_strncpy(addr, "", addr_bytes - 1);
@@ -1293,37 +1388,81 @@ g_sck_accept(int sck, char *addr, int addr_bytes, char *port, int port_bytes)
 }
 
 /*****************************************************************************/
+/*
+ * TODO: this function writes not only IP address, name is confusing
+ */
 void
 g_write_ip_address(int rcv_sck, char *ip_address, int bytes)
 {
-    struct sockaddr_in s;
-    struct in_addr in;
-    socklen_t len;
-    int ip_port;
+    char *addr;
+    int port;
     int ok;
 
-    ok = 0;
-    memset(&s, 0, sizeof(s));
-    len = sizeof(s);
-
-    if (getpeername(rcv_sck, (struct sockaddr *)&s, &len) == 0)
+    union
     {
-        memset(&in, 0, sizeof(in));
-        in.s_addr = s.sin_addr.s_addr;
-        ip_port = ntohs(s.sin_port);
+        struct sockaddr sock_addr;
+        struct sockaddr_in sock_addr_in;
+#if defined(XRDP_ENABLE_IPV6)
+        struct sockaddr_in6 sock_addr_in6;
+#endif
+        struct sockaddr_un sock_addr_un;
+    } sock_info;
 
-        if (ip_port != 0)
+    ok = 0;
+    socklen_t sock_len = sizeof(sock_info);
+    memset(&sock_info, 0, sock_len);
+#if defined(XRDP_ENABLE_IPV6)
+    addr = (char *)g_malloc(INET6_ADDRSTRLEN, 1);
+#else
+    addr = (char *)g_malloc(INET_ADDRSTRLEN, 1);
+#endif
+
+    if (getpeername(rcv_sck, (struct sockaddr *)&sock_info, &sock_len) == 0)
+    {
+        switch(sock_info.sock_addr.sa_family)
         {
-            ok = 1;
-            snprintf(ip_address, bytes, "%s:%d - socket: %d", inet_ntoa(in),
-                     ip_port, rcv_sck);
+            case AF_INET:
+            {
+                struct sockaddr_in *sock_addr_in = &sock_info.sock_addr_in;
+                g_snprintf(addr, INET_ADDRSTRLEN, "%s", inet_ntoa(sock_addr_in->sin_addr));
+                port = ntohs(sock_addr_in->sin_port);
+                ok = 1;
+                break;
+            }
+
+#if defined(XRDP_ENABLE_IPV6)
+
+            case AF_INET6:
+            {
+                struct sockaddr_in6 *sock_addr_in6 = &sock_info.sock_addr_in6;
+                inet_ntop(sock_addr_in6->sin6_family,
+                          &sock_addr_in6->sin6_addr, addr, INET6_ADDRSTRLEN);
+                port = ntohs(sock_addr_in6->sin6_port);
+                ok = 1;
+                break;
+            }
+
+#endif
+
+            default:
+            {
+                break;
+            }
+
+        }
+
+        if (ok)
+        {
+            g_snprintf(ip_address, bytes, "%s:%d - socket: %d", addr, port, rcv_sck);
         }
     }
 
     if (!ok)
     {
-        snprintf(ip_address, bytes, "NULL:NULL - socket: %d", rcv_sck);
+        g_snprintf(ip_address, bytes, "NULL:NULL - socket: %d", rcv_sck);
     }
+
+    g_free(addr);
 }
 
 /*****************************************************************************/
@@ -2757,6 +2896,12 @@ g_strtrim(char *str, int trim_flags)
 
     text = (wchar_t *)malloc(len * sizeof(wchar_t) + 8);
     text1 = (wchar_t *)malloc(len * sizeof(wchar_t) + 8);
+    if (text == NULL || text1 == NULL)
+    {
+        free(text);
+        free(text1);
+        return 1;
+    }
     text1_index = 0;
     mbstowcs(text, str, len + 1);
 
@@ -2954,7 +3099,7 @@ g_execvp(const char *p1, char *args[])
 
     g_rm_temp_dir();
     rv = execvp(p1, args);
-    g_mk_temp_dir(0);
+    g_mk_socket_path(0);
     return rv;
 #endif
 }
@@ -2971,7 +3116,7 @@ g_execlp3(const char *a1, const char *a2, const char *a3)
 
     g_rm_temp_dir();
     rv = execlp(a1, a2, a3, (void *)0);
-    g_mk_temp_dir(0);
+    g_mk_socket_path(0);
     return rv;
 #endif
 }
@@ -3067,7 +3212,7 @@ g_fork(void)
 
     if (rv == 0) /* child */
     {
-        g_mk_temp_dir(0);
+        g_mk_socket_path(0);
     }
 
     return rv;
@@ -3261,7 +3406,7 @@ g_getenv(const char *name)
 int
 g_exit(int exit_code)
 {
-    _exit(exit_code);
+    exit(exit_code);
     return 0;
 }
 
@@ -3705,3 +3850,153 @@ g_mirror_memcpy(void *dst, const void *src, int len)
     return 0;
 }
 
+/*****************************************************************************/
+int
+g_tcp4_socket(void)
+{
+#if defined(XRDP_ENABLE_IPV6ONLY)
+    return -1;
+#else
+    int rv;
+    int option_value;
+    socklen_t option_len;
+
+    rv = socket(AF_INET, SOCK_STREAM, 0);
+    if (rv < 0)
+    {
+        return -1;
+    }
+    option_len = sizeof(option_value);
+    if (getsockopt(rv, SOL_SOCKET, SO_REUSEADDR,
+                   (char *) &option_value, &option_len) == 0)
+    {
+        if (option_value == 0)
+        {
+            option_value = 1;
+            option_len = sizeof(option_value);
+            if (setsockopt(rv, SOL_SOCKET, SO_REUSEADDR,
+                           (char *) &option_value, option_len) < 0)
+            {
+            }
+        }
+    }
+    return rv;
+#endif
+}
+
+/*****************************************************************************/
+int
+g_tcp4_bind_address(int sck, const char *port, const char *address)
+{
+#if defined(XRDP_ENABLE_IPV6ONLY)
+    return -1;
+#else
+    struct sockaddr_in s;
+
+    memset(&s, 0, sizeof(s));
+    s.sin_family = AF_INET;
+    s.sin_addr.s_addr = htonl(INADDR_ANY);
+    s.sin_port = htons((uint16_t) atoi(port));
+    if (inet_aton(address, &s.sin_addr) < 0)
+    {
+        return -1; /* bad address */
+    }
+    if (bind(sck, (struct sockaddr*) &s, sizeof(s)) < 0)
+    {
+        return -1;
+    }
+    return 0;
+#endif
+}
+
+/*****************************************************************************/
+int
+g_tcp6_socket(void)
+{
+#if defined(XRDP_ENABLE_IPV6)
+    int rv;
+    int option_value;
+    socklen_t option_len;
+
+    rv = socket(AF_INET6, SOCK_STREAM, 0);
+    if (rv < 0)
+    {
+        return -1;
+    }
+    option_len = sizeof(option_value);
+    if (getsockopt(rv, IPPROTO_IPV6, IPV6_V6ONLY,
+                   (char *) &option_value, &option_len) == 0)
+    {
+#if defined(XRDP_ENABLE_IPV6ONLY)
+        if (option_value == 0)
+        {
+            option_value = 1;
+#else
+        if (option_value != 0)
+        {
+            option_value = 0;
+#endif
+            option_len = sizeof(option_value);
+            if (setsockopt(rv, IPPROTO_IPV6, IPV6_V6ONLY,
+                           (char *) &option_value, option_len) < 0)
+            {
+            }
+        }
+    }
+    option_len = sizeof(option_value);
+    if (getsockopt(rv, SOL_SOCKET, SO_REUSEADDR,
+                   (char *) &option_value, &option_len) == 0)
+    {
+        if (option_value == 0)
+        {
+            option_value = 1;
+            option_len = sizeof(option_value);
+            if (setsockopt(rv, SOL_SOCKET, SO_REUSEADDR,
+                           (char *) &option_value, option_len) < 0)
+            {
+            }
+        }
+    }
+    return rv;
+#else
+    return -1;
+#endif
+}
+
+/*****************************************************************************/
+int
+g_tcp6_bind_address(int sck, const char *port, const char *address)
+{
+#if defined(XRDP_ENABLE_IPV6)
+    int rv;
+    int error;
+    struct addrinfo hints;
+    struct addrinfo *list;
+    struct addrinfo *i;
+
+    rv = -1;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = 0;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    error = getaddrinfo(address, port, &hints, &list);
+    if (error == 0)
+    {
+        i = list;
+        while ((i != NULL) && (rv < 0))
+        {
+            rv = bind(sck, i->ai_addr, i->ai_addrlen);
+            i = i->ai_next;
+        }
+        freeaddrinfo(list);
+    }
+    else
+    {
+        return -1;
+    }
+    return rv;
+#else
+    return -1;
+#endif
+}

@@ -38,7 +38,7 @@
 #define g_close_wait_obj g_delete_wait_obj
 
 int      g_rm_temp_dir(void);
-int      g_mk_temp_dir(const char* app_name);
+int      g_mk_socket_path(const char* app_name);
 void     g_init(const char* app_name);
 void     g_deinit(void);
 void*    g_malloc(int size, int zero);
@@ -62,6 +62,7 @@ int      g_sck_get_send_buffer_bytes(int sck, int *bytes);
 int      g_sck_set_recv_buffer_bytes(int sck, int bytes);
 int      g_sck_get_recv_buffer_bytes(int sck, int *bytes);
 int      g_sck_local_socket(void);
+int      g_sck_vsock_socket(void);
 int      g_sck_get_peer_cred(int sck, int *pid, int *uid, int *gid);
 void     g_sck_close(int sck);
 int      g_tcp_connect(int sck, const char* address, const char* port);
@@ -69,6 +70,8 @@ int      g_sck_local_connect(int sck, const char* port);
 int      g_sck_set_non_blocking(int sck);
 int      g_tcp_bind(int sck, const char *port);
 int      g_sck_local_bind(int sck, const char* port);
+int      g_sck_vsock_bind(int sck, const char* port);
+int      g_sck_vsock_bind_address(int sck, const char *port, const char *address);
 int      g_tcp_bind_address(int sck, const char* port, const char* address);
 int      g_sck_listen(int sck);
 int      g_tcp_accept(int sck);
@@ -181,6 +184,10 @@ void *   g_shmat(int shmid);
 int      g_shmdt(const void *shmaddr);
 int      g_gethostname(char *name, int len);
 int      g_mirror_memcpy(void *dst, const void *src, int len);
+int      g_tcp4_socket(void);
+int      g_tcp4_bind_address(int sck, const char *port, const char *address);
+int      g_tcp6_socket(void);
+int      g_tcp6_bind_address(int sck, const char *port, const char *address);
 
 /* glib-style wrappers */
 #define g_new(struct_type, n_structs) \

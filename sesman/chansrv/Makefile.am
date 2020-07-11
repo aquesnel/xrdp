@@ -1,7 +1,6 @@
 EXTRA_DIST = \
   clipboard-notes.txt \
   pcsc \
-  pulse \
   wave-format-server.txt
 
 AM_CPPFLAGS = \
@@ -23,6 +22,11 @@ AM_CPPFLAGS += -DXRDP_FUSE $(FUSE_CFLAGS)
 CHANSRV_EXTRA_LIBS += $(FUSE_LIBS)
 endif
 
+if XRDP_FDK_AAC
+AM_CPPFLAGS += -DXRDP_FDK_AAC $(FDKAAC_CFLAGS)
+CHANSRV_EXTRA_LIBS += $(FDKAAC_LIBS)
+endif
+
 if XRDP_OPUS
 AM_CPPFLAGS += -DXRDP_OPUS
 CHANSRV_EXTRA_LIBS += -lopus
@@ -31,6 +35,10 @@ endif
 if XRDP_MP3LAME
 AM_CPPFLAGS += -DXRDP_MP3LAME
 CHANSRV_EXTRA_LIBS += -lmp3lame
+endif
+
+if XRDP_RDPSNDAUDIN
+AM_CPPFLAGS += -DXRDP_RDPSNDAUDIN
 endif
 
 AM_CFLAGS = $(X_CFLAGS)
@@ -45,6 +53,8 @@ xrdp_chansrv_SOURCES = \
   chansrv_common.h \
   chansrv_fuse.c \
   chansrv_fuse.h \
+  chansrv_xfs.c \
+  chansrv_xfs.h \
   clipboard.c \
   clipboard.h \
   clipboard_common.h \
@@ -52,8 +62,6 @@ xrdp_chansrv_SOURCES = \
   clipboard_file.h \
   devredir.c \
   devredir.h \
-  drdynvc.c \
-  drdynvc.h \
   fifo.c \
   fifo.h \
   irp.c \
@@ -67,7 +75,9 @@ xrdp_chansrv_SOURCES = \
   sound.c \
   sound.h \
   xcommon.c \
-  xcommon.h
+  xcommon.h \
+  audin.c \
+  audin.h
 
 xrdp_chansrv_LDFLAGS = \
   $(X_LIBS)

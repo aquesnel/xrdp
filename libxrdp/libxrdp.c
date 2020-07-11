@@ -25,6 +25,8 @@
 #include "libxrdp.h"
 #include "xrdp_orders_rail.h"
 
+#include "ms-rdpbcgr.h"
+
 #define LOG_LEVEL 1
 #define LLOG(_level, _args) \
     do { if (_level < LOG_LEVEL) { g_write _args ; } } while (0)
@@ -45,6 +47,7 @@ libxrdp_init(tbus id, struct trans *trans)
     session->rdp = xrdp_rdp_create(session, trans);
     session->orders = xrdp_orders_create(session, (struct xrdp_rdp *)session->rdp);
     session->client_info = &(((struct xrdp_rdp *)session->rdp)->client_info);
+    session->check_for_app_input = 1;
     return session;
 }
 
@@ -123,24 +126,18 @@ libxrdp_force_read(struct trans* trans)
 
     if (trans_force_read(trans, 4) != 0)
     {
-        g_writeln("libxrdp_force_read: error");
+        g_writeln("libxrdp_force_read: header read error");
         return 0;
     }
     bytes = libxrdp_get_pdu_bytes(s->data);
-    if (bytes < 1)
+    if (bytes < 4 || bytes > s->size)
     {
-        g_writeln("libxrdp_force_read: error");
+        g_writeln("libxrdp_force_read: bad header length %d", bytes);
         return 0;
     }
-    if (bytes > 32 * 1024)
-    {
-        g_writeln("libxrdp_force_read: error");
-        return 0;
-    }
-
     if (trans_force_read(trans, bytes - 4) != 0)
     {
-        g_writeln("libxrdp_force_read: error");
+        g_writeln("libxrdp_force_read: Can't read PDU");
         return 0;
     }
     return s;
@@ -230,10 +227,10 @@ libxrdp_process_data(struct xrdp_session *session, struct stream *s)
             case 0:
                 dead_lock_counter++;
                 break;
-            case RDP_PDU_CONFIRM_ACTIVE: /* 3 */
+            case PDUTYPE_CONFIRMACTIVEPDU:
                 xrdp_caps_process_confirm_active(rdp, s);
                 break;
-            case RDP_PDU_DATA: /* 7 */
+            case PDUTYPE_DATAPDU:
                 if (xrdp_rdp_process_data(rdp, s) != 0)
                 {
                     DEBUG(("libxrdp_process_data returned non zero"));
@@ -847,6 +844,7 @@ libxrdp_set_pointer(struct xrdp_session *session, int cache_idx)
         LLOGLN(10, ("libxrdp_send_pointer: fastpath"));
         if (xrdp_rdp_init_fastpath((struct xrdp_rdp *)session->rdp, s) != 0)
         {
+            free_stream(s);
             return 1;
         }
     }
@@ -1046,29 +1044,36 @@ libxrdp_orders_send_font(struct xrdp_session *session,
 }
 
 /*****************************************************************************/
+/* Note : if this is called on a multimon setup, the client is resized
+ * to a single monitor */
 int EXPORT_CC
 libxrdp_reset(struct xrdp_session *session,
               int width, int height, int bpp)
 {
     if (session->client_info != 0)
     {
+        struct xrdp_client_info *client_info = session->client_info;
+
         /* older client can't resize */
-        if (session->client_info->build <= 419)
+        if (client_info->build <= 419)
         {
             return 0;
         }
 
-        /* if same, don't need to do anything */
-        if (session->client_info->width == width &&
-                session->client_info->height == height &&
-                session->client_info->bpp == bpp)
+        /* if same (and only one monitor on client) don't need to do anything */
+        if (client_info->width == width &&
+            client_info->height == height &&
+            client_info->bpp == bpp &&
+            (client_info->monitorCount == 0 || client_info->multimon == 0))
         {
             return 0;
         }
 
-        session->client_info->width = width;
-        session->client_info->height = height;
-        session->client_info->bpp = bpp;
+        client_info->width = width;
+        client_info->height = height;
+        client_info->bpp = bpp;
+        client_info->monitorCount = 0;
+        client_info->multimon = 0;
     }
     else
     {
@@ -1081,7 +1086,12 @@ libxrdp_reset(struct xrdp_session *session,
         return 1;
     }
 
-    /* shut down the rdp client */
+    /* shut down the rdp client
+     *
+     * When resetting the lib, disable application input checks, as
+     * otherwise we can send a channel message to the other end while
+     * the channels are inactive ([MS-RDPBCGR] 3.2.5.5.1 */
+    session->check_for_app_input = 0;
     if (xrdp_rdp_send_deactivate((struct xrdp_rdp *)session->rdp) != 0)
     {
         return 1;
@@ -1092,6 +1102,9 @@ libxrdp_reset(struct xrdp_session *session,
     {
         return 1;
     }
+
+    /* Re-enable application input checks */
+    session->check_for_app_input = 1;
 
     return 0;
 }
@@ -1260,6 +1273,93 @@ libxrdp_send_to_channel(struct xrdp_session *session, int channel_id,
 
     free_stream(s);
     return 0;
+}
+
+/*****************************************************************************/
+int
+libxrdp_disable_channel(struct xrdp_session *session, int channel_id,
+                        int is_disabled)
+{
+    struct xrdp_rdp *rdp;
+    struct xrdp_mcs *mcs;
+    struct mcs_channel_item *channel_item;
+
+    rdp = (struct xrdp_rdp *) (session->rdp);
+    mcs = rdp->sec_layer->mcs_layer;
+    if (mcs->channel_list == NULL)
+    {
+        return 1;
+    }
+    channel_item = (struct mcs_channel_item *)
+                   list_get_item(mcs->channel_list, channel_id);
+    if (channel_item == NULL)
+    {
+        return 1;
+    }
+    channel_item->disabled = is_disabled;
+    return 1;
+}
+
+/*****************************************************************************/
+int
+libxrdp_drdynvc_open(struct xrdp_session *session, const char *name,
+                     int flags, struct xrdp_drdynvc_procs *procs,
+                     int *chan_id)
+{
+    struct xrdp_rdp *rdp;
+    struct xrdp_sec *sec;
+    struct xrdp_channel *chan;
+
+    rdp = (struct xrdp_rdp *) (session->rdp);
+    sec = rdp->sec_layer;
+    chan = sec->chan_layer;
+    return xrdp_channel_drdynvc_open(chan, name, flags, procs, chan_id);
+}
+
+/*****************************************************************************/
+int
+libxrdp_drdynvc_close(struct xrdp_session *session, int chan_id)
+{
+    struct xrdp_rdp *rdp;
+    struct xrdp_sec *sec;
+    struct xrdp_channel *chan;
+
+    rdp = (struct xrdp_rdp *) (session->rdp);
+    sec = rdp->sec_layer;
+    chan = sec->chan_layer;
+    return xrdp_channel_drdynvc_close(chan, chan_id);
+}
+
+/*****************************************************************************/
+int
+libxrdp_drdynvc_data_first(struct xrdp_session *session, int chan_id,
+                           const char *data, int data_bytes,
+                           int total_data_bytes)
+{
+    struct xrdp_rdp *rdp;
+    struct xrdp_sec *sec;
+    struct xrdp_channel *chan;
+
+    rdp = (struct xrdp_rdp *) (session->rdp);
+    sec = rdp->sec_layer;
+    chan = sec->chan_layer;
+    return xrdp_channel_drdynvc_data_first(chan, chan_id, data, data_bytes,
+                                           total_data_bytes);
+}
+
+/*****************************************************************************/
+int
+libxrdp_drdynvc_data(struct xrdp_session *session, int chan_id,
+                     const char *data, int data_bytes)
+{
+    struct xrdp_rdp *rdp;
+    struct xrdp_sec *sec;
+    struct xrdp_channel *chan;
+
+    rdp = (struct xrdp_rdp *) (session->rdp);
+    sec = rdp->sec_layer;
+    chan = sec->chan_layer;
+    return xrdp_channel_drdynvc_data(chan, chan_id, data, data_bytes);
 }
 
 /*****************************************************************************/

@@ -24,8 +24,11 @@
 #include "arch.h"
 #include "parse.h"
 
-#define TRANS_MODE_TCP 1
+#define TRANS_MODE_TCP 1 /* tcp6 if defined, else tcp4 */
 #define TRANS_MODE_UNIX 2
+#define TRANS_MODE_VSOCK 3
+#define TRANS_MODE_TCP4 4 /* tcp4 only */
+#define TRANS_MODE_TCP6 6 /* tcp6 only */
 
 #define TRANS_TYPE_LISTENER 1
 #define TRANS_TYPE_SERVER 2
@@ -62,7 +65,7 @@ struct source_info
 struct trans
 {
     tbus sck; /* socket handle */
-    int mode; /* 1 tcp, 2 unix socket */
+    int mode; /* 1 tcp, 2 unix socket, 3 vsock */
     int status;
     int type1; /* 1 listener 2 server 3 client */
     ttrans_data_in trans_data_in;
@@ -92,6 +95,8 @@ struct trans*
 trans_create(int mode, int in_size, int out_size);
 void
 trans_delete(struct trans* self);
+void
+trans_delete_from_child(struct trans* self);
 int
 trans_get_wait_objs(struct trans* self, tbus* objs, int* count);
 int

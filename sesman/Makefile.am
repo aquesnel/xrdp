@@ -2,6 +2,7 @@ EXTRA_DIST = \
   Doxyfile
 
 AM_CPPFLAGS = \
+  -DXRDP_SYSCONF_PATH=\"${sysconfdir}\" \
   -DXRDP_CFG_PATH=\"${sysconfdir}/xrdp\" \
   -DXRDP_SBIN_PATH=\"${sbindir}\" \
   -DXRDP_SHARE_PATH=\"${datadir}/xrdp\" \
@@ -73,6 +74,17 @@ xrdp_sesman_LDADD = \
   -lpthread
 
 sesmansysconfdir=$(sysconfdir)/xrdp
+
+SUBST_VARS = sed \
+   -e 's|@sesmansysconfdir[@]|$(sesmansysconfdir)|g'
+
+subst_verbose = $(subst_verbose_@AM_V@)
+subst_verbose_ = $(subst_verbose_@AM_DEFAULT_V@)
+subst_verbose_0 = @echo "  SUBST    $@";
+
+SUFFIXES = .in
+.in:
+	$(subst_verbose)$(SUBST_VARS) $< > $@
 
 dist_sesmansysconf_DATA = \
   sesman.ini

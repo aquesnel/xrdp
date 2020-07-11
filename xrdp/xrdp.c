@@ -24,6 +24,7 @@
 
 #include "xrdp.h"
 #include "log.h"
+#include "xrdp_configure_options.h"
 
 #if !defined(PACKAGE_VERSION)
 #define PACKAGE_VERSION "???"
@@ -44,6 +45,38 @@ static long g_sync_result = 0;
 static long g_sync_param1 = 0;
 static long g_sync_param2 = 0;
 static long (*g_sync_func)(long param1, long param2);
+
+/*****************************************************************************/
+void
+print_version(void)
+{
+    g_writeln("xrdp %s", PACKAGE_VERSION);
+    g_writeln("  A Remote Desktop Protocol Server.");
+    g_writeln("  Copyright (C) 2004-2018 Jay Sorg, "
+                "Neutrino Labs, and all contributors.");
+    g_writeln("  See https://github.com/neutrinolabs/xrdp for more information.");
+    g_writeln("%s", "");
+
+#if defined(XRDP_CONFIGURE_OPTIONS)
+    g_writeln("  Configure options:");
+    g_writeln("%s", XRDP_CONFIGURE_OPTIONS);
+#endif
+
+    g_writeln("  Compiled with %s", get_openssl_version());
+
+}
+
+/*****************************************************************************/
+void
+print_help(void)
+{
+    g_writeln("Usage: xrdp [options]");
+    g_writeln("   -h, --help       show help");
+    g_writeln("   -n, --nodaemon   don't fork into background");
+    g_writeln("   -k, --kill       shut down xrdp");
+    g_writeln("   -p, --port       tcp listen port");
+    g_writeln("   -f, --fork       fork on new connection");
+}
 
 /*****************************************************************************/
 /* This function is used to run a function from the main thread.
@@ -123,7 +156,18 @@ xrdp_shutdown(int sig)
 void
 xrdp_child(int sig)
 {
-    g_waitchild();
+    int safety;
+
+    for (safety = 0; (g_waitchild() >= 0) && (safety <= 10); safety++)
+    {
+    }
+}
+
+/*****************************************************************************/
+void
+xrdp_hang_up(int sig)
+{
+    log_message(LOG_LEVEL_INFO, "caught SIGHUP, noop...");
 }
 
 /*****************************************************************************/
@@ -213,6 +257,14 @@ g_process_waiting_function(void)
 }
 
 /*****************************************************************************/
+/**
+ *
+ * @brief  Command line argument parser
+ * @param  number of command line arguments
+ * @param  pointer array of commandline arguments
+ * @return 0 on success, n on nth argument is unknown
+ *
+ */
 int
 xrdp_process_params(int argc, char **argv,
                     struct xrdp_startup_params *startup_params)
@@ -286,9 +338,9 @@ xrdp_process_params(int argc, char **argv,
             startup_params->fork = 1;
             g_writeln("--fork parameter found, ini override");
         }
-        else
+        else /* unknown option */
         {
-            return 1;
+            return index;
         }
 
         index++;
@@ -373,6 +425,7 @@ main(int argc, char **argv)
     int no_daemon;
     char text[256];
     char pid_file[256];
+    int errored_argc;
 
     g_init("xrdp");
     ssl_init();
@@ -387,13 +440,17 @@ main(int argc, char **argv)
     startup_params = (struct xrdp_startup_params *)
                      g_malloc(sizeof(struct xrdp_startup_params), 1);
 
-    if (xrdp_process_params(argc, argv, startup_params) != 0)
+    errored_argc = xrdp_process_params(argc, argv, startup_params);
+    if (errored_argc > 0)
     {
-        g_writeln("Unknown Parameter");
-        g_writeln("xrdp -h for help");
+        print_version();
         g_writeln("%s", "");
+        print_help();
+        g_writeln("%s", "");
+
+        g_writeln("Unknown option: %s", argv[errored_argc]);
         g_deinit();
-        g_exit(0);
+        g_exit(1);
     }
 
     g_snprintf(pid_file, 255, "%s/xrdp.pid", XRDP_PID_PATH);
@@ -401,30 +458,17 @@ main(int argc, char **argv)
 
     if (startup_params->help)
     {
+        print_version();
         g_writeln("%s", "");
-        g_writeln("xrdp: A Remote Desktop Protocol server.");
-        g_writeln("Copyright (C) Jay Sorg 2004-2014");
-        g_writeln("See http://www.xrdp.org for more information.");
-        g_writeln("%s", "");
-        g_writeln("Usage: xrdp [options]");
-        g_writeln("   -h, --help       show help");
-        g_writeln("   -n, --nodaemon   don't fork into background");
-        g_writeln("   -k, --kill       shut down xrdp");
-        g_writeln("   -p, --port       tcp listen port");
-        g_writeln("   -f, --fork       fork on new connection");
-        g_writeln("%s", "");
+        print_help();
+
         g_deinit();
         g_exit(0);
     }
 
     if (startup_params->version)
     {
-        g_writeln("%s", "");
-        g_writeln("xrdp: A Remote Desktop Protocol server.");
-        g_writeln("Copyright (C) Jay Sorg 2004-2014");
-        g_writeln("See http://www.xrdp.org for more information.");
-        g_writeln("Version %s", PACKAGE_VERSION);
-        g_writeln("%s", "");
+        print_version();
         g_deinit();
         g_exit(0);
     }
@@ -538,6 +582,16 @@ main(int argc, char **argv)
 
     if (!no_daemon)
     {
+        /* if can't listen, exit with failure status */
+        if (xrdp_listen_test(startup_params) != 0)
+        {
+            log_message(LOG_LEVEL_ERROR, "Failed to start xrdp daemon, "
+                                         "possibly address already in use.");
+            g_deinit();
+            /* must exit with failure status,
+               or systemd cannot detect xrdp daemon couldn't start properly */
+            g_exit(1);
+        }
         /* start of daemonizing code */
         pid = g_fork();
 
@@ -550,16 +604,6 @@ main(int argc, char **argv)
 
         if (0 != pid)
         {
-            /* if can't listen, exit with failure status */
-            if (xrdp_listen_test() != 0)
-            {
-                log_message(LOG_LEVEL_ERROR, "Failed to start xrdp daemon, "
-                                             "possibly address already in use.");
-                g_deinit();
-                /* must exit with failure status,
-                   or systemd cannot detect xrdp daemon couldn't start properly */
-                g_exit(1);
-            }
             g_writeln("daemon process %d started ok", pid);
             /* exit, this is the main process */
             g_deinit();
@@ -607,9 +651,10 @@ main(int argc, char **argv)
     g_threadid = tc_get_threadid();
     g_listen = xrdp_listen_create();
     g_signal_user_interrupt(xrdp_shutdown); /* SIGINT */
-    g_signal_pipe(pipe_sig); /* SIGPIPE */
-    g_signal_terminate(xrdp_shutdown); /* SIGTERM */
-    g_signal_child_stop(xrdp_child); /* SIGCHLD */
+    g_signal_pipe(pipe_sig);                /* SIGPIPE */
+    g_signal_terminate(xrdp_shutdown);      /* SIGTERM */
+    g_signal_child_stop(xrdp_child);        /* SIGCHLD */
+    g_signal_hang_up(xrdp_hang_up);         /* SIGHUP */
     g_sync_mutex = tc_mutex_create();
     g_sync1_mutex = tc_mutex_create();
     pid = g_getpid();

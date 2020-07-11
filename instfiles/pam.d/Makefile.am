@@ -2,7 +2,10 @@ PAM_FILES = \
   xrdp-sesman.debian \
   xrdp-sesman.redhat \
   xrdp-sesman.suse \
-  xrdp-sesman.unix
+  xrdp-sesman.freebsd \
+  xrdp-sesman.macos \
+  xrdp-sesman.unix \
+  xrdp-sesman.arch
 
 EXTRA_DIST = $(PAM_FILES) mkpamrules
 

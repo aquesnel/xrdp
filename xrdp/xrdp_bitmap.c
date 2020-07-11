@@ -25,9 +25,10 @@
 #include <config_ac.h>
 #endif
 
+#include <limits.h>
+
 #include "xrdp.h"
 #include "log.h"
-#include "crc16.h"
 
 #define LLOG_LEVEL 1
 #define LLOGLN(_level, _args) \
@@ -95,6 +96,30 @@ static const unsigned int g_crc_table[256] =
 #define CRC_END(in_crc) (in_crc) = ((in_crc) ^ 0xFFFFFFFF)
 
 /*****************************************************************************/
+/* Allocate bitmap for specified dimensions, checking for int overflow */
+static char *
+alloc_bitmap_data(int width, int height, int Bpp)
+{
+    char *result = NULL;
+    if (width > 0 && height > 0 && Bpp > 0)
+    {
+        int len = width;
+        /* g_malloc() currently takes an 'int' size */
+        if (len < INT_MAX / height)
+        {
+            len *= height;
+            if (len < INT_MAX / Bpp)
+            {
+                len *= Bpp;
+                result = (char *)malloc(len);
+            }
+        }
+    }
+
+    return result;
+}
+
+/*****************************************************************************/
 struct xrdp_bitmap *
 xrdp_bitmap_create(int width, int height, int bpp,
                    int type, struct xrdp_wm *wm)
@@ -124,14 +149,28 @@ xrdp_bitmap_create(int width, int height, int bpp,
 
     if (self->type == WND_TYPE_BITMAP || self->type == WND_TYPE_IMAGE)
     {
-        self->data = (char *)g_malloc(width * height * Bpp, 0);
+        self->data = alloc_bitmap_data(width, height, Bpp);
+        if (self->data == NULL)
+        {
+            LLOGLN(0, ("xrdp_bitmap_create: size overflow %dx%dx%d",
+                       width, height, Bpp));
+            g_free(self);
+            return NULL;
+        }
     }
 
 #if defined(XRDP_PAINTER)
     if (self->type == WND_TYPE_SCREEN) /* noorders */
     {
         LLOGLN(0, ("xrdp_bitmap_create: noorders"));
-        self->data = (char *) g_malloc(width * height * Bpp, 0);
+        self->data = alloc_bitmap_data(width, height, Bpp);
+        if (self->data == NULL)
+        {
+            LLOGLN(0, ("xrdp_bitmap_create: size overflow %dx%dx%d",
+                       width, height, Bpp));
+            g_free(self);
+            return NULL;
+        }
     }
 #endif
 

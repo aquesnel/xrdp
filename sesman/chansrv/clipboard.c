@@ -176,6 +176,48 @@ x-special/gnome-copied-files
 #include "xcommon.h"
 #include "chansrv_fuse.h"
 
+/* module based logging */
+#define LOG_ERROR   0
+#define LOG_INFO    1
+#define LOG_DEBUG   2
+
+#undef LOG_LEVEL
+#define LOG_LEVEL   LOG_ERROR
+
+#define log_error(_params...)                           \
+    {                                                       \
+        g_write("[%10.10u]: CLIPBOARD  %s: %d : ERROR: ",   \
+                g_time3(), __func__, __LINE__);             \
+        g_writeln (_params);                                \
+    }
+
+#define log_always(_params...)                          \
+    {                                                       \
+        g_write("[%10.10u]: CLIPBOARD  %s: %d : ALWAYS: ",  \
+                g_time3(), __func__, __LINE__);             \
+        g_writeln (_params);                                \
+    }
+
+#define log_info(_params...)                            \
+    {                                                       \
+        if (LOG_INFO <= LOG_LEVEL)                          \
+        {                                                   \
+            g_write("[%10.10u]: CLIPBOARD  %s: %d : ",      \
+                    g_time3(), __func__, __LINE__);         \
+            g_writeln (_params);                            \
+        }                                                   \
+    }
+
+#define log_debug(_params...)                           \
+    {                                                       \
+        if (LOG_DEBUG <= LOG_LEVEL)                         \
+        {                                                   \
+            g_write("[%10.10u]: CLIPBOARD  %s: %d : ",      \
+                    g_time3(), __func__, __LINE__);         \
+            g_writeln (_params);                            \
+        }                                                   \
+    }
+
 static char g_bmp_image_header[] =
 {
     /* this is known to work */
@@ -192,6 +234,8 @@ extern int g_x_socket;          /* in xcommon.c */
 extern tbus g_x_wait_obj;       /* in xcommon.c */
 extern Screen *g_screen;        /* in xcommon.c */
 extern int g_screen_num;        /* in xcommon.c */
+
+extern int g_restrict_outbound_clipboard; /* in chansrv.c */
 
 int g_clip_up = 0;
 
@@ -244,10 +288,10 @@ static int g_file_format_id = -1;
 static char g_last_atom_name[256] = "";
 
 /*****************************************************************************/
-static char*
+static char *
 get_atom_text(Atom atom)
 {
-    char* name;
+    char *name;
     int failed;
 
     failed = 0;
@@ -1031,8 +1075,8 @@ clipboard_process_format_announce(struct stream *s, int clip_msg_status,
     }
 
     if ((g_num_formatIds > 0) &&
-        (g_clip_c2s.incr_in_progress == 0) && /* don't interrupt incr */
-        (g_clip_s2c.incr_in_progress == 0))
+            (g_clip_c2s.incr_in_progress == 0) && /* don't interrupt incr */
+            (g_clip_s2c.incr_in_progress == 0))
     {
         if (clipboard_set_selection_owner() != 0)
         {
@@ -1159,8 +1203,8 @@ clipboard_process_data_request(struct stream *s, int clip_msg_status,
    clipboard data. */
 static int
 clipboard_process_data_response_for_image(struct stream *s,
-                                          int clip_msg_status,
-                                          int clip_msg_len)
+        int clip_msg_status,
+        int clip_msg_len)
 {
     XSelectionRequestEvent *lxev;
     int len;
@@ -1217,7 +1261,7 @@ clipboard_process_data_response(struct stream *s, int clip_msg_status,
     if (g_clip_c2s.xrdp_clip_type == XRDP_CB_BITMAP)
     {
         clipboard_process_data_response_for_image(s, clip_msg_status,
-                                                  clip_msg_len);
+                clip_msg_len);
         return 0;
     }
     if (g_clip_c2s.xrdp_clip_type == XRDP_CB_FILE)
@@ -1586,30 +1630,30 @@ clipboard_data_in(struct stream *s, int chan_id, int chan_flags, int length,
     LOGM((LOG_LEVEL_DEBUG, "clipboard_data_in: %d", clip_msg_id));
     switch (clip_msg_id)
     {
-            /* sent by client or server when its local system clipboard is   */
-            /* updated with new clipboard data; contains Clipboard Format ID */
-            /* and name pairs of new Clipboard Formats on the clipboard.     */
+        /* sent by client or server when its local system clipboard is   */
+        /* updated with new clipboard data; contains Clipboard Format ID */
+        /* and name pairs of new Clipboard Formats on the clipboard.     */
         case CB_FORMAT_LIST: /* 2 CLIPRDR_FORMAT_ANNOUNCE */
             rv = clipboard_process_format_announce(ls, clip_msg_status,
                                                    clip_msg_len);
             break;
-            /* response to CB_FORMAT_LIST; used to indicate whether */
-            /* processing of the Format List PDU was successful     */
+        /* response to CB_FORMAT_LIST; used to indicate whether */
+        /* processing of the Format List PDU was successful     */
         case CB_FORMAT_LIST_RESPONSE: /* 3 CLIPRDR_FORMAT_ACK */
             rv = clipboard_process_format_ack(ls, clip_msg_status,
                                               clip_msg_len);
             break;
-            /* sent by recipient of CB_FORMAT_LIST; used to request data for one */
-            /* of the formats that was listed in CB_FORMAT_LIST                  */
+        /* sent by recipient of CB_FORMAT_LIST; used to request data for one */
+        /* of the formats that was listed in CB_FORMAT_LIST                  */
         case CB_FORMAT_DATA_REQUEST: /* 4 CLIPRDR_DATA_REQUEST */
             rv = clipboard_process_data_request(ls, clip_msg_status,
                                                 clip_msg_len);
             break;
-            /* sent as a reply to CB_FORMAT_DATA_REQUEST; used to indicate */
-            /* whether processing of the CB_FORMAT_DATA_REQUEST was        */
-            /* successful; if processing was successful,                   */
-            /* CB_FORMAT_DATA_RESPONSE includes contents of requested      */
-            /* clipboard data.                                             */
+        /* sent as a reply to CB_FORMAT_DATA_REQUEST; used to indicate */
+        /* whether processing of the CB_FORMAT_DATA_REQUEST was        */
+        /* successful; if processing was successful,                   */
+        /* CB_FORMAT_DATA_RESPONSE includes contents of requested      */
+        /* clipboard data.                                             */
         case CB_FORMAT_DATA_RESPONSE: /* 5 CLIPRDR_DATA_RESPONSE */
             rv = clipboard_process_data_response(ls, clip_msg_status,
                                                  clip_msg_len);
@@ -1627,7 +1671,6 @@ clipboard_data_in(struct stream *s, int chan_id, int chan_flags, int length,
                                                  clip_msg_len);
             break;
         default:
-            LOGM((LOG_LEVEL_DEBUG, "clipboard_data_in: unknown clip_msg_id %d", clip_msg_id));
             LOGM((LOG_LEVEL_ERROR, "clipboard_data_in: unknown clip_msg_id %d", clip_msg_id));
             break;
     }
@@ -1674,7 +1717,8 @@ clipboard_event_selection_owner_notify(XEvent *xevent)
 
     g_got_selection = 0;
     if (lxevent->owner != 0) /* nil owner comes when selection */
-    {                        /* window is closed */
+    {
+        /* window is closed */
         XConvertSelection(g_display, g_clipboard_atom, g_targets_atom,
                           g_clip_property_atom, g_wnd, lxevent->timestamp);
     }
@@ -1920,8 +1964,6 @@ clipboard_event_selection_notify(XEvent *xevent)
             {
                 LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: UTF8_STRING "
                       "data_size %d", data_size));
-                LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: UTF8_STRING "
-                            "data_size %d", data_size));
                 if ((g_clip_s2c.incr_in_progress == 0) && (data_size > 0))
                 {
                     g_free(g_clip_s2c.data);
@@ -1945,8 +1987,6 @@ clipboard_event_selection_notify(XEvent *xevent)
             {
                 LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: XA_STRING "
                       "data_size %d", data_size));
-                LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: XA_STRING "
-                            "data_size %d", data_size));
                 if ((g_clip_s2c.incr_in_progress == 0) && (data_size > 0))
                 {
                     g_free(g_clip_s2c.data);
@@ -1962,8 +2002,6 @@ clipboard_event_selection_notify(XEvent *xevent)
             {
                 LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: image/bmp "
                       "data_size %d", data_size));
-                LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: image/bmp "
-                            "data_size %d", data_size));
                 if ((g_clip_s2c.incr_in_progress == 0) && (data_size > 14))
                 {
                     g_free(g_clip_s2c.data);
@@ -1978,8 +2016,6 @@ clipboard_event_selection_notify(XEvent *xevent)
             {
                 LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: text/uri-list "
                       "data_size %d", data_size));
-                LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: text/uri-list "
-                            "data_size %d", data_size));
                 if ((g_clip_s2c.incr_in_progress == 0) && (data_size > 0))
                 {
                     g_free(g_clip_s2c.data);
@@ -1995,8 +2031,6 @@ clipboard_event_selection_notify(XEvent *xevent)
             {
                 LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: text/uri-list "
                       "data_size %d", data_size));
-                LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_notify: text/uri-list "
-                            "data_size %d", data_size));
                 if ((g_clip_s2c.incr_in_progress == 0) && (data_size > 0))
                 {
                     g_free(g_clip_s2c.data);
@@ -2109,8 +2143,6 @@ clipboard_event_selection_request(XEvent *xevent)
 
     if (lxev->property == None)
     {
-        LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_request: lxev->property "
-                    "is None"));
         LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_request: "
               "lxev->property is None"));
     }
@@ -2232,8 +2264,6 @@ clipboard_event_selection_request(XEvent *xevent)
     }
     else
     {
-        LOGM((LOG_LEVEL_DEBUG, "clipboard_event_selection_request: unknown "
-                    "target %s", get_atom_text(lxev->target)));
         LOGM((LOG_LEVEL_ERROR, "clipboard_event_selection_request: unknown "
               "target %s", get_atom_text(lxev->target)));
     }
@@ -2287,11 +2317,10 @@ clipboard_event_property_notify(XEvent *xevent)
     int data_bytes;
     char *cptr;
 
-    LOGM((LOG_LEVEL_DEBUG, "clipboard_event_property_notify:"));
     LOGM((LOG_LEVEL_DEBUG, "clipboard_event_property_notify: PropertyNotify .window %ld "
-                ".state %d .atom %ld %s", xevent->xproperty.window,
-                xevent->xproperty.state, xevent->xproperty.atom,
-                get_atom_text(xevent->xproperty.atom)));
+          ".state %d .atom %ld %s", xevent->xproperty.window,
+          xevent->xproperty.state, xevent->xproperty.atom,
+          get_atom_text(xevent->xproperty.atom)));
 
     if (g_clip_c2s.incr_in_progress &&
             (xevent->xproperty.window == g_clip_c2s.window) &&
@@ -2310,7 +2339,7 @@ clipboard_event_property_notify(XEvent *xevent)
         data = (tui8 *)(g_clip_c2s.data + g_clip_c2s.incr_bytes_done);
         data_bytes = g_clip_c2s.read_bytes_done - g_clip_c2s.incr_bytes_done;
         if ((data_bytes < 1) &&
-            (g_clip_c2s.read_bytes_done < g_clip_c2s.total_bytes))
+                (g_clip_c2s.read_bytes_done < g_clip_c2s.total_bytes))
         {
             g_clip_c2s.incr_in_progress = 0;
             return 0;
@@ -2441,6 +2470,8 @@ clipboard_xevent(void *xevent)
 {
     XEvent *lxevent;
 
+    log_debug("clipboard_xevent: event detected");
+
     if (!g_clip_up)
     {
         return 1;
@@ -2451,7 +2482,15 @@ clipboard_xevent(void *xevent)
     switch (lxevent->type)
     {
         case SelectionNotify:
-            clipboard_event_selection_notify(lxevent);
+            if (g_restrict_outbound_clipboard == 0)
+            {
+                clipboard_event_selection_notify(lxevent);
+            }
+            else
+            {
+                log_debug("outbound clipboard is restricted because of config");
+                return 1;
+            }
             break;
         case SelectionRequest:
             clipboard_event_selection_request(lxevent);

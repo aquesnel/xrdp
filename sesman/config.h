@@ -39,6 +39,7 @@
 #define SESMAN_CFG_USERWM            "UserWindowManager"
 #define SESMAN_CFG_MAX_SESSION       "MaxSessions"
 #define SESMAN_CFG_AUTH_FILE_PATH    "AuthFilePath"
+#define SESMAN_CFG_RECONNECT_SH      "ReconnectScript"
 
 #define SESMAN_CFG_RDP_PARAMS        "X11rdp"
 #define SESMAN_CFG_XORG_PARAMS       "Xorg"
@@ -53,12 +54,13 @@
 #define SESMAN_CFG_LOG_ENABLE_SYSLOG "EnableSyslog"
 #define SESMAN_CFG_LOG_SYSLOG_LEVEL  "SyslogLevel"
 */
-#define SESMAN_CFG_SECURITY          "Security"
-#define SESMAN_CFG_SEC_LOGIN_RETRY   "MaxLoginRetry"
-#define SESMAN_CFG_SEC_ALLOW_ROOT    "AllowRootLogin"
-#define SESMAN_CFG_SEC_USR_GROUP     "TerminalServerUsers"
-#define SESMAN_CFG_SEC_ADM_GROUP     "TerminalServerAdmins"
-#define SESMAN_CFG_SEC_ALWAYSGROUPCHECK "AlwaysGroupCheck"
+#define SESMAN_CFG_SECURITY                        "Security"
+#define SESMAN_CFG_SEC_LOGIN_RETRY                 "MaxLoginRetry"
+#define SESMAN_CFG_SEC_ALLOW_ROOT                  "AllowRootLogin"
+#define SESMAN_CFG_SEC_USR_GROUP                   "TerminalServerUsers"
+#define SESMAN_CFG_SEC_ADM_GROUP                   "TerminalServerAdmins"
+#define SESMAN_CFG_SEC_ALWAYSGROUPCHECK            "AlwaysGroupCheck"
+#define SESMAN_CFG_SEC_RESTRICT_OUTBOUND_CLIPBOARD "RestrictOutboundClipboard"
 
 #define SESMAN_CFG_SESSIONS          "Sessions"
 #define SESMAN_CFG_SESS_MAX          "MaxSessions"
@@ -125,6 +127,11 @@ struct config_security
    * @brief if the Groups are not found deny access
    */
   int ts_always_group_check;
+  /**
+   * @var restrict_outbound_clipboard
+   * @brief if the clipboard should be enforced restricted. If true only allow client -> server, not vice versa.
+   */
+  int restrict_outbound_clipboard;
 };
 
 /**
@@ -198,12 +205,17 @@ struct config_sesman
    * @var default_wm
    * @brief Default window manager
    */
-  char default_wm[32];
+  char *default_wm;
   /**
    * @var user_wm
    * @brief Default window manager
    */
   char user_wm[32];
+  /**
+   * @var reconnect_sh
+   * @brief Script executed when reconnected
+   */
+  char *reconnect_sh;
   /**
    * @var auth_file_path
    * @brief Auth file path
@@ -240,8 +252,16 @@ struct config_sesman
    */
   struct config_sessions sess;
 
-  struct list* session_variables1;
-  struct list* session_variables2;
+  /**
+   * @var env_names
+   * @brief environment variable name list
+   */
+  struct list* env_names;
+   /**
+   * @var env_values
+   * @brief environment variable value list
+   */
+  struct list* env_values;
 };
 
 /**
@@ -267,20 +287,6 @@ config_read(struct config_sesman* cfg);
 int
 config_read_globals(int file, struct config_sesman* cf,
                     struct list* param_n, struct list* param_v);
-
-/**
- *
- * @brief Reads sesman [logging] configuration section
- * @param file configuration file descriptor
- * @param lc pointer to a log_config struct
- * @param param_n parameter name list
- * @param param_v parameter value list
- * @return 0 on success, 1 on failure
- *
- */
-int
-config_read_logging(int file, struct log_config* lc, struct list* param_n,
-                    struct list* param_v);
 
 /**
  *
@@ -326,7 +332,7 @@ config_read_rdp_params(int file, struct config_sesman* cs, struct list* param_n,
 
 /**
  *
- * @brief Reads sesman [XOrg] configuration section
+ * @brief Reads sesman [Xorg] configuration section
  * @param file configuration file descriptor
  * @param cs pointer to a config_sesman struct
  * @param param_n parameter name list
@@ -355,6 +361,14 @@ config_read_vnc_params(int file, struct config_sesman* cs, struct list* param_n,
 int
 config_read_session_variables(int file, struct config_sesman *cs,
                               struct list *param_n, struct list *param_v);
+/**
+ *
+ * @brief Dumps configuration
+ * @param pointer to a config_sesman struct
+ *
+ */
+void
+config_dump(struct config_sesman *config);
 
 void
 config_free(struct config_sesman *cs);

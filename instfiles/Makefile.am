@@ -1,6 +1,5 @@
 EXTRA_DIST = \
    keymap-names.txt \
-   xrdp.sh \
    xrdp-sesman.service.in \
    xrdp.service.in
 
@@ -30,6 +29,7 @@ SUFFIXES = .in
 startscriptdir=$(sysconfdir)/xrdp
 
 dist_startscript_DATA = \
+  km-00000406.ini \
   km-00000407.ini \
   km-00000409.ini \
   km-0000040a.ini \
@@ -45,10 +45,12 @@ dist_startscript_DATA = \
   km-0000041d.ini \
   km-00000807.ini \
   km-00000809.ini \
+  km-0000080a.ini \
   km-0000080c.ini \
   km-00000813.ini \
   km-00000816.ini \
-  km-0000100c.ini
+  km-0000100c.ini \
+  km-00010409.ini
 
 #
 # platform specific files
@@ -58,9 +60,8 @@ if LINUX
 SUBDIRS += \
   pam.d \
   pulse
-dist_startscript_SCRIPTS = xrdp.sh
 if HAVE_SYSTEMD
-dist_systemdsystemunit_DATA = \
+systemdsystemunit_DATA = \
   xrdp-sesman.service \
   xrdp.service
 else
@@ -75,6 +76,10 @@ SUBDIRS += \
   pam.d \
   rc.d \
   pulse
+endif
+
+if MACOS
+SUBDIRS += pam.d
 endif
 
 #
@@ -92,5 +97,6 @@ endif
 if FREEBSD
 # must be tab below
 install-data-hook:
-	sed -i '' 's|%%PREFIX%%|$(prefix)|g' $(DESTDIR)$(sysconfdir)/rc.d/xrdp
+	sed -i '' 's|%%PREFIX%%|$(prefix)|g' $(DESTDIR)$(sysconfdir)/rc.d/xrdp \
+                                         $(DESTDIR)$(sysconfdir)/rc.d/xrdp-sesman
 endif

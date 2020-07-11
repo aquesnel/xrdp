@@ -105,9 +105,6 @@ session_get_bydata(const char *name, int width, int height, int bpp, int type,
     {
         case SCP_SESSION_TYPE_XVNC: /* 0 */
             type = SESMAN_SESSION_TYPE_XVNC; /* 2 */
-            /* Xvnc cannot resize */
-            policy = (enum SESMAN_CFG_SESS_POLICY)
-                     (policy | SESMAN_CFG_SESS_POLICY_D);
             break;
         case SCP_SESSION_TYPE_XRDP: /* 1 */
             type = SESMAN_SESSION_TYPE_XRDP; /* 1 */
@@ -360,7 +357,7 @@ session_start_chansrv(char *username, int display)
     chansrv_pid = g_fork();
     if (chansrv_pid == 0)
     {
-        chansrv_params = list_create(); 
+        chansrv_params = list_create();
         chansrv_params->auto_free = 1;
 
         /* building parameters */
@@ -371,8 +368,13 @@ session_start_chansrv(char *username, int display)
         list_add_item(chansrv_params, 0); /* mandatory */
 
         env_set_user(username, 0, display,
-                     g_cfg->session_variables1,
-                     g_cfg->session_variables2);
+                     g_cfg->env_names,
+                     g_cfg->env_values);
+
+        if (g_cfg->sec.restrict_outbound_clipboard == 1)
+        {
+            g_setenv("CHANSRV_RESTRICT_OUTBOUND_CLIPBOARD", "1", 1);
+        }
 
         /* executing chansrv */
         g_execvp(exe_path, (char **) (chansrv_params->items));
@@ -484,22 +486,40 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
          *  $OpenBSD: session.c,v 1.252 2010/03/07 11:57:13 dtucker Exp $
          *  with some ideas about BSD process grouping to xrdp
          */
+        pid_t bsdsespid = g_fork();
 
-        /**
-         * Create a new session and process group since the 4.4BSD
-         * setlogin() affects the entire process group
-         */
-        if (g_setsid() < 0)
+        if (bsdsespid == -1)
         {
-            log_message(LOG_LEVEL_ERROR,
-                        "setsid failed - pid %d", g_getpid());
+        }
+        else if (bsdsespid == 0) /* BSD session leader */
+        {
+            /**
+             * Create a new session and process group since the 4.4BSD
+             * setlogin() affects the entire process group
+             */
+            if (g_setsid() < 0)
+            {
+                log_message(LOG_LEVEL_ERROR,
+                            "setsid failed - pid %d", g_getpid());
+            }
+
+            if (g_setlogin(s->username) < 0)
+            {
+                log_message(LOG_LEVEL_ERROR,
+                            "setlogin failed for user %s - pid %d", s->username,
+                            g_getpid());
+            }
         }
 
-        if (g_setlogin(s->username) < 0)
+        g_waitpid(bsdsespid);
+
+        if (bsdsespid > 0)
         {
-            log_message(LOG_LEVEL_ERROR,
-                        "setlogin failed for user %s - pid %d", s->username,
-                        g_getpid());
+            g_exit(0);
+            /*
+             * intermediate sesman should exit here after WM exits.
+             * do not execure the following codes.
+             */
         }
 #endif
         window_manager_pid = g_fork(); /* parent becomes X,
@@ -513,8 +533,8 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
             env_set_user(s->username,
                          0,
                          display,
-                         g_cfg->session_variables1,
-                         g_cfg->session_variables2);
+                         g_cfg->env_names,
+                         g_cfg->env_values);
             if (x_server_running(display))
             {
                 auth_set_env(data);
@@ -557,8 +577,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                 }
                 /* if we're here something happened to g_execlp3
                    so we try running the default window manager */
-                g_sprintf(text, "%s/%s", XRDP_CFG_PATH, g_cfg->default_wm);
-                g_execlp3(text, g_cfg->default_wm, 0);
+                g_execlp3(g_cfg->default_wm, g_cfg->default_wm, 0);
 
                 log_message(LOG_LEVEL_ALWAYS, "error starting default "
                              "wm for user %s - pid %d", s->username, g_getpid());
@@ -567,7 +586,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                             "%s", g_get_errno(), g_get_strerror());
                 log_message(LOG_LEVEL_DEBUG, "execlp3 parameter list:");
                 log_message(LOG_LEVEL_DEBUG, "        argv[0] = %s",
-                            text);
+                            g_cfg->default_wm);
                 log_message(LOG_LEVEL_DEBUG, "        argv[1] = %s",
                             g_cfg->default_wm);
 
@@ -604,16 +623,16 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                     env_set_user(s->username,
                                  &passwd_file,
                                  display,
-                                 g_cfg->session_variables1,
-                                 g_cfg->session_variables2);
+                                 g_cfg->env_names,
+                                 g_cfg->env_values);
                 }
                 else
                 {
                     env_set_user(s->username,
                                  0,
                                  display,
-                                 g_cfg->session_variables1,
-                                 g_cfg->session_variables2);
+                                 g_cfg->env_names,
+                                 g_cfg->env_values);
                 }
 
 
@@ -796,6 +815,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                 auth_end(data);
                 g_sigterm(display_pid);
                 g_sigterm(chansrv_pid);
+                cleanup_sockets(display);
                 g_deinit();
                 g_exit(0);
             }
@@ -841,10 +861,9 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
 /******************************************************************************/
 /* called with the main thread */
 static int
-session_reconnect_fork(int display, char *username)
+session_reconnect_fork(int display, char *username, long data)
 {
     int pid;
-    char text[256];
 
     pid = g_fork();
 
@@ -856,13 +875,13 @@ session_reconnect_fork(int display, char *username)
         env_set_user(username,
                      0,
                      display,
-                     g_cfg->session_variables1,
-                     g_cfg->session_variables2);
-        g_snprintf(text, 255, "%s/%s", XRDP_CFG_PATH, "reconnectwm.sh");
+                     g_cfg->env_names,
+                     g_cfg->env_values);
+        auth_set_env(data);
 
-        if (g_file_exist(text))
+        if (g_file_exist(g_cfg->reconnect_sh))
         {
-            g_execlp3(text, g_cfg->default_wm, 0);
+            g_execlp3(g_cfg->reconnect_sh, g_cfg->reconnect_sh, 0);
         }
 
         g_exit(0);
@@ -885,9 +904,9 @@ session_start(long data, tui8 type, struct SCP_CONNECTION *c,
 /* called by a worker thread, ask the main thread to call session_sync_start
    and wait till done */
 int
-session_reconnect(int display, char *username)
+session_reconnect(int display, char *username, long data)
 {
-    return session_reconnect_fork(display, username);
+    return session_reconnect_fork(display, username, data);
 }
 
 /******************************************************************************/
@@ -1115,4 +1134,66 @@ session_get_byuser(const char *user, int *cnt, unsigned char flags)
 
     (*cnt) = count;
     return sess;
+}
+
+/******************************************************************************/
+int
+cleanup_sockets(int display)
+{
+    log_message(LOG_LEVEL_DEBUG, "cleanup_sockets:");
+    char file[256];
+    int error;
+
+    error = 0;
+
+    g_snprintf(file, 255, CHANSRV_PORT_OUT_STR, display);
+    if (g_file_exist(file))
+    {
+        log_message(LOG_LEVEL_DEBUG, "cleanup_sockets: deleting %s", file);
+        if (g_file_delete(file) == 0)
+        {
+            log_message(LOG_LEVEL_DEBUG,
+                       "cleanup_sockets: failed to delete %s", file);
+            error++;
+        }
+    }
+
+    g_snprintf(file, 255, CHANSRV_PORT_IN_STR, display);
+    if (g_file_exist(file))
+    {
+        log_message(LOG_LEVEL_DEBUG, "cleanup_sockets: deleting %s", file);
+        if (g_file_delete(file) == 0)
+        {
+            log_message(LOG_LEVEL_DEBUG,
+                       "cleanup_sockets: failed to delete %s", file);
+            error++;
+        }
+    }
+
+    g_snprintf(file, 255, XRDP_CHANSRV_STR, display);
+    if (g_file_exist(file))
+    {
+        log_message(LOG_LEVEL_DEBUG, "cleanup_sockets: deleting %s", file);
+        if (g_file_delete(file) == 0)
+        {
+            log_message(LOG_LEVEL_DEBUG,
+                       "cleanup_sockets: failed to delete %s", file);
+            error++;
+        }
+    }
+
+    g_snprintf(file, 255, CHANSRV_API_STR, display);
+    if (g_file_exist(file))
+    {
+        log_message(LOG_LEVEL_DEBUG, "cleanup_sockets: deleting %s", file);
+        if (g_file_delete(file) == 0)
+        {
+            log_message(LOG_LEVEL_DEBUG,
+                       "cleanup_sockets: failed to delete %s", file);
+            error++;
+        }
+    }
+
+    return error;
+
 }

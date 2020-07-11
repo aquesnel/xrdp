@@ -144,7 +144,7 @@ Negotiate these security methods with clients.
 .RE
 
 .TP
-\fBssl_protocols\fP=\fI[SSLv3] [TLSv1] [TLSv1.1] [TLSv1.2]\fP
+\fBssl_protocols\fP=\fI[SSLv3] [TLSv1] [TLSv1.1] [TLSv1.2] [TLSv1.3]\fP
 Enables the specified SSL/TLS protocols. Each value should be separated by comma.
 SSLv2 is always disabled. At least one protocol should be given to accept TLS connections.
 This parameter is effective only if \fBsecurity_layer\fP is set to \fBtls\fP or \fBnegotiate\fP.
@@ -206,7 +206,7 @@ The highest value is 255 (hex FF).
 The following parameters can be used in the \fB[Logging]\fR section:
 
 .TP
-\fBLogFile\fR=\fI@localstatedir@/log/sesman.log\fR
+\fBLogFile\fR=\fI@localstatedir@/log/xrdp.log\fR
 This options contains the path to logfile. It can be either absolute or relative.\fR
 
 .TP
@@ -274,14 +274,19 @@ The name displayed in \fBxrdp\fR(8) login window's combo box.
 Sets the library to be used with this connection.
 
 .TP
-\fBusername\fR=\fI<username>\fR|\fIask\fR
+\fBusername\fR=\fI<username>\fR|\fI{base64}<base64-encoded-username>\fR|\fIask\fR
 Specifies the username used for authenticating in the connection.
 If set to \fIask\fR, user name should be provided in the login window.
 
+If the username includes comment out symbols such as '#', or ';', the username can be
+provided in base64 form prefixing "{base64}".
+
 .TP
-\fBpassword\fR=\fI<password>\fR|\fIask\fR
+\fBpassword\fR=\fI<password>\fR|\fI{base64}<base64-encoded-password>\fR|\fIask\fR
 Specifies the password used for authenticating in the connection.
 If set to \fIask\fR, password should be provided in the login window.
+
+This parameter can be provided in base64 form as well as username. See also examples below.
 
 .TP
 \fBip\fR=\fI127.0.0.1\fR
@@ -298,6 +303,14 @@ depth of the client. Only Xvnc and X11rdp use that setting. Xorg runs at
 \fI24\fR bpp.
 
 .TP
+\fBdisabled_encodings_mask\fR=\fI<number>\fR
+Set this bitmask to a non-zero value to prevent \fBxrdp\fR(8) requesting
+some features from the Xvnc server. You should only need to set this
+to  a non-zero value to work around bugs in your Xvnc server. The bit
+values supported for a particular release of \fBxrdp\fR(8) are documented in
+\fBxrdp.ini\fR.
+
+.TP
 \fBcode\fR=\fI<number>\fR|\fI0\fR
 Specifies the session type. The default, \fI0\fR, is Xvnc, \fI10\fR is
 X11rdp, and \fI20\fR is Xorg with xorgxrdp modules.
@@ -310,13 +323,22 @@ This is an example \fBxrdp.ini\fR:
 bitmap_cache=true
 bitmap_compression=true
 
-[vnc1]
-name=sesman
-lib=../vnc/libvnc.so
+[Xorg]
+name=Xorg
+lib=libxup.so
 username=ask
 password=ask
 ip=127.0.0.1
-port=\-1
+port=-1
+code=20
+
+[vnc-any]
+name=vnc-any
+lib=libvnc.so
+ip=ask
+port=ask5900
+username=na
+password={base64}cGFzc3dvcmQhCg==
 .fi
 
 .SH "FILES"

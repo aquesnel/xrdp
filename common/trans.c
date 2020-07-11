@@ -143,6 +143,24 @@ trans_delete(struct trans *self)
 }
 
 /*****************************************************************************/
+void
+trans_delete_from_child(struct trans *self)
+{
+    if (self == 0)
+    {
+        return;
+    }
+
+    if (self->listen_filename != 0)
+    {
+        g_free(self->listen_filename);
+        self->listen_filename = 0;
+    }
+
+    trans_delete(self);
+}
+
+/*****************************************************************************/
 int
 trans_get_wait_objs(struct trans *self, tbus *objs, int *count)
 {
@@ -434,17 +452,14 @@ trans_force_read_s(struct trans *self, struct stream *in_s, int size)
 {
     int rcvd;
 
-    if (self->status != TRANS_STATUS_UP)
+    if (self->status != TRANS_STATUS_UP ||
+        size < 0 || !s_check_rem_out(in_s, size))
     {
         return 1;
     }
+
     while (size > 0)
     {
-        /* make sure stream has room */
-        if ((in_s->end + size) > (in_s->data + in_s->size))
-        {
-            return 1;
-        }
         rcvd = self->trans_recv(self, in_s->end, size);
         if (rcvd == -1)
         {
@@ -694,12 +709,20 @@ trans_connect(struct trans *self, const char *server, const char *port,
                 now = g_time3();
                 if (now - start_time < timeout)
                 {
-                    g_sleep(timeout / 5);
+                    g_sleep(100);
                 }
                 else
                 {
                     self->status = TRANS_STATUS_DOWN;
                     return 1;
+                }
+                if (self->is_term != NULL)
+                {
+                    if (self->is_term())
+                    {
+                        self->status = TRANS_STATUS_DOWN;
+                        return 1;
+                    }
                 }
             }
         }
@@ -730,12 +753,20 @@ trans_connect(struct trans *self, const char *server, const char *port,
                 now = g_time3();
                 if (now - start_time < timeout)
                 {
-                    g_sleep(timeout / 5);
+                    g_sleep(100);
                 }
                 else
                 {
                     self->status = TRANS_STATUS_DOWN;
                     return 1;
+                }
+                if (self->is_term != NULL)
+                {
+                    if (self->is_term())
+                    {
+                        self->status = TRANS_STATUS_DOWN;
+                        return 1;
+                    }
                 }
             }
         }
@@ -831,7 +862,62 @@ trans_listen_address(struct trans *self, char *port, const char *address)
             }
         }
     }
+    else if (self->mode == TRANS_MODE_VSOCK) /* vsock socket */
+    {
+        self->sck = g_sck_vsock_socket();
+        if (self->sck < 0)
+        {
+            return 1;
+        }
 
+        g_tcp_set_non_blocking(self->sck);
+
+        if (g_sck_vsock_bind_address(self->sck, port, address) == 0)
+        {
+            if (g_tcp_listen(self->sck) == 0)
+            {
+                self->status = TRANS_STATUS_UP; /* ok */
+                self->type1 = TRANS_TYPE_LISTENER; /* listener */
+                return 0;
+            }
+        }
+    }
+    else if (self->mode == TRANS_MODE_TCP4) /* tcp4 */
+    {
+        self->sck = g_tcp4_socket();
+        if (self->sck < 0)
+        {
+            return 1;
+        }
+        g_tcp_set_non_blocking(self->sck);
+        if (g_tcp4_bind_address(self->sck, port, address) == 0)
+        {
+            if (g_tcp_listen(self->sck) == 0)
+            {
+                self->status = TRANS_STATUS_UP; /* ok */
+                self->type1 = TRANS_TYPE_LISTENER; /* listener */
+                return 0;
+            }
+        }
+    }
+    else if (self->mode == TRANS_MODE_TCP6) /* tcp6 */
+    {
+        self->sck = g_tcp6_socket();
+        if (self->sck < 0)
+        {
+            return 1;
+        }
+        g_tcp_set_non_blocking(self->sck);
+        if (g_tcp6_bind_address(self->sck, port, address) == 0)
+        {
+            if (g_tcp_listen(self->sck) == 0)
+            {
+                self->status = TRANS_STATUS_UP; /* ok */
+                self->type1 = TRANS_TYPE_LISTENER; /* listener */
+                return 0;
+            }
+        }
+    }
     return 1;
 }
 
