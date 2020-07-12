@@ -339,7 +339,10 @@ send_rail_drawing_orders(char* data, int size)
 }
 
 /*****************************************************************************/
-/* returns error */
+/* 
+  Parses the channel setup message, and initializes the channel handlers.
+  returns error
+*/
 static int
 process_message_channel_setup(struct stream *s)
 {
@@ -429,7 +432,10 @@ process_message_channel_setup(struct stream *s)
 }
 
 /*****************************************************************************/
-/* returns error */
+/* 
+  Parse channel data message and route the data to the channel handler.
+  returns error 
+*/
 static int
 process_message_channel_data(struct stream *s)
 {
@@ -452,68 +458,67 @@ process_message_channel_data(struct stream *s)
             chan_id, chan_flags);
     rv = 0;
 
-    if (rv == 0)
+    if (chan_id == g_cliprdr_chan_id)
     {
-        if (chan_id == g_cliprdr_chan_id)
+        rv = clipboard_data_in(s, chan_id, chan_flags, length, total_length);
+    }
+    else if (chan_id == g_rdpsnd_chan_id)
+    {
+        rv = sound_data_in(s, chan_id, chan_flags, length, total_length);
+    }
+    else if (chan_id == g_rdpdr_chan_id)
+    {
+        rv = devredir_data_in(s, chan_id, chan_flags, length, total_length);
+    }
+    else if (chan_id == g_rail_chan_id)
+    {
+        rv = rail_data_in(s, chan_id, chan_flags, length, total_length);
+    }
+    else
+    {
+        found = 0;
+        for (index = 0; index < g_api_con_trans_list->count; index++)
         {
-            rv = clipboard_data_in(s, chan_id, chan_flags, length, total_length);
-        }
-        else if (chan_id == g_rdpsnd_chan_id)
-        {
-            rv = sound_data_in(s, chan_id, chan_flags, length, total_length);
-        }
-        else if (chan_id == g_rdpdr_chan_id)
-        {
-            rv = devredir_data_in(s, chan_id, chan_flags, length, total_length);
-        }
-        else if (chan_id == g_rail_chan_id)
-        {
-            rv = rail_data_in(s, chan_id, chan_flags, length, total_length);
-        }
-        else
-        {
-            found = 0;
-            for (index = 0; index < g_api_con_trans_list->count; index++)
+            ltran = (struct trans *) list_get_item(g_api_con_trans_list, index);
+            if (ltran != NULL)
             {
-                ltran = (struct trans *) list_get_item(g_api_con_trans_list, index);
-                if (ltran != NULL)
+                api_data = (struct xrdp_api_data *) (ltran->callback_data);
+                if (api_data != NULL)
                 {
-                    api_data = (struct xrdp_api_data *) (ltran->callback_data);
-                    if (api_data != NULL)
+                    if (api_data->chan_id == chan_id)
                     {
-                        if (api_data->chan_id == chan_id)
+                        found = 1;
+                        ls = ltran->out_s;
+                        if (chan_flags & 1) /* first */
                         {
-                            found = 1;
-                            ls = ltran->out_s;
-                            if (chan_flags & 1) /* first */
-                            {
-                                init_stream(ls, total_length);
-                            }
-                            out_uint8a(ls, s->p, length);
-                            if (chan_flags & 2) /* last */
-                            {
-                                s_mark_end(ls);
-                                rv = trans_write_copy(ltran);
-                            }
-                            break;
+                            init_stream(ls, total_length);
                         }
+                        out_uint8a(ls, s->p, length);
+                        if (chan_flags & 2) /* last */
+                        {
+                            s_mark_end(ls);
+                            rv = trans_write_copy(ltran);
+                        }
+                        break;
                     }
                 }
             }
-            if (found == 0)
-            {
-                LOG(LOG_LEVEL_WARNING, "no channel found with id %d, "
-                    "ignoring channel data message", chan_id);
-            }
         }
-
+        if (found == 0)
+        {
+            LOG(LOG_LEVEL_WARNING, "no channel found with id %d, "
+                    "ignoring channel data message", chan_id);
+        }
     }
     return rv;
 }
 
 /*****************************************************************************/
-/* returns error */
-/* open response from client */
+/* 
+  Parses the drdynvc open response message, initializes drdynvc status, 
+  and routes the request to the drdynvc channel open response handler.
+  returns error 
+*/
 static int
 process_message_drdynvc_open_response(struct stream *s)
 {
@@ -524,16 +529,20 @@ process_message_drdynvc_open_response(struct stream *s)
     LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected 8 bytes but remaining %d", s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected 8 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
     in_uint32_le(s, creation_status);
     if ((chan_id < 0) || (chan_id > 255))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_open_response: "
+              "invalid channel id %d", chan_id);
         return 1;
     }
+    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_open_response: "
+          "chan_id %d creation_status %d", chan_id, creation_status);
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_OPEN_SENT)
     {
@@ -560,8 +569,11 @@ process_message_drdynvc_open_response(struct stream *s)
 }
 
 /*****************************************************************************/
-/* returns error */
-/* close response from client */
+/* 
+  Parses the drdynvc close response message, sets the drdynvc status, 
+  and routes the request to the drdynvc channel close response handler.
+  returns error 
+*/
 static int
 process_message_drdynvc_close_response(struct stream *s)
 {
@@ -571,15 +583,19 @@ process_message_drdynvc_close_response(struct stream *s)
     LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 4))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected 4 bytes but remaining %d", s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected 4 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
     if ((chan_id < 0) || (chan_id > 255))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_close_response: "
+              "invalid channel id %d", chan_id);
         return 1;
     }
+    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_close_response:"
+          "chan_id %d", chan_id);
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_CLOSE_SENT)
     {
@@ -599,8 +615,11 @@ process_message_drdynvc_close_response(struct stream *s)
 }
 
 /*****************************************************************************/
-/* returns error */
-/* data from client */
+/* 
+  Parses the drdynvc data first message, and routes the request to the 
+  drdynvc channel data_first handler.
+  returns error 
+*/
 static int
 process_message_drdynvc_data_first(struct stream *s)
 {
@@ -613,22 +632,26 @@ process_message_drdynvc_data_first(struct stream *s)
     LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 12))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected 12 bytes but remaining %d", s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected 12 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
     in_uint32_le(s, bytes);
     in_uint32_le(s, total_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_data_first:"
+          "chan_id %d bytes %d", chan_id, bytes);
     if (!s_check_rem(s, bytes))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected %d bytes but remaining %d", bytes, s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected %d bytes but remaining %d", bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, bytes);
     if ((chan_id < 0) || (chan_id > 255))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_data_first: "
+              "invalid channel id %d", chan_id);
         return 1;
     }
     drdynvc = g_drdynvcs + chan_id;
@@ -644,8 +667,11 @@ process_message_drdynvc_data_first(struct stream *s)
 }
 
 /*****************************************************************************/
-/* returns error */
-/* data from client */
+/* 
+  Parses the drdynvc data message, and routes the request to the 
+  drdynvc channel data handler.
+  returns error 
+*/
 static int
 process_message_drdynvc_data(struct stream *s)
 {
@@ -657,16 +683,18 @@ process_message_drdynvc_data(struct stream *s)
     LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected 8 bytes but remaining %d", s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected 8 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
     in_uint32_le(s, bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_data:"
+          "chan_id %d bytes %d", chan_id, bytes);
     if (!s_check_rem(s, bytes))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
-                "expected %d bytes but remaining %d", bytes, s_rem(s));
+        // LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+        //         "expected %d bytes but remaining %d", bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, bytes);
@@ -843,7 +871,11 @@ chansrv_drdynvc_send_data(int chan_id, const char *data, int data_bytes)
 }
 
 /*****************************************************************************/
-/* returns error */
+/* 
+  Parses message is from the channel server socket and route the message to 
+  the appropriate handler.
+  returns error 
+*/
 static int
 process_message(void)
 {
@@ -855,6 +887,8 @@ process_message(void)
 
     if (g_con_trans == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message: bug/error - "
+              "global connected transport is null");
         return 1;
     }
 
@@ -862,6 +896,8 @@ process_message(void)
 
     if (s == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message: bug/error - "
+              "transport input stream is null");
         return 1;
     }
 
@@ -874,6 +910,7 @@ process_message(void)
         in_uint32_le(s, size);
         next_msg += size;
 
+        LOG_DEVEL(LOG_LEVEL_TRACE, "process_message: processing message with id %d", id);
         switch (id)
         {
             case 3: /* channel setup */
@@ -913,7 +950,10 @@ process_message(void)
 }
 
 /*****************************************************************************/
-/* returns error */
+/* 
+  Transport data received callback for the channel server socket.
+  returns error 
+*/
 int
 my_trans_data_in(struct trans *trans)
 {
@@ -923,11 +963,15 @@ my_trans_data_in(struct trans *trans)
 
     if (trans == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: bug/error - "
+              "transport is null");
         return 0;
     }
 
     if (trans != g_con_trans)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: bug/error - "
+              "transport is not the global connected transport");
         return 1;
     }
 
@@ -937,24 +981,21 @@ my_trans_data_in(struct trans *trans)
     in_uint32_le(s, size);
     error = trans_force_read(trans, size - 8);
 
-    if (error == 0)
+    if (error != 0)
     {
-        /* here, the entire message block is read in, process it */
-        error = process_message();
-        if (error == 0)
-        {
-        }
-        else
-        {
-            LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_data_in: process_message failed");
-        }
-    }
-    else
-    {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_data_in: trans_force_read failed");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: trans_force_read failed");
+        return error;
     }
 
-    return error;
+    /* here, the entire message block is read in to g_con_trans, process it */
+    error = process_message();
+    if (error != 0)
+    {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: process_message failed");
+        return error;
+    }
+
+    return 0;
 }
 
 /*****************************************************************************/
@@ -1192,6 +1233,10 @@ my_api_trans_data_in(struct trans *trans)
 }
 
 /*****************************************************************************/
+/*
+  Transport listen callback for when a connection is made to the channel server 
+  socket from xrdp.
+*/
 int
 my_trans_conn_in(struct trans *trans, struct trans *new_trans)
 {
@@ -1255,6 +1300,9 @@ my_api_trans_conn_in(struct trans *trans, struct trans *new_trans)
 }
 
 /*****************************************************************************/
+/*
+  Configure listening on the channel server socket that xrdp connects to.
+*/
 static int
 setup_listen(void)
 {
@@ -1406,6 +1454,11 @@ api_con_trans_list_remove_all(void)
 }
 
 /*****************************************************************************/
+/*
+  main method for the worker thread.
+  This method listens on a socket for the connection from xrdp and 
+  then loop and process inputs until the term event is signaled.
+*/
 THREAD_RV THREAD_CC
 channel_thread_loop(void *in_val)
 {
