@@ -59,9 +59,14 @@ enum logReturns
 /*#define LOG_ENABLE_THREAD*/
 
 #ifdef XRDP_DEBUG
-#define LOG_DBG(args...) log_message(LOG_LEVEL_DEBUG, args);
+#define LOG_DBG(log_level, args...) \
+        log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
+
+#define LOG(log_level, args...) \
+        log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 #else
-#define LOG_DBG(args...)
+#define LOG_DBG(log_level, args...)
+#define LOG(log_level, args...) log_message(log_level, args);
 #endif
 
 struct log_config
@@ -138,6 +143,17 @@ internal_config_read_logging(int file, struct log_config *lc,
                              struct list *param_n,
                              struct list *param_v,
                              const char *applicationName);
+                             
+/**
+ * the log function that all files use to log an event.
+ * @param lvl, the loglevel
+ * @param msg, the logtext.
+ * @param ...
+ * @return
+ */
+enum logReturns
+internal_log_message(const enum logLevels lvl, const char *msg, va_list args);
+
 /*End of internal functions*/
 #endif
 /**
@@ -173,6 +189,25 @@ log_end(void);
  */
 enum logReturns
 log_message(const enum logLevels lvl, const char *msg, ...) printflike(2, 3);
+
+/**
+ * the log function that all files use to log an event, 
+ * with the function name and file line.
+ * @param function_name, the function name (typicaly the \x5F\x5Ffunc\x5F\x5F macro)
+ * @param file_name, the file name (typicaly the \x5F\x5FFILE\x5F\x5F macro)
+ * @param line_number, the line number in the file (typicaly the \x5F\x5FLINE\x5F\x5F macro)
+ * @param lvl, the loglevel
+ * @param msg, the logtext.
+ * @param ...
+ * @return
+ */
+enum logReturns
+log_message_with_location(const char *function_name, 
+                          const char *file_name, 
+                          const int line_number, 
+                          const enum logLevels lvl, 
+                          const char *msg, 
+                          ...) printflike(5, 6);
 
 /**
  * This function returns the configured file name for the logfile

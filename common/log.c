@@ -531,10 +531,37 @@ log_end(void)
 }
 
 enum logReturns
+log_message_with_location(const char *function_name, const char *file_name, const int line_number, const enum logLevels lvl, const char *msg, ...)
+{
+    va_list ap;
+    enum logReturns rv;
+    char buff[LOG_BUFFER_SIZE];
+    int len;
+    
+    g_snprintf(buff, LOG_BUFFER_SIZE, "[%s(%s:%d)] %s", function_name, file_name, line_number, msg);
+
+    va_start(ap, msg);
+    rv = internal_log_message(lvl, buff, ap);
+    va_end(ap);
+    return rv;
+}
+
+enum logReturns
 log_message(const enum logLevels lvl, const char *msg, ...)
 {
-    char buff[LOG_BUFFER_SIZE + 31]; /* 19 (datetime) 4 (space+cr+lf+\0) */
     va_list ap;
+    enum logReturns rv;
+    
+    va_start(ap, msg);
+    rv = internal_log_message(lvl, msg, ap);
+    va_end(ap);
+    return rv;
+}
+
+enum logReturns
+internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
+{
+    char buff[LOG_BUFFER_SIZE + 31]; /* 19 (datetime) 4 (space+cr+lf+\0) */
     int len = 0;
     enum logReturns rv = LOG_STARTUP_OK;
     int writereply = 0;
@@ -561,9 +588,7 @@ log_message(const enum logLevels lvl, const char *msg, ...)
 
     internal_log_lvl2str(lvl, buff + 20);
 
-    va_start(ap, msg);
     len = vsnprintf(buff + 28, LOG_BUFFER_SIZE, msg, ap);
-    va_end(ap);
 
     /* checking for truncated messages */
     if (len > LOG_BUFFER_SIZE)
