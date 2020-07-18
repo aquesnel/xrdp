@@ -48,8 +48,7 @@ access_login_allowed(const char *user)
 
     if ((0 == g_cfg->sec.ts_users_enable) && (0==g_cfg->sec.ts_always_group_check))
     {
-        log_message(LOG_LEVEL_INFO, "Terminal Server Users group is disabled, allowing authentication",
-                1);
+        log_message(LOG_LEVEL_INFO, "Terminal Server Users group is disabled, allowing authentication");
         return 1;
     }
 
@@ -98,7 +97,7 @@ access_login_mng_allowed(const char *user)
     if (0 == g_cfg->sec.ts_admins_enable)
     {
         log_message(LOG_LEVEL_INFO, "[MNG] Terminal Server Admin group is disabled, "
-                "allowing authentication", 1);
+                "allowing authentication");
         return 1;
     }
 
