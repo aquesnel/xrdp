@@ -531,14 +531,19 @@ log_end(void)
 }
 
 enum logReturns
-log_message_with_location(const char *function_name, const char *file_name, const int line_number, const enum logLevels lvl, const char *msg, ...)
+log_message_with_location(const char *function_name, 
+                          const char *file_name, 
+                          const int line_number, 
+                          const enum logLevels lvl, 
+                          const char *msg, 
+                          ...)
 {
     va_list ap;
     enum logReturns rv;
     char buff[LOG_BUFFER_SIZE];
-    int len;
     
-    g_snprintf(buff, LOG_BUFFER_SIZE, "[%s(%s:%d)] %s", function_name, file_name, line_number, msg);
+    g_snprintf(buff, LOG_BUFFER_SIZE, "[%s(%s:%d)] %s", 
+               function_name, file_name, line_number, msg);
 
     va_start(ap, msg);
     rv = internal_log_message(lvl, buff, ap);
