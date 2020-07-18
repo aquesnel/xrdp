@@ -126,9 +126,7 @@ scp_v0c_connect(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     sz = g_strlen(s->username);
     if (sz > STRING16_MAX_LEN)
     {
-        LOG(LOG_LEVEL_WARNING,
-                    "connection aborted: username too long",
-                    __LINE__);
+        LOG(LOG_LEVEL_WARNING, "connection aborted: username too long");
         return SCP_CLIENT_STATE_SIZE_ERR;
     }
     out_uint16_be(c->out_s, sz);
@@ -137,9 +135,7 @@ scp_v0c_connect(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     sz = g_strlen(s->password);
     if (sz > STRING16_MAX_LEN)
     {
-        LOG(LOG_LEVEL_WARNING,
-                    "connection aborted: password too long",
-                    __LINE__);
+        LOG(LOG_LEVEL_WARNING, "connection aborted: password too long");
         return SCP_CLIENT_STATE_SIZE_ERR;
     }
     out_uint16_be(c->out_s, sz);
@@ -180,9 +176,7 @@ scp_v0c_connect(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
 
     if (size < (8 + 2 + 2 + 2) || size > SCP_MAX_MESSAGE_SIZE)
     {
-        LOG(LOG_LEVEL_WARNING,
-                    "connection aborted: msg size = %d",
-                    __LINE__, size);
+        LOG(LOG_LEVEL_WARNING, "connection aborted: msg size = %d", size);
         return SCP_CLIENT_STATE_SIZE_ERR;
     }
 
@@ -247,9 +241,7 @@ scp_v0s_init_session(struct SCP_CONNECTION *c, struct SCP_SESSION *session)
     in_uint32_be(c->in_s, size);
     if (size < (8 + 2) || size > SCP_MAX_MESSAGE_SIZE)
     {
-        LOG(LOG_LEVEL_WARNING,
-                    "connection aborted: msg size = %d",
-                    __LINE__, size);
+        LOG(LOG_LEVEL_WARNING, "connection aborted: msg size = %d", size);
         return SCP_SERVER_STATE_SIZE_ERR;
     }
 
@@ -305,9 +297,7 @@ scp_v0s_init_session(struct SCP_CONNECTION *c, struct SCP_SESSION *session)
         /* width  + height + bpp */
         if (!s_check_rem(c->in_s, 2 + 2 + 2))
         {
-            LOG(LOG_LEVEL_WARNING,
-                        "connection aborted: width+height+bpp missing",
-                        __LINE__);
+            LOG(LOG_LEVEL_WARNING, "connection aborted: width+height+bpp missing");
             return SCP_SERVER_STATE_SIZE_ERR;
         }
         in_uint16_be(c->in_s, width);
@@ -318,8 +308,7 @@ scp_v0s_init_session(struct SCP_CONNECTION *c, struct SCP_SESSION *session)
         if (0 != scp_session_set_bpp(session, (tui8)bpp))
         {
             LOG(LOG_LEVEL_WARNING,
-                        "connection aborted: unsupported bpp: %d",
-                        __LINE__, (tui8)bpp);
+                        "connection aborted: unsupported bpp: %d", (tui8)bpp);
             return SCP_SERVER_STATE_INTERNAL_ERR;
         }
 
@@ -389,7 +378,7 @@ scp_v0s_init_session(struct SCP_CONNECTION *c, struct SCP_SESSION *session)
         /* g_writeln("Received user name: %s",buf); */
         if (0 != scp_session_set_username(session, buf))
         {
-            LOG(LOG_LEVEL_WARNING, "connection aborted: error setting        username");*/
+            LOG(LOG_LEVEL_WARNING, "connection aborted: error setting username");
             return SCP_SERVER_STATE_INTERNAL_ERR;
         }
 
