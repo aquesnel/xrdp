@@ -122,10 +122,10 @@ add_timeout(int msoffset, void (*callback)(void *data), void *data)
     struct timeout_obj *tobj;
     tui32 now;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "add_timeout:");
     now = g_time3();
     tobj = g_new0(struct timeout_obj, 1);
     tobj->mstime = now + msoffset;
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "configuring timeout callback for %d", tobj->mstime);
     tobj->callback = callback;
     tobj->data = data;
     if (g_timeout_tail == 0)
@@ -149,7 +149,7 @@ get_timeout(int *timeout)
     tui32 now;
     int ltimeout;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "get_timeout:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     ltimeout = *timeout;
     if (ltimeout < 1)
     {
@@ -161,7 +161,7 @@ get_timeout(int *timeout)
         now = g_time3();
         while (tobj != 0)
         {
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  now %u tobj->mstime %u", now, tobj->mstime);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "  now %u tobj->mstime %u", now, tobj->mstime);
             if (now < tobj->mstime)
             {
                 ltimeout = tobj->mstime - now;
@@ -171,7 +171,7 @@ get_timeout(int *timeout)
     }
     if (ltimeout > 0)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "  ltimeout %d", ltimeout);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "  timeout %d", ltimeout);
         if (*timeout < 1)
         {
             *timeout = ltimeout;
@@ -197,7 +197,7 @@ check_timeout(void)
     int count;
     tui32 now;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "check_timeout:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     count = 0;
     tobj = g_timeout_head;
     if (tobj != 0)
@@ -237,7 +237,7 @@ check_timeout(void)
             }
         }
     }
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  count %d", count);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "  timeout count %d", count);
     return 0;
 }
 
@@ -245,6 +245,7 @@ check_timeout(void)
 int
 g_is_term(void)
 {
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     return g_is_wait_obj_set(g_term_event);
 }
 
@@ -262,11 +263,14 @@ send_channel_data(int chan_id, const char *data, int size)
     int total_size;
     struct stream *s;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if ((chan_id < 0) || (chan_id > 31) ||
         (data == NULL) ||
         (size < 1) || (size > MAX_CHANNEL_BYTES))
     {
         /* bad param */
+        LOG_DEVEL(LOG_LEVEL_ERROR, "bad argument: chan_id %d data %p size %d", 
+                chan_id, data, size);
         return 1;
     }
     total_size = size;
@@ -281,6 +285,7 @@ send_channel_data(int chan_id, const char *data, int size)
         s = trans_get_out_s(g_con_trans, 26 + sending_bytes);
         if (s == NULL)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "g_con_trans output stream is NULL");
             return 2;
         }
         out_uint32_le(s, 0); /* version */
@@ -298,6 +303,8 @@ send_channel_data(int chan_id, const char *data, int size)
         error = trans_write_copy(g_con_trans);
         if (error != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "write to g_con_trans output stream "
+                    "returned error code %d", error);
             return 3;
         }
         chan_flags = 0;
@@ -310,11 +317,10 @@ send_channel_data(int chan_id, const char *data, int size)
 int
 send_rail_drawing_orders(char* data, int size)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::send_rail_drawing_orders: size %d", size);
-
     struct stream* s;
     int error;
 
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "data size %d", size);
     s = trans_get_out_s(g_con_trans, 8192);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + size); /* size */
@@ -325,6 +331,8 @@ send_rail_drawing_orders(char* data, int size)
     error = trans_force_write(g_con_trans);
     if (error != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "write to g_con_trans output stream "
+                    "returned error code %d", error);
         return 1;
     }
     return 0;
@@ -349,10 +357,8 @@ process_message_channel_setup(struct stream *s)
     g_rdpsnd_chan_id = -1;
     g_rdpdr_chan_id = -1;
     g_rail_chan_id = -1;
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_channel_setup:");
     in_uint16_le(s, num_chans);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_channel_setup: num_chans %d",
-          num_chans);
+    LOG_DEVEL(LOG_LEVEL_INFO, "channel setup with num_chans %d", num_chans);
 
     for (index = 0; index < num_chans; index++)
     {
@@ -361,7 +367,7 @@ process_message_channel_setup(struct stream *s)
         in_uint8a(s, ci->name, 8);
         in_uint16_le(s, ci->id);
         in_uint16_le(s, ci->flags);
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_channel_setup: chan name '%s' "
+        LOG(LOG_LEVEL_INFO, "setup channel: name '%s' "
               "id %d flags %8.8x", ci->name, ci->id, ci->flags);
 
         if (g_strcasecmp(ci->name, "cliprdr") == 0)
@@ -387,7 +393,7 @@ process_message_channel_setup(struct stream *s)
         }
         else
         {
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "other %s", ci->name);
+            LOG(LOG_LEVEL_WARNING, "unknown channel name '%s'", ci->name);
         }
 
         g_num_chan_items++;
@@ -442,8 +448,8 @@ process_message_channel_data(struct stream *s)
     in_uint16_le(s, chan_flags);
     in_uint16_le(s, length);
     in_uint32_le(s, total_length);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_channel_data: chan_id %d "
-          "chan_flags %d", chan_id, chan_flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "channel data for chan_id %d chan_flags %d", 
+            chan_id, chan_flags);
     rv = 0;
 
     if (rv == 0)
@@ -496,7 +502,8 @@ process_message_channel_data(struct stream *s)
             }
             if (found == 0)
             {
-                LOG_DEVEL(LOG_LEVEL_INFO, "process_message_channel_data: not found channel %d", chan_id);
+                LOG(LOG_LEVEL_WARNING, "no channel found with id %d, "
+                    "ignoring channel data message", chan_id);
             }
         }
 
@@ -514,9 +521,11 @@ process_message_drdynvc_open_response(struct stream *s)
     int chan_id;
     int creation_status;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_drdynvc_open_response:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected 8 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
@@ -528,7 +537,7 @@ process_message_drdynvc_open_response(struct stream *s)
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_OPEN_SENT)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_open_response: status not right");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "status not right");
         return 1;
     }
     if (creation_status == 0)
@@ -543,6 +552,7 @@ process_message_drdynvc_open_response(struct stream *s)
     {
         if (drdynvc->open_response(chan_id, creation_status) != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "drdynvc->open_response returned an error");
             return 1;
         }
     }
@@ -558,9 +568,11 @@ process_message_drdynvc_close_response(struct stream *s)
     struct chansrv_drdynvc *drdynvc;
     int chan_id;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_drdynvc_close_response:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 4))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected 4 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
@@ -571,7 +583,7 @@ process_message_drdynvc_close_response(struct stream *s)
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_CLOSE_SENT)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_close_response: status not right");
+        LOG_DEVEL(LOG_LEVEL_WARNING, "status not right");
         return 0;
     }
     drdynvc->status = CHANSRV_DRDYNVC_STATUS_CLOSED;
@@ -579,6 +591,7 @@ process_message_drdynvc_close_response(struct stream *s)
     {
         if (drdynvc->close_response(chan_id) != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "drdynvc->close_response returned an error");
             return 1;
         }
     }
@@ -597,9 +610,11 @@ process_message_drdynvc_data_first(struct stream *s)
     int total_bytes;
     char *data;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_drdynvc_data_first:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 12))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected 12 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
@@ -607,6 +622,8 @@ process_message_drdynvc_data_first(struct stream *s)
     in_uint32_le(s, total_bytes);
     if (!s_check_rem(s, bytes))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected %d bytes but remaining %d", bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, bytes);
@@ -619,6 +636,7 @@ process_message_drdynvc_data_first(struct stream *s)
     {
         if (drdynvc->data_first(chan_id, data, bytes, total_bytes) != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "drdynvc->data_first returned an error");
             return 1;
         }
     }
@@ -636,15 +654,19 @@ process_message_drdynvc_data(struct stream *s)
     int bytes;
     char *data;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "process_message_drdynvc_data:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected 8 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chan_id);
     in_uint32_le(s, bytes);
     if (!s_check_rem(s, bytes))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
+                "expected %d bytes but remaining %d", bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, bytes);
@@ -653,6 +675,7 @@ process_message_drdynvc_data(struct stream *s)
     {
         if (drdynvc->data(chan_id, data, bytes) != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "drdynvc->data returned an error");
             return 1;
         }
     }
@@ -670,6 +693,7 @@ chansrv_drdynvc_open(const char *name, int flags,
     int lchan_id;
     int error;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     lchan_id = 1;
     while (g_drdynvcs[lchan_id].status != CHANSRV_DRDYNVC_STATUS_CLOSED)
     {
@@ -719,6 +743,7 @@ chansrv_drdynvc_close(int chan_id)
     struct stream *s;
     int error;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
@@ -743,8 +768,8 @@ chansrv_drdynvc_data_first(int chan_id, const char *data, int data_bytes,
     struct stream *s;
     int error;
 
-    //LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv_drdynvc_data_first: data_bytes %d total_data_bytes %d",
-    //          data_bytes, total_data_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "data_bytes %d total_data_bytes %d",
+             data_bytes, total_data_bytes);
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
@@ -770,7 +795,7 @@ chansrv_drdynvc_data(int chan_id, const char *data, int data_bytes)
     struct stream *s;
     int error;
 
-    // LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv_drdynvc_data: data_bytes %d", data_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "data_bytes %d", data_bytes);
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
@@ -794,7 +819,7 @@ chansrv_drdynvc_send_data(int chan_id, const char *data, int data_bytes)
 {
     int this_send_bytes;
 
-    // LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv_drdynvc_send_data: data_bytes %d", data_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "data_bytes %d", data_bytes);
     if (data_bytes > 1590)
     {
         if (chansrv_drdynvc_data_first(chan_id, data, 1590, data_bytes) != 0)
@@ -870,13 +895,14 @@ process_message(void)
                 rv = process_message_drdynvc_data(s);
                 break;
             default:
-                LOG_DEVEL(LOG_LEVEL_ERROR, "process_message: unknown msg %d", id);
+                LOG(LOG_LEVEL_WARNING, "unknown message id %d", id);
                 break;
         }
 
         if (rv != 0)
         {
-            g_writeln("process_message: error rv %d id %d", rv, id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, "error processing message id %d "
+                    "returned error code %d ", id, rv);
             rv = 0;
         }
 
@@ -905,7 +931,7 @@ my_trans_data_in(struct trans *trans)
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "my_trans_data_in:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     s = trans_get_in_s(trans);
     in_uint8s(s, 4); /* id */
     in_uint32_le(s, size);
@@ -920,12 +946,12 @@ my_trans_data_in(struct trans *trans)
         }
         else
         {
-            g_writeln("my_trans_data_in: process_message failed");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_data_in: process_message failed");
         }
     }
     else
     {
-        g_writeln("my_trans_data_in: trans_force_read failed");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_data_in: trans_force_read failed");
     }
 
     return error;
@@ -945,8 +971,8 @@ my_api_open_response(int chan_id, int creation_status)
     struct trans *trans;
     struct stream *s;
 
-    //g_writeln("my_api_open_response: chan_id %d creation_status %d",
-    //          chan_id, creation_status);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_open_response: chan_id %d creation_status %d",
+              chan_id, creation_status);
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
@@ -970,7 +996,7 @@ my_api_open_response(int chan_id, int creation_status)
 static int
 my_api_close_response(int chan_id)
 {
-    //g_writeln("my_api_close_response:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_close_response:");
     return 0;
 }
 
@@ -981,7 +1007,7 @@ my_api_data_first(int chan_id, char *data, int bytes, int total_bytes)
     struct trans *trans;
     struct stream *s;
 
-    //g_writeln("my_api_data_first: bytes %d total_bytes %d", bytes, total_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_data_first: bytes %d total_bytes %d", bytes, total_bytes);
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
@@ -1008,7 +1034,7 @@ my_api_data(int chan_id, char *data, int bytes)
     struct trans *trans;
     struct stream *s;
 
-    //g_writeln("my_api_data: bytes %d", bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_data: bytes %d", bytes);
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
@@ -1050,7 +1076,7 @@ my_api_trans_data_in(struct trans *trans)
     char chan_name[MAX(CHANNEL_NAME_LEN, MAX_PATH) + 1];
     unsigned int channel_name_bytes;
 
-    //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: extra_flags %d", trans->extra_flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: extra_flags %d", trans->extra_flags);
     rv = 0;
     ad = (struct xrdp_api_data *) (trans->callback_data);
     s = trans_get_in_s(trans);
@@ -1058,7 +1084,7 @@ my_api_trans_data_in(struct trans *trans)
     {
         in_uint32_le(s, bytes);
         in_uint32_le(s, ver);
-        //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: bytes %d ver %d", bytes, ver);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: bytes %d ver %d", bytes, ver);
         if (ver != 0)
         {
             return 1;
@@ -1070,7 +1096,7 @@ my_api_trans_data_in(struct trans *trans)
     {
         rv = 1;
         in_uint32_le(s, channel_name_bytes);
-        //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: channel_name_bytes %d", channel_name_bytes);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: channel_name_bytes %d", channel_name_bytes);
         if (channel_name_bytes > (sizeof(chan_name) - 1))
         {
             return 1;
@@ -1079,7 +1105,7 @@ my_api_trans_data_in(struct trans *trans)
         chan_name[channel_name_bytes] = '\0';
 
         in_uint32_le(s, ad->chan_flags);
-        //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: chan_name %s chan_flags 0x%8.8x", chan_name, ad->chan_flags);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: chan_name %s chan_flags 0x%8.8x", chan_name, ad->chan_flags);
         if (ad->chan_flags == 0)
         {
             /* SVC */
@@ -1133,8 +1159,8 @@ my_api_trans_data_in(struct trans *trans)
             procs.data = my_api_data;
             rv = chansrv_drdynvc_open(chan_name, ad->chan_flags,
                                       &procs, &(ad->chan_id));
-            //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: chansrv_drdynvc_open rv %d "
-            //          "chan_id %d", rv, ad->chan_id);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: chansrv_drdynvc_open rv %d "
+                      "chan_id %d", rv, ad->chan_id);
             g_drdynvcs[ad->chan_id].xrdp_api_trans = trans;
         }
         init_stream(s, 0);
@@ -1146,7 +1172,7 @@ my_api_trans_data_in(struct trans *trans)
         bytes = g_sck_recv(trans->sck, s->data, s->size, 0);
         if (bytes < 1)
         {
-            //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: disconnect");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: disconnect");
             return 1;
         }
         if (ad->chan_flags == 0)
@@ -1157,7 +1183,7 @@ my_api_trans_data_in(struct trans *trans)
         else
         {
             /* DVS */
-            //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_data_in: s->size %d bytes %d", s->size, bytes);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: s->size %d bytes %d", s->size, bytes);
             rv = chansrv_drdynvc_send_data(ad->chan_id, s->data, bytes);
         }
         init_stream(s, 0);
@@ -1189,7 +1215,7 @@ my_trans_conn_in(struct trans *trans, struct trans *new_trans)
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "my_trans_conn_in:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in:");
     g_con_trans = new_trans;
     g_con_trans->trans_data_in = my_trans_data_in;
     g_con_trans->header_size = 8;
@@ -1208,7 +1234,7 @@ my_api_trans_conn_in(struct trans *trans, struct trans *new_trans)
 {
     struct xrdp_api_data *ad;
 
-    //LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_trans_conn_in:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_conn_in:");
     if ((trans == NULL) || (trans != g_api_lis_trans) || (new_trans == NULL))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "my_api_trans_conn_in: error");
@@ -1220,7 +1246,7 @@ my_api_trans_conn_in(struct trans *trans, struct trans *new_trans)
     ad = g_new0(struct xrdp_api_data, 1);
     if (ad == NULL)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "my_api_trans_conn_in: error");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_conn_in: error");
         return 1;
     }
     new_trans->callback_data = ad;
@@ -1258,7 +1284,7 @@ setup_listen(void)
 
     if (error != 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "setup_listen: trans_listen failed for port %s",
+        LOG(LOG_LEVEL_ERROR, "setup_listen: trans_listen failed for port %s",
               port);
         return 1;
     }
@@ -1281,7 +1307,7 @@ setup_api_listen(void)
 
     if (error != 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "setup_api_listen: trans_listen failed for port %s",
+        LOG(LOG_LEVEL_ERROR, "setup_api_listen: trans_listen failed for port %s",
               port);
         return 1;
     }
@@ -1391,7 +1417,7 @@ channel_thread_loop(void *in_val)
     int error;
     THREAD_RV rv;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "channel_thread_loop: thread start");
+    LOG_DEVEL(LOG_LEVEL_INFO, "thread start");
     rv = 0;
     g_api_con_trans_list = list_create();
     setup_api_listen();
@@ -1407,13 +1433,13 @@ channel_thread_loop(void *in_val)
         trans_get_wait_objs(g_lis_trans, objs, &num_objs);
         trans_get_wait_objs(g_api_lis_trans, objs, &num_objs);
 
-        //g_writeln("timeout %d", timeout);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "timeout %d", timeout);
         while (g_obj_wait(objs, num_objs, wobjs, num_wobjs, timeout) == 0)
         {
             check_timeout();
             if (g_is_wait_obj_set(g_term_event))
             {
-                LOG_DEVEL(LOG_LEVEL_INFO, "channel_thread_loop: g_term_event set");
+                LOG_DEVEL(LOG_LEVEL_INFO, "g_term_event set");
                 clipboard_deinit();
                 sound_deinit();
                 devredir_deinit();
@@ -1425,8 +1451,7 @@ channel_thread_loop(void *in_val)
             {
                 if (trans_check_wait_objs(g_lis_trans) != 0)
                 {
-                    LOG_DEVEL(LOG_LEVEL_INFO, "channel_thread_loop: "
-                          "trans_check_wait_objs error");
+                    LOG_DEVEL(LOG_LEVEL_ERROR, "trans_check_wait_objs error");
                 }
             }
 
@@ -1434,8 +1459,7 @@ channel_thread_loop(void *in_val)
             {
                 if (trans_check_wait_objs(g_con_trans) != 0)
                 {
-                    LOG_DEVEL(LOG_LEVEL_INFO, "channel_thread_loop: "
-                          "trans_check_wait_objs error resetting");
+                    LOG_DEVEL(LOG_LEVEL_TRACE, "trans_check_wait_objs error resetting");
                     clipboard_deinit();
                     sound_deinit();
                     devredir_deinit();
@@ -1457,7 +1481,7 @@ channel_thread_loop(void *in_val)
             {
                 if (trans_check_wait_objs(g_api_lis_trans) != 0)
                 {
-                    LOG_DEVEL(LOG_LEVEL_ERROR, "channel_thread_loop: trans_check_wait_objs failed");
+                    LOG_DEVEL(LOG_LEVEL_ERROR, "trans_check_wait_objs failed");
                 }
             }
             /* check the wait_objs in g_api_con_trans_list */
@@ -1497,7 +1521,7 @@ channel_thread_loop(void *in_val)
     g_api_lis_trans = 0;
     api_con_trans_list_remove_all();
     list_delete(g_api_con_trans_list);
-    LOG_DEVEL(LOG_LEVEL_INFO, "channel_thread_loop: thread stop");
+    LOG_DEVEL(LOG_LEVEL_INFO, "thread stop");
     g_set_wait_obj(g_thread_done_event);
     return rv;
 }
@@ -1506,7 +1530,7 @@ channel_thread_loop(void *in_val)
 void
 term_signal_handler(int sig)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "term_signal_handler: got signal %d", sig);
+    LOG(LOG_LEVEL_INFO, "term_signal_handler: got signal %d", sig);
     g_set_wait_obj(g_term_event);
 }
 
@@ -1514,7 +1538,7 @@ term_signal_handler(int sig)
 void
 nil_signal_handler(int sig)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "nil_signal_handler: got signal %d", sig);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "nil_signal_handler: got signal %d", sig);
 }
 
 /*****************************************************************************/
@@ -1523,14 +1547,14 @@ child_signal_handler(int sig)
 {
     int pid;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "child_signal_handler:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "child_signal_handler:");
     do
     {
         pid = g_waitchild();
-        LOG_DEVEL(LOG_LEVEL_INFO, "child_signal_handler: child pid %d", pid);
+        LOG(LOG_LEVEL_INFO, "child_signal_handler: child pid %d", pid);
         if ((pid == g_exec_pid) && (pid > 0))
         {
-            LOG_DEVEL(LOG_LEVEL_INFO, "child_signal_handler: found pid %d", pid);
+            LOG(LOG_LEVEL_INFO, "child_signal_handler: found pid %d", pid);
             //shutdownx();
         }
     }
@@ -1541,7 +1565,7 @@ child_signal_handler(int sig)
 void
 segfault_signal_handler(int sig)
 {
-    LOG_DEVEL(LOG_LEVEL_ERROR, "segfault_signal_handler: entered.......");
+    LOG(LOG_LEVEL_ERROR, "segfault_signal_handler: entered.......");
     xfuse_deinit();
     exit(0);
 }
@@ -1550,7 +1574,7 @@ segfault_signal_handler(int sig)
 static void
 x_server_fatal_handler(void)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "xserver_fatal_handler: entered.......");
+    LOG(LOG_LEVEL_ERROR, "xserver_fatal_handler: entered.......");
     /* At this point the X server has gone away. Dont make any X calls. */
     xfuse_deinit();
     exit(0);
@@ -1754,7 +1778,7 @@ run_exec(void)
 {
     int pid;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "run_exec:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "run_exec:");
     pid = g_fork();
 
     if (pid == 0)
@@ -1857,7 +1881,7 @@ main(int argc, char **argv)
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_ALWAYS, "main: app started pid %d(0x%8.8x)", pid, pid);
+    LOG(LOG_LEVEL_INFO, "main: app started pid %d(0x%8.8x)", pid, pid);
     /*  set up signal handler  */
     g_signal_terminate(term_signal_handler); /* SIGTERM */
     g_signal_user_interrupt(term_signal_handler); /* SIGINT */
@@ -1868,16 +1892,16 @@ main(int argc, char **argv)
     /* Cater for the X server exiting unexpectedly */
     xcommon_set_x_server_fatal_handler(x_server_fatal_handler);
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "main: DISPLAY env var set to %s", display_text);
+    LOG(LOG_LEVEL_INFO, "main: DISPLAY env var set to %s", display_text);
 
     if (g_display_num == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "main: error, display is zero");
+        LOG(LOG_LEVEL_ERROR, "main: error, display is zero");
         g_deinit();
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "main: using DISPLAY %d", g_display_num);
+    LOG(LOG_LEVEL_INFO, "main: using DISPLAY %d", g_display_num);
     g_snprintf(text, 255, "xrdp_chansrv_%8.8x_main_term", pid);
     g_term_event = g_create_wait_obj(text);
     g_snprintf(text, 255, "xrdp_chansrv_%8.8x_thread_done", pid);
@@ -1895,7 +1919,7 @@ main(int argc, char **argv)
 
         if (g_obj_wait(waiters, 2, 0, 0, 0) != 0)
         {
-            LOG_DEVEL(LOG_LEVEL_ERROR, "main: error, g_obj_wait failed");
+            LOG(LOG_LEVEL_ERROR, "main: error, g_obj_wait failed");
             break;
         }
 
@@ -1916,14 +1940,14 @@ main(int argc, char **argv)
         /* wait for thread to exit */
         if (g_obj_wait(&g_thread_done_event, 1, 0, 0, 0) != 0)
         {
-            LOG_DEVEL(LOG_LEVEL_ERROR, "main: error, g_obj_wait failed");
+            LOG(LOG_LEVEL_ERROR, "main: error, g_obj_wait failed");
             break;
         }
     }
 
     /* cleanup */
     main_cleanup();
-    LOG_DEVEL(LOG_LEVEL_INFO, "main: app exiting pid %d(0x%8.8x)", pid, pid);
+    LOG(LOG_LEVEL_INFO, "main: app exiting pid %d(0x%8.8x)", pid, pid);
     g_deinit();
     return 0;
 }
