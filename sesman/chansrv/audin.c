@@ -94,6 +94,7 @@ cleanup_client_formats(void)
 {
     int index;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (g_client_formats == NULL)
     {
         return 0;
@@ -118,10 +119,11 @@ audin_send_version(int chan_id)
     int bytes;
     struct stream *s;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_send_version:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     make_stream(s);
     init_stream(s, 32);
     out_uint8(s, MSG_SNDIN_VERSION);
+    LOG(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_VERSION version %d", AUDIN_VERSION);
     out_uint32_le(s, AUDIN_VERSION);
     s_mark_end(s);
     bytes = (int) (s->end - s->data);
@@ -141,7 +143,7 @@ audin_send_formats(int chan_id)
     struct stream *s;
     struct xr_wave_format_ex *wf;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_send_formats:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     num_formats = sizeof(g_server_formats) /
                   sizeof(g_server_formats[0]) - 1;
     make_stream(s);
@@ -152,9 +154,11 @@ audin_send_formats(int chan_id)
     for (index = 0; index < num_formats; index++)
     {
         wf = g_server_formats[index];
-        LOG_DEVEL(LOG_LEVEL_INFO, "audin_send_formats: sending format wFormatTag 0x%4.4x "
-            "nChannels %d nSamplesPerSec %d",
-            wf->wFormatTag, wf->nChannels, wf->nSamplesPerSec);
+        LOG(LOG_LEVEL_DEBUG, "[MS-RDPEA] AUDIO_FORMAT sending audio format: "
+            "wFormatTag 0x%4.4x nChannels %d nSamplesPerSec %d"
+            "nAvgBytesPerSec %d nBlockAlign %d wBitsPerSample %d cbSize %d",
+            wf->wFormatTag, wf->nChannels, wf->nSamplesPerSec,
+            wf->nAvgBytesPerSec, wf->nBlockAlign, wf->wBitsPerSample, wf->cbSize);
         out_uint16_le(s, wf->wFormatTag);
         out_uint16_le(s, wf->nChannels);
         out_uint32_le(s, wf->nSamplesPerSec);
@@ -183,13 +187,22 @@ audin_send_open(int chan_id)
     struct stream *s;
     struct xr_wave_format_ex *wf;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_send_open:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     make_stream(s);
     init_stream(s, 8192);
     out_uint8(s, MSG_SNDIN_OPEN);
+    
+    LOG(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_OPEN: "
+        "FramesPerPacket 2048 initialFormat %d", g_current_format);
     out_uint32_le(s, 2048); /* FramesPerPacket */
     out_uint32_le(s, g_current_format); /* initialFormat */
+    
     wf = g_client_formats[g_current_format];
+    LOG(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_OPEN using audio format: "
+        "wFormatTag 0x%4.4x nChannels %d nSamplesPerSec %d"
+        "nAvgBytesPerSec %d nBlockAlign %d wBitsPerSample %d cbSize %d",
+        wf->wFormatTag, wf->nChannels, wf->nSamplesPerSec,
+        wf->nAvgBytesPerSec, wf->nBlockAlign, wf->wBitsPerSample, wf->cbSize);
     out_uint16_le(s, wf->wFormatTag);
     out_uint16_le(s, wf->nChannels);
     out_uint32_le(s, wf->nSamplesPerSec);
@@ -215,14 +228,15 @@ audin_process_version(int chan_id, struct stream *s)
 {
     int version;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_process_version:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 4))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_version: parse error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEAI] MSG_SNDIN_VERSION parse error: "
+            "expected 4 but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, version);
-    LOG(LOG_LEVEL_INFO, "audin_process_version: version %d", version);
+    LOG(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_VERSION version %d", version);
     return audin_send_formats(chan_id);
 }
 
@@ -234,11 +248,12 @@ audin_process_formats(int chan_id, struct stream *s)
     int num_formats;
     struct xr_wave_format_ex *wf;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_process_formats:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     cleanup_client_formats();
     if (!s_check_rem(s, 8))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_formats: parse error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEAI] MSG_SNDIN_FORMATS parse error: "
+            "expected 8 but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, num_formats);
@@ -248,7 +263,8 @@ audin_process_formats(int chan_id, struct stream *s)
     {
         if (!s_check_rem(s, 18))
         {
-            LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_formats: parse error");
+            LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEA] AUDIO_FORMAT parse error: "
+                    "expected 18 but remaining %d", s_rem(s));
             return 1;
         }
         wf = g_new0(struct xr_wave_format_ex, 1);
@@ -260,14 +276,17 @@ audin_process_formats(int chan_id, struct stream *s)
         in_uint16_le(s, wf->nBlockAlign);
         in_uint16_le(s, wf->wBitsPerSample);
         in_uint16_le(s, wf->cbSize);
-        LOG_DEVEL(LOG_LEVEL_INFO, "audin_process_formats: recved format wFormatTag 0x%4.4x "
-            "nChannels %d nSamplesPerSec %d",
-            wf->wFormatTag, wf->nChannels, wf->nSamplesPerSec);
+        LOG(LOG_LEVEL_DEBUG, "[MS-RDPEA] AUDIO_FORMAT recved audio format: "
+            "wFormatTag 0x%4.4x nChannels %d nSamplesPerSec %d"
+            "nAvgBytesPerSec %d nBlockAlign %d wBitsPerSample %d cbSize %d",
+            wf->wFormatTag, wf->nChannels, wf->nSamplesPerSec,
+            wf->nAvgBytesPerSec, wf->nBlockAlign, wf->wBitsPerSample, wf->cbSize);
         if (wf->cbSize > 0)
         {
             if (!s_check_rem(s, wf->cbSize))
             {
-                LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_formats: parse error");
+                LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEA] AUDIO_FORMAT parse error: "
+                    "expected %d bytes but remaining %d", wf->cbSize, s_rem(s));
                 return 1;
             }
             wf->data = g_new0(uint8_t, wf->cbSize);
@@ -284,13 +303,15 @@ audin_process_open_reply(int chan_id, struct stream *s)
 {
     int result;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 4))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_open_reply: parse error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEAI] MSG_SNDIN_OPEN_REPLY parse error: "
+                    "expected 4 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, result);
-    LOG(LOG_LEVEL_INFO, "audin_process_open_reply: result 0x%8.8x", result);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_OPEN_REPLY result 0x%8.8x", result);
     return 0;
 }
 
@@ -298,7 +319,7 @@ audin_process_open_reply(int chan_id, struct stream *s)
 static int
 audin_process_incoming_data(int chan_id, struct stream *s)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_process_incoming_data:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "no-op");
     return 0;
 }
 
@@ -309,8 +330,9 @@ audin_process_data(int chan_id, struct stream *s)
     int data_bytes;
     struct stream *ls;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     data_bytes = (int) (s->end - s->p);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_process_data: data_bytes %d", data_bytes);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_DATA data length %d", data_bytes);
 
     xstream_new(ls, data_bytes);
     g_memcpy(ls->data, s->p, data_bytes);
@@ -326,14 +348,15 @@ audin_process_data(int chan_id, struct stream *s)
 static int
 audin_process_format_change(int chan_id, struct stream *s)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_process_format_change:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 4))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_format_change: parse error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEAI] MSG_SNDIN_FORMATCHANGE parse error: "
+                "expected 4 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, g_current_format);
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_process_format_change: g_current_format %d",
+    LOG(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_FORMATCHANGE NewFormat index %d",
         g_current_format);
     return 0;
 }
@@ -344,14 +367,15 @@ audin_process_msg(int chan_id, struct stream *s)
 {
     int code;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_process_msg:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 1))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_msg: parse error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "[MS-RDPEAI] SNDIN_PDU parse error: "
+                "expected 1 bytes but remaining %d", s_rem(s));
         return 1;
     }
     in_uint8(s, code);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_process_msg: code %d", code);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "[MS-RDPEAI] SNDIN_PDU MessageId %d", code);
     switch (code)
     {
         case MSG_SNDIN_VERSION:
@@ -367,7 +391,8 @@ audin_process_msg(int chan_id, struct stream *s)
         case MSG_SNDIN_FORMATCHANGE:
             return audin_process_format_change(chan_id, s);
         default:
-            LOG_DEVEL(LOG_LEVEL_ERROR, "audin_process_msg: unprocessed code %d", code);
+            LOG(LOG_LEVEL_WARNING, "[MS-RDPEAI] SNDIN_PDU MessageId %d "
+                "is unknown, ignoring message", code);
             break;
     }
     return 0;
@@ -377,11 +402,15 @@ audin_process_msg(int chan_id, struct stream *s)
 static int
 audin_open_response(int chan_id, int creation_status)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_open_response: creation_status 0x%8.8x", creation_status);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "[MS-RDPEAI] MSG_SNDIN_OPEN_REPLY creation_status 0x%8.8x", 
+            creation_status);
     if (creation_status == 0)
     {
         return audin_send_version(chan_id);
     }
+    LOG_DEVEL(LOG_LEVEL_WARNING, "[MS-RDPEAI] MSG_SNDIN_OPEN_REPLY creation_status 0x%8.8x "
+            "is unknown and is being ignored", creation_status);
     return 0;
 }
 
@@ -389,7 +418,7 @@ audin_open_response(int chan_id, int creation_status)
 static int
 audin_close_response(int chan_id)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_close_response:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     g_audin_chanid = 0;
     cleanup_client_formats();
     free_stream(g_in_s);
@@ -403,11 +432,11 @@ audin_data_fragment(int chan_id, char *data, int bytes)
 {
     int rv;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_data_fragment:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(g_in_s, bytes))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_data_fragment: error bytes %d left %d", 
-                bytes, (int) (g_in_s->end - g_in_s->p));
+        LOG_DEVEL(LOG_LEVEL_ERROR, "expected %d bytes but remaining %d", 
+                bytes, s_rem(g_in_s));
         return 1;
     }
     out_uint8a(g_in_s, data, bytes);
@@ -426,10 +455,10 @@ audin_data_fragment(int chan_id, char *data, int bytes)
 static int
 audin_data_first(int chan_id, char *data, int bytes, int total_bytes)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_data_first:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (g_in_s != NULL)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "audin_data_first: warning g_in_s is not nil");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "g_in_s is not NULL");
         free_stream(g_in_s);
     }
     make_stream(g_in_s);
@@ -444,7 +473,7 @@ audin_data(int chan_id, char *data, int bytes)
 {
     struct stream ls;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin_data:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     //g_hexdump(data, bytes);
     if (g_in_s == NULL)
     {
@@ -461,7 +490,7 @@ audin_data(int chan_id, char *data, int bytes)
 int
 audin_init(void)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_init:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     g_memset(&g_audin_info, 0, sizeof(g_audin_info));
     g_audin_info.open_response = audin_open_response;
     g_audin_info.close_response = audin_close_response;
@@ -476,7 +505,7 @@ audin_init(void)
 int
 audin_deinit(void)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_deinit:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "no-op");
     return 0;
 }
 
@@ -487,9 +516,10 @@ audin_start(void)
     int error;
     struct stream* s;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_start:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (g_audin_chanid != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "g_audin_chanid is not NULL");
         return 1;
     }
 
@@ -503,7 +533,8 @@ audin_start(void)
     error = chansrv_drdynvc_open(AUDIN_NAME, AUDIN_FLAGS,
                                  &g_audin_info, /* callback functions */
                                  &g_audin_chanid); /* chansrv chan_id */
-    LOG_DEVEL(LOG_LEVEL_ERROR, "audin_start: error %d g_audin_chanid %d", error, g_audin_chanid);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "audin start on channel id %d returned error code %d", 
+            g_audin_chanid, error);
     return error;
 }
 
@@ -511,7 +542,7 @@ audin_start(void)
 int
 audin_stop(void)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "audin_stop:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     chansrv_drdynvc_close(g_audin_chanid);
     return 0;
 }
