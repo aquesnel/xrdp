@@ -27,6 +27,7 @@
 #endif
 
 #include "os_calls.h"
+#include "log.h"
 
 #include "chansrv_xfs.h"
 
