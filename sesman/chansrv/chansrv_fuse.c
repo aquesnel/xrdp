@@ -436,8 +436,8 @@ xfuse_init(void)
     {
         if (!g_create_dir(g_fuse_root_path))
         {
-            LOGM((LOG_LEVEL_ERROR, "mkdir %s failed. If %s is already mounted, you must "
-                      "first unmount it", g_fuse_root_path, g_fuse_root_path));
+            LOG_DBG(LOG_LEVEL_ERROR, "mkdir %s failed. If %s is already mounted, you must "
+                      "first unmount it", g_fuse_root_path, g_fuse_root_path);
             return -1;
         }
     }
@@ -694,8 +694,8 @@ xfuse_file_contents_range(int stream_id, const char *data, int data_bytes)
 int
 xfuse_add_clip_dir_item(const char *filename, int flags, int size, int lindex)
 {
-    LOGM((LOG_LEVEL_DEBUG, "entered: filename=%s flags=%d size=%d lindex=%d",
-              filename, flags, size, lindex));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: filename=%s flags=%d size=%d lindex=%d",
+              filename, flags, size, lindex);
 
     /* add entry to xrdp_fs */
     XFS_INODE *xinode = xfs_add_entry( g_xfs,
@@ -1993,8 +1993,8 @@ static void xfuse_cb_release(fuse_req_t req, fuse_ino_t ino, struct
 
     XFUSE_HANDLE *handle = (XFUSE_HANDLE *) (tintptr) (fi->fh);
 
-    LOGM((LOG_LEVEL_DEBUG, "entered: ino=%ld fi=%p fi->fh=0x%llx", ino, fi,
-              (long long) fi->fh));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: ino=%ld fi=%p fi->fh=0x%llx", ino, fi,
+              (long long) fi->fh);
 
     if ((xinode = xfs_get(g_xfs, ino)) == NULL)
     {
@@ -2083,8 +2083,8 @@ static void xfuse_cb_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 
         if (g_req_list->count == 1)
         {
-            LOGM((LOG_LEVEL_DEBUG, "requesting clipboard file data lindex = %d off = %lld size = %zd",
-                      rli->lindex, (long long) off, size));
+            LOG_DBG(LOG_LEVEL_DEBUG, "requesting clipboard file data lindex = %d off = %lld size = %zd",
+                      rli->lindex, (long long) off, size);
 
             clipboard_request_file_data(rli->stream_id, rli->lindex,
                                         (int) off, (int) size);
@@ -2125,8 +2125,8 @@ static void xfuse_cb_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
     XFUSE_HANDLE *fh;
     struct state_write *fusep;
 
-    LOGM((LOG_LEVEL_DEBUG, "write %zd bytes at off %lld to inode=%ld",
-              size, (long long) off, ino));
+    LOG_DBG(LOG_LEVEL_DEBUG, "write %zd bytes at off %lld to inode=%ld",
+              size, (long long) off, ino);
 
     if ((fh = (XFUSE_HANDLE *)fi->fh) == NULL)
     {
@@ -2176,8 +2176,8 @@ static void xfuse_cb_create(fuse_req_t req, fuse_ino_t parent,
                             const char *name, mode_t mode,
                             struct fuse_file_info *fi)
 {
-    LOGM((LOG_LEVEL_DEBUG, "entered: parent_inode=%ld, name=%s fi=%p",
-              parent, name, fi));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: parent_inode=%ld, name=%s fi=%p",
+              parent, name, fi);
 
     xfuse_create_dir_or_file(req, parent, name, mode & ~S_IFDIR , fi);
 }
