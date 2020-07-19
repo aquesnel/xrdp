@@ -43,13 +43,13 @@ IRP * devredir_irp_new(void)
     IRP *irp;
     IRP *irp_last;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered");
 
     /* create new IRP */
     irp = g_new0(IRP, 1);
     if (irp == NULL)
     {
-        LOGM((LOG_LEVEL_ERROR, "system out of memory!"));
+        LOG_DBG(LOG_LEVEL_ERROR, "system out of memory!");
         return NULL;
     }
 
@@ -65,7 +65,7 @@ IRP * devredir_irp_new(void)
         irp->prev = irp_last;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "new IRP=%p", irp));
+    LOG_DBG(LOG_LEVEL_DEBUG, "new IRP=%p", irp);
     return irp;
 }
 
@@ -105,13 +105,13 @@ IRP * devredir_irp_with_pathnamelen_new(unsigned int pathnamelen)
     IRP *irp;
     IRP *irp_last;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered");
 
     /* create new IRP with space on end for the pathname and a terminator */
     irp = (IRP *)g_malloc(sizeof(IRP) + (pathnamelen + 1), 1);
     if (irp == NULL)
     {
-        LOGM((LOG_LEVEL_ERROR, "system out of memory!"));
+        LOG_DBG(LOG_LEVEL_ERROR, "system out of memory!");
         return NULL;
     }
 
@@ -129,7 +129,7 @@ IRP * devredir_irp_with_pathnamelen_new(unsigned int pathnamelen)
         irp->prev = irp_last;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "new IRP=%p", irp));
+    LOG_DBG(LOG_LEVEL_DEBUG, "new IRP=%p", irp);
     return irp;
 }
 
@@ -146,8 +146,8 @@ int devredir_irp_delete(IRP *irp)
     if ((irp == NULL) || (lirp == NULL))
         return -1;
 
-    LOGM((LOG_LEVEL_DEBUG, "irp=%p completion_id=%d type=%d",
-              irp, irp->CompletionId, irp->completion_type));
+    LOG_DBG(LOG_LEVEL_DEBUG, "irp=%p completion_id=%d type=%d",
+              irp, irp->CompletionId, irp->completion_type);
 
     devredir_irp_dump(); // LK_TODO
 
@@ -209,14 +209,14 @@ IRP *devredir_irp_find(tui32 completion_id)
     {
         if (irp->CompletionId == completion_id)
         {
-            LOGM((LOG_LEVEL_DEBUG, "returning irp=%p", irp));
+            LOG_DBG(LOG_LEVEL_DEBUG, "returning irp=%p", irp);
             return irp;
         }
 
         irp = irp->next;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "returning irp=NULL"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "returning irp=NULL");
     return NULL;
 }
 
@@ -228,14 +228,14 @@ IRP * devredir_irp_find_by_fileid(tui32 FileId)
     {
         if (irp->FileId == FileId)
         {
-            LOGM((LOG_LEVEL_DEBUG, "returning irp=%p", irp));
+            LOG_DBG(LOG_LEVEL_DEBUG, "returning irp=%p", irp);
             return irp;
         }
 
         irp = irp->next;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "returning irp=NULL"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "returning irp=NULL");
     return NULL;
 }
 
@@ -255,7 +255,7 @@ IRP * devredir_irp_get_last(void)
         irp = irp->next;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "returning irp=%p", irp));
+    LOG_DBG(LOG_LEVEL_DEBUG, "returning irp=%p", irp);
     return irp;
 }
 
@@ -263,13 +263,13 @@ void devredir_irp_dump(void)
 {
     IRP *irp = g_irp_head;
 
-    LOGM((LOG_LEVEL_DEBUG, "------- dumping IRPs --------"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "------- dumping IRPs --------");
     while (irp)
     {
-        LOGM((LOG_LEVEL_DEBUG, "        completion_id=%d\tcompletion_type=%d\tFileId=%d",
-                  irp->CompletionId, irp->completion_type, irp->FileId));
+        LOG_DBG(LOG_LEVEL_DEBUG, "        completion_id=%d\tcompletion_type=%d\tFileId=%d",
+                  irp->CompletionId, irp->completion_type, irp->FileId);
 
         irp = irp->next;
     }
-    LOGM((LOG_LEVEL_DEBUG, "------- dumping IRPs done ---"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "------- dumping IRPs done ---");
 }

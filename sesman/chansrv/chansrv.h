@@ -39,8 +39,6 @@ int send_rail_drawing_orders(char* data, int size);
 int main_cleanup(void);
 int add_timeout(int msoffset, void (*callback)(void* data), void* data);
 
-#define LOGM(_args) do { log_message _args ; } while (0)
-
 #ifndef GSET_UINT8
 #define GSET_UINT8(_ptr, _offset, _data) \
     *((unsigned char*) (((unsigned char*)(_ptr)) + (_offset))) = (unsigned char)(_data)

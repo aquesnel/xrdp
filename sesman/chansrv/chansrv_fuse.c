@@ -133,48 +133,6 @@ void xfuse_devredir_cb_file_close(struct state_close *fip)
 #define XFUSE_ATTR_TIMEOUT      5.0
 #define XFUSE_ENTRY_TIMEOUT     5.0
 
-/* module based logging */
-#define LOG_ERROR   0
-#define LOG_INFO    1
-#define LOG_DEBUG   2
-#ifndef LOG_LEVEL
-#define LOG_LEVEL   LOG_ERROR
-#endif
-
-#define log_error(_params...)                           \
-{                                                       \
-    g_write("[%10.10u]: FUSE       %s: %d : ERROR: ",   \
-            g_time3(), __func__, __LINE__);             \
-    g_writeln (_params);                                \
-}
-
-#define log_always(_params...)                          \
-{                                                       \
-    g_write("[%10.10u]: FUSE       %s: %d : ALWAYS: ",  \
-            g_time3(), __func__, __LINE__);             \
-    g_writeln (_params);                                \
-}
-
-#define log_info(_params...)                            \
-{                                                       \
-    if (LOG_INFO <= LOG_LEVEL)                          \
-    {                                                   \
-        g_write("[%10.10u]: FUSE       %s: %d : ",      \
-                g_time3(), __func__, __LINE__);         \
-        g_writeln (_params);                            \
-    }                                                   \
-}
-
-#define log_debug(_params...)                           \
-{                                                       \
-    if (LOG_DEBUG <= LOG_LEVEL)                         \
-    {                                                   \
-        g_write("[%10.10u]: FUSE       %s: %d : ",      \
-                g_time3(), __func__, __LINE__);         \
-        g_writeln (_params);                            \
-    }                                                   \
-}
-
 
 /* Type of buffer used for fuse_add_direntry() calls */
 struct dirbuf1
@@ -429,7 +387,7 @@ load_fuse_config(void)
         else if (g_strcasecmp(item, "FileUmask") == 0)
         {
             g_umask = strtol(value, NULL, 0);
-            log_info("g_umask set to 0%o", g_umask);
+            LOG_DBG(LOG_LEVEL_INFO, "g_umask set to 0%o", g_umask);
         }
     }
     list_delete(items);
@@ -457,13 +415,13 @@ xfuse_init(void)
     /* if already inited, just return */
     if (g_xfuse_inited)
     {
-        LOGM((LOG_LEVEL_DEBUG, "already inited"));
+        LOG_DBG(LOG_LEVEL_DEBUG, "already inited");
         return 1;
     }
 
     if (g_ch != 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "g_ch is not zero"));
+        LOG_DBG(LOG_LEVEL_ERROR, "g_ch is not zero");
         return -1;
     }
 
@@ -635,7 +593,7 @@ int xfuse_create_share(tui32 device_id, const char *dirname)
         xinode = xfs_add_entry(g_xfs, FUSE_ROOT_ID, dirname, (0777 | S_IFDIR));
         if (xinode == NULL)
         {
-            log_debug("xfs_add_entry() failed");
+            LOG_DBG(LOG_LEVEL_DEBUG, "xfs_add_entry() failed");
         }
         else
         {
@@ -688,24 +646,24 @@ int xfuse_clear_clip_dir(void)
 int
 xfuse_file_contents_range(int stream_id, const char *data, int data_bytes)
 {
-    LOGM((LOG_LEVEL_DEBUG, "entered: stream_id=%d data_bytes=%d", stream_id, data_bytes));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: stream_id=%d data_bytes=%d", stream_id, data_bytes);
 
     struct req_list_item *rli;
 
     if ((rli = (struct req_list_item *) list_get_item(g_req_list, 0)) == NULL)
     {
-        LOGM((LOG_LEVEL_ERROR, "range error!"));
+        LOG_DBG(LOG_LEVEL_ERROR, "range error!");
         return -1;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "lindex=%d off=%d size=%d", rli->lindex, rli->off, rli->size));
+    LOG_DBG(LOG_LEVEL_DEBUG, "lindex=%d off=%d size=%d", rli->lindex, rli->off, rli->size);
 
     fuse_reply_buf(rli->req, data, data_bytes);
 
     list_remove_item(g_req_list, 0);
     if (g_req_list->count <= 0)
     {
-        LOGM((LOG_LEVEL_DEBUG, "completed all requests"));
+        LOG_DBG(LOG_LEVEL_DEBUG, "completed all requests");
         return 0;
     }
 
@@ -713,11 +671,11 @@ xfuse_file_contents_range(int stream_id, const char *data, int data_bytes)
     rli = (struct req_list_item *) list_get_item(g_req_list, 0);
     if (rli == NULL)
     {
-        LOGM((LOG_LEVEL_ERROR, "range error!"));
+        LOG_DBG(LOG_LEVEL_ERROR, "range error!");
         return -1;
     }
 
-    LOGM((LOG_LEVEL_DEBUG, "requesting clipboard file data"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "requesting clipboard file data");
 
     clipboard_request_file_data(rli->stream_id, rli->lindex,
                                     rli->off, rli->size);
@@ -746,7 +704,7 @@ xfuse_add_clip_dir_item(const char *filename, int flags, int size, int lindex)
                                        (0666 | S_IFREG));
     if (xinode == NULL)
     {
-        LOGM((LOG_LEVEL_DEBUG, "failed to create file in xrdp filesystem"));
+        LOG_DBG(LOG_LEVEL_DEBUG, "failed to create file in xrdp filesystem");
         return -1;
     }
     xinode->size = size;
@@ -763,7 +721,7 @@ xfuse_add_clip_dir_item(const char *filename, int flags, int size, int lindex)
 
 int xfuse_file_contents_size(int stream_id, int file_size)
 {
-    LOGM((LOG_LEVEL_DEBUG, "entered: stream_id=%d file_size=%d", stream_id, file_size));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: stream_id=%d file_size=%d", stream_id, file_size);
     return 0;
 }
 
@@ -783,14 +741,14 @@ static int xfuse_init_lib(struct fuse_args *args)
 {
     if (fuse_parse_cmdline(args, &g_mount_point, 0, 0) < 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "fuse_parse_cmdline() failed"));
+        LOG_DBG(LOG_LEVEL_ERROR, "fuse_parse_cmdline() failed");
         fuse_opt_free_args(args);
         return -1;
     }
 
     if ((g_ch = fuse_mount(g_mount_point, args)) == 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "fuse_mount() failed"));
+        LOG_DBG(LOG_LEVEL_ERROR, "fuse_mount() failed");
         fuse_opt_free_args(args);
         return -1;
     }
@@ -798,7 +756,7 @@ static int xfuse_init_lib(struct fuse_args *args)
     g_se = fuse_lowlevel_new(args, &g_xfuse_ops, sizeof(g_xfuse_ops), 0);
     if (g_se == 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "fuse_lowlevel_new() failed"));
+        LOG_DBG(LOG_LEVEL_ERROR, "fuse_lowlevel_new() failed");
         fuse_unmount(g_mount_point, g_ch);
         g_ch = 0;
         fuse_opt_free_args(args);
@@ -837,7 +795,7 @@ static int xfuse_init_xrdp_fs(void)
     }
     else if ((g_xfs = xfs_create_xfs_fs(0, g_getuid(), g_getgid())) == NULL)
     {
-        log_error("system out of memory");
+        LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
     }
     else
     {
@@ -846,7 +804,7 @@ static int xfuse_init_xrdp_fs(void)
                              (0777 | S_IFDIR));
         if (xino == NULL)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             xfs_delete_xfs_fs(g_xfs);
             g_xfs = NULL;
         }
@@ -897,7 +855,7 @@ void xfuse_devredir_cb_enum_dir_add_entry(
 
     if (!xfs_get(g_xfs, fip->pinum))
     {
-        log_error("inode %ld is not valid", fip->pinum);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", fip->pinum);
     }
     else if ((strcmp(name, ".") == 0) ||
              (strcmp(name, "..") == 0))
@@ -906,7 +864,7 @@ void xfuse_devredir_cb_enum_dir_add_entry(
     }
     else
     {
-        log_debug("parent_inode=%ld name=%s", fip->pinum, name);
+        LOG_DBG(LOG_LEVEL_DEBUG, "parent_inode=%ld name=%s", fip->pinum, name);
 
         /* Does the file already exist ? If it does it's important we
          * don't mess with it, as we're only enumerating the directory, and
@@ -916,12 +874,12 @@ void xfuse_devredir_cb_enum_dir_add_entry(
         if (xinode == NULL)
         {
             /* Add a new node to the file system */
-            log_debug("Creating name=%s in parent=%ld in xrdp_fs",
+            LOG_DBG(LOG_LEVEL_DEBUG, "Creating name=%s in parent=%ld in xrdp_fs",
                       name, fip->pinum);
             xinode = xfs_add_entry(g_xfs, fip->pinum, name, fattr->mode);
             if (xinode == NULL)
             {
-                log_error("xfs_add_entry() failed");
+                LOG_DBG(LOG_LEVEL_ERROR, "xfs_add_entry() failed");
             }
             else
             {
@@ -946,7 +904,7 @@ void xfuse_devredir_cb_enum_dir_add_entry(
 void xfuse_devredir_cb_enum_dir_done(struct state_dirscan *fip,
                                      enum NTSTATUS IoStatus)
 {
-    log_debug("fip=%p IoStatus=0x%x", fip, IoStatus);
+    LOG_DBG(LOG_LEVEL_DEBUG, "fip=%p IoStatus=0x%x", fip, IoStatus);
 
     /*
      * STATUS_NO_SUCH_FILE is returned for empty directories
@@ -966,7 +924,7 @@ void xfuse_devredir_cb_enum_dir_done(struct state_dirscan *fip,
     }
     else if (!xfs_get(g_xfs, fip->pinum))
     {
-        log_error("inode %ld is not valid", fip->pinum);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", fip->pinum);
         fuse_reply_err(fip->req, ENOENT);
     }
     else
@@ -1026,19 +984,19 @@ void xfuse_devredir_cb_lookup_entry(struct state_lookup *fip,
                 break;
 
             default:
-                log_info("Error code %08x - fallthrough", (int) IoStatus);
+                LOG_DBG(LOG_LEVEL_INFO, "Error code %08x - fallthrough", (int) IoStatus);
                 fuse_reply_err(fip->req, EIO);
                 break;
         }
     }
     else if (!xfs_get(g_xfs, fip->pinum))
     {
-        log_error("parent inode %ld is not valid", fip->pinum);
+        LOG_DBG(LOG_LEVEL_ERROR, "parent inode %ld is not valid", fip->pinum);
         fuse_reply_err(fip->req, ENOENT);
     }
     else
     {
-        log_debug("parent_inode=%ld name=%s", fip->pinum, fip->name);
+        LOG_DBG(LOG_LEVEL_DEBUG, "parent_inode=%ld name=%s", fip->pinum, fip->name);
 
         /* Does the file already exist ? */
         xinode = xfs_lookup_in_dir(g_xfs, fip->pinum, fip->name);
@@ -1048,7 +1006,7 @@ void xfuse_devredir_cb_lookup_entry(struct state_lookup *fip,
             if ((xinode->mode & (S_IFREG | S_IFDIR)) ==
                 (file_info->mode & (S_IFREG | S_IFDIR)))
             {
-                log_debug("inode=%ld name=%s already exists in xrdp_fs as %ld",
+                LOG_DBG(LOG_LEVEL_DEBUG, "inode=%ld name=%s already exists in xrdp_fs as %ld",
                           fip->pinum, fip->name, xinode->inum);
                 if (xfs_get_file_open_count(g_xfs, xinode->inum) > 0)
                 {
@@ -1058,19 +1016,19 @@ void xfuse_devredir_cb_lookup_entry(struct state_lookup *fip,
                      * would be truncating a file we're currently writing
                      * to, as the lookup value for the size is stale.
                      */
-                    log_debug("inode=%ld is open - "
+                    LOG_DBG(LOG_LEVEL_DEBUG, "inode=%ld is open - "
                               "preferring local attributes", xinode->inum);
                 }
                 else
                 {
-                    log_debug("Updating attributes of inode=%ld", xinode->inum);
+                    LOG_DBG(LOG_LEVEL_DEBUG, "Updating attributes of inode=%ld", xinode->inum);
                     update_inode_file_attributes(file_info, TO_SET_ALL, xinode);
                 }
             }
             else
             {
                 /* Type has changed from file to directory, or vice-versa */
-                log_debug("inode=%ld name=%s of different type in xrdp_fs"
+                LOG_DBG(LOG_LEVEL_DEBUG, "inode=%ld name=%s of different type in xrdp_fs"
                           " - removing",
                           fip->pinum, xinode->name);
                 xfs_remove_entry(g_xfs, xinode->inum);
@@ -1081,13 +1039,13 @@ void xfuse_devredir_cb_lookup_entry(struct state_lookup *fip,
         if (xinode == NULL)
         {
             /* Add a new node to the file system */
-            log_debug("Creating name=%s in parent=%ld in xrdp_fs",
+            LOG_DBG(LOG_LEVEL_DEBUG, "Creating name=%s in parent=%ld in xrdp_fs",
                       fip->name, fip->pinum);
             xinode = xfs_add_entry(g_xfs, fip->pinum, fip->name,
                                    file_info->mode);
             if (xinode == NULL)
             {
-                log_debug("xfs_add_entry() failed");
+                LOG_DBG(LOG_LEVEL_DEBUG, "xfs_add_entry() failed");
             }
             else
             {
@@ -1140,7 +1098,7 @@ void xfuse_devredir_cb_setattr(struct state_setattr *fip,
                 break;
 
             default:
-                log_info("Error code %08x - fallthrough", (int) IoStatus);
+                LOG_DBG(LOG_LEVEL_INFO, "Error code %08x - fallthrough", (int) IoStatus);
                 fuse_reply_err(fip->req, EIO);
                 break;
         }
@@ -1203,7 +1161,7 @@ void xfuse_devredir_cb_create_file(struct state_create *fip,
         if ((fip->mode & S_IFREG) != 0 && fh == NULL)
         {
             /* We failed to allocate a file handle */
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(fip->req, ENOMEM);
         }
         else
@@ -1234,7 +1192,7 @@ void xfuse_devredir_cb_create_file(struct state_create *fip,
 
             if (xinode == NULL)
             {
-                log_error("Out of memory!");
+                LOG_DBG(LOG_LEVEL_ERROR, "Out of memory!");
                 fuse_reply_err(fip->req, ENOMEM);
             }
             else
@@ -1291,7 +1249,7 @@ void xfuse_devredir_cb_open_file(struct state_open *fip,
         /* Allocate an XFUSE_HANDLE for future file operations */
         if ((fh = g_new0(XFUSE_HANDLE, 1)) == NULL)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(fip->req, ENOMEM);
         }
         else
@@ -1302,7 +1260,7 @@ void xfuse_devredir_cb_open_file(struct state_open *fip,
 
             fip->fi.fh = (tintptr) fh;
 
-            log_debug("sending fuse_reply_open(); "
+            LOG_DBG(LOG_LEVEL_DEBUG, "sending fuse_reply_open(); "
                       "DeviceId=%d FileId=%d req=%p",
                       fh->DeviceId, fh->FileId, fip->req);
 
@@ -1322,7 +1280,7 @@ void xfuse_devredir_cb_read_file(struct state_read *fip,
 {
     if (IoStatus != STATUS_SUCCESS)
     {
-        log_error("Read NTSTATUS is %d", (int) IoStatus);
+        LOG_DBG(LOG_LEVEL_ERROR, "Read NTSTATUS is %d", (int) IoStatus);
         fuse_reply_err(fip->req, EIO);
     }
     else
@@ -1342,7 +1300,7 @@ void xfuse_devredir_cb_write_file(
 
     if (IoStatus != STATUS_SUCCESS)
     {
-        log_error("Write NTSTATUS is %d", (int) IoStatus);
+        LOG_DBG(LOG_LEVEL_ERROR, "Write NTSTATUS is %d", (int) IoStatus);
         fuse_reply_err(fip->req, EIO);
     }
     else
@@ -1360,7 +1318,7 @@ void xfuse_devredir_cb_write_file(
         }
         else
         {
-            log_error("inode %ld is invalid", fip->inum);
+            LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is invalid", fip->inum);
         }
     }
 
@@ -1386,7 +1344,7 @@ void xfuse_devredir_cb_rmdir_or_file(struct state_remove *fip,
             break;
 
         default:
-            log_info("Error code %08x - fallthrough", (int) IoStatus);
+            LOG_DBG(LOG_LEVEL_INFO, "Error code %08x - fallthrough", (int) IoStatus);
             fuse_reply_err(fip->req, EBADF);
             break;
     }
@@ -1438,7 +1396,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     XFS_INODE *parent_xinode;
     XFS_INODE *xinode = NULL;
 
-    log_debug("looking for parent=%ld name=%s", parent, name);
+    LOG_DBG(LOG_LEVEL_DEBUG, "looking for parent=%ld name=%s", parent, name);
 
     if (strlen(name) > XFS_MAXFILENAMELEN)
     {
@@ -1446,7 +1404,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     }
     else if ((parent_xinode = xfs_get(g_xfs, parent)) == NULL)
     {
-        log_error("inode %ld is not valid", parent);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", parent);
         fuse_reply_err(req, ENOENT);
     }
     else
@@ -1456,7 +1414,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
             /* File cannot be remote - we either know about it or we don't */
             if ((xinode = xfs_lookup_in_dir(g_xfs, parent, name)) != NULL)
             {
-                log_debug("found entry for parent=%ld name=%s",
+                LOG_DBG(LOG_LEVEL_DEBUG, "found entry for parent=%ld name=%s",
                           parent, name);
                 make_fuse_entry_reply(req, xinode);
             }
@@ -1476,7 +1434,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 
             if (fip == NULL || full_path == NULL)
             {
-                log_error("system out of memory");
+                LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
                 fuse_reply_err(req, ENOMEM);
                 free(fip);
                 free(full_path);
@@ -1501,7 +1459,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
                     fip->existing_inum = xinode->inum;
                     fip->existing_generation = xinode->generation;
                 }
-                log_debug("Looking up %s in %s on %d", name, cptr,
+                LOG_DBG(LOG_LEVEL_DEBUG, "Looking up %s in %s on %d", name, cptr,
                                                       parent_xinode->device_id);
                 /*
                  * If this call succeeds, further request processing happens in
@@ -1509,7 +1467,7 @@ static void xfuse_cb_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
                  */
                 if (devredir_lookup_entry(fip, parent_xinode->device_id, cptr))
                 {
-                    log_error("failed to send devredir_lookup_entry() cmd");
+                    LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_lookup_entry() cmd");
                     fuse_reply_err(req, EREMOTEIO);
                     free(fip);
                 }
@@ -1531,12 +1489,12 @@ static void xfuse_cb_getattr(fuse_req_t req, fuse_ino_t ino,
 {
     XFS_INODE *xino;
 
-    LOGM((LOG_LEVEL_DEBUG, "req=%p ino=%ld", req, ino));
+    LOG_DBG(LOG_LEVEL_DEBUG, "req=%p ino=%ld", req, ino);
 
     /* if ino is not valid, just return */
     if ((xino = xfs_get(g_xfs, ino)) == NULL)
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else
@@ -1601,12 +1559,12 @@ static void xfuse_cb_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
     struct xfs_dir_handle *dh;
     struct dirbuf1   b;
 
-    LOGM((LOG_LEVEL_DEBUG, "req=%p inode=%ld size=%zd offset=%lld", req, ino, size, (long long) off));
+    LOG_DBG(LOG_LEVEL_DEBUG, "req=%p inode=%ld size=%zd offset=%lld", req, ino, size, (long long) off);
 
     /* On the first call, check the inode is valid */
     if (off == 0 && !xfs_get(g_xfs, ino))
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else if ((dh = (struct xfs_dir_handle *) fi->fh) == NULL)
@@ -1643,7 +1601,7 @@ static void xfuse_cb_mkdir(fuse_req_t req, fuse_ino_t parent,
 {
     XFS_INODE               *xinode;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered: parent_inode=%ld name=%s", parent, name));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: parent_inode=%ld name=%s", parent, name);
 
     if ((xinode = xfs_lookup_in_dir(g_xfs, parent, name)) != NULL)
     {
@@ -1667,7 +1625,7 @@ static void xfuse_cb_unlink(fuse_req_t req, fuse_ino_t parent,
 {
     XFS_INODE *xinode;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered: parent=%ld name=%s", parent, name));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: parent=%ld name=%s", parent, name);
 
     if (strlen(name) > XFS_MAXFILENAMELEN)
     {
@@ -1675,14 +1633,14 @@ static void xfuse_cb_unlink(fuse_req_t req, fuse_ino_t parent,
     }
     else if ((xinode = xfs_lookup_in_dir(g_xfs, parent, name)) == NULL)
     {
-        log_error("did not find file with pinode=%ld name=%s", parent, name);
+        LOG_DBG(LOG_LEVEL_ERROR, "did not find file with pinode=%ld name=%s", parent, name);
         fuse_reply_err(req, ENOENT);
     }
 
     else if ((xinode->mode & S_IFDIR) != 0 &&
              !xfs_is_dir_empty(g_xfs, xinode->inum))
     {
-        log_debug("cannot rmdir; directory is not empty");
+        LOG_DBG(LOG_LEVEL_DEBUG, "cannot rmdir; directory is not empty");
         fuse_reply_err(req, ENOTEMPTY);
     }
 
@@ -1691,7 +1649,7 @@ static void xfuse_cb_unlink(fuse_req_t req, fuse_ino_t parent,
         /* specified file is a local resource */
         //XFUSE_HANDLE *fh;
 
-        log_debug("LK_TODO: this is still a TODO");
+        LOG_DBG(LOG_LEVEL_DEBUG, "LK_TODO: this is still a TODO");
         fuse_reply_err(req, EROFS);
     }
     else
@@ -1701,7 +1659,7 @@ static void xfuse_cb_unlink(fuse_req_t req, fuse_ino_t parent,
         char *full_path = xfs_get_full_path(g_xfs, xinode->inum);
         if (!full_path || !fip)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(req, ENOMEM);
             free(fip);
         }
@@ -1722,7 +1680,7 @@ static void xfuse_cb_unlink(fuse_req_t req, fuse_ino_t parent,
              */
             if (devredir_rmdir_or_file(fip, xinode->device_id, cptr))
             {
-                log_error("failed to send devredir_rmdir_or_file() cmd");
+                LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_rmdir_or_file() cmd");
                 fuse_reply_err(req, EREMOTEIO);
                 free(fip);
             }
@@ -1739,7 +1697,7 @@ static void xfuse_cb_rename(fuse_req_t req,
     XFS_INODE *old_xinode;
     XFS_INODE *new_parent_xinode;
 
-    log_debug("entered: old_parent=%ld old_name=%s new_parent=%ld new_name=%s",
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: old_parent=%ld old_name=%s new_parent=%ld new_name=%s",
               old_parent, old_name, new_parent, new_name);
 
     if (strlen(old_name) > XFS_MAXFILENAMELEN ||
@@ -1749,14 +1707,14 @@ static void xfuse_cb_rename(fuse_req_t req,
     }
     else if (!(old_xinode = xfs_lookup_in_dir(g_xfs, old_parent, old_name)))
     {
-        log_error("did not find file with pinode=%ld name=%s",
+        LOG_DBG(LOG_LEVEL_ERROR, "did not find file with pinode=%ld name=%s",
                   old_parent, old_name);
         fuse_reply_err(req, ENOENT);
     }
 
     else if (!(new_parent_xinode = xfs_get(g_xfs, new_parent)))
     {
-        log_error("inode %ld is not valid", new_parent);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", new_parent);
         fuse_reply_err(req, ENOENT);
     }
 
@@ -1776,7 +1734,7 @@ static void xfuse_cb_rename(fuse_req_t req,
     else if (!old_xinode->is_redirected)
     {
         /* specified file is a local resource */
-        log_debug("LK_TODO: this is still a TODO");
+        LOG_DBG(LOG_LEVEL_DEBUG, "LK_TODO: this is still a TODO");
         fuse_reply_err(req, EROFS);
     }
 
@@ -1790,7 +1748,7 @@ static void xfuse_cb_rename(fuse_req_t req,
 
         if (!old_full_path || !new_full_path || !fip)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(req, ENOMEM);
             free(fip);
             free(old_full_path);
@@ -1816,7 +1774,7 @@ static void xfuse_cb_rename(fuse_req_t req,
              */
             if (devredir_file_rename(fip, old_xinode->device_id, cptr, cp))
             {
-                log_error("failed to send devredir_file_rename() cmd");
+                LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_file_rename() cmd");
                 fuse_reply_err(req, EREMOTEIO);
                 free(fip);
             }
@@ -1843,7 +1801,7 @@ static void xfuse_create_dir_or_file(fuse_req_t req, fuse_ino_t parent,
 {
     XFS_INODE        *xinode;
 
-    log_debug("entered: parent_ino=%ld name=%s mode=%o type=%s",
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: parent_ino=%ld name=%s mode=%o type=%s",
               parent, name, mode, (mode & S_IFDIR) ? "dir" : "file");
 
     /* name must be valid */
@@ -1884,7 +1842,7 @@ static void xfuse_create_dir_or_file(fuse_req_t req, fuse_ino_t parent,
             /* specified file is a local resource */
             //XFUSE_HANDLE *fh;
 
-            log_debug("LK_TODO: this is still a TODO");
+            LOG_DBG(LOG_LEVEL_DEBUG, "LK_TODO: this is still a TODO");
             fuse_reply_err(req, EROFS);
         }
         else
@@ -1894,7 +1852,7 @@ static void xfuse_create_dir_or_file(fuse_req_t req, fuse_ino_t parent,
 
             if (full_path == NULL || fip == NULL)
             {
-                log_error("Out of memory");
+                LOG_DBG(LOG_LEVEL_ERROR, "Out of memory");
                 fuse_reply_err(req, ENOMEM);
                 free(fip);
                 free(full_path);
@@ -1921,7 +1879,7 @@ static void xfuse_create_dir_or_file(fuse_req_t req, fuse_ino_t parent,
                  */
                 if (devredir_file_create(fip, xinode->device_id, cptr, mode))
                 {
-                    log_error("failed to send devredir_file_create() cmd");
+                    LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_file_create() cmd");
                     fuse_reply_err(req, EREMOTEIO);
                     free(fip);
                 }
@@ -1944,24 +1902,24 @@ static void xfuse_cb_open(fuse_req_t req, fuse_ino_t ino,
 {
     XFS_INODE        *xinode;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered: ino=%ld", ino));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered: ino=%ld", ino);
 
     if (!(xinode = xfs_get(g_xfs, ino)))
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else if (xinode->mode & S_IFDIR)
     {
         /* Can't open directories like this */
-        log_debug("reading/writing a dir not allowed!");
+        LOG_DBG(LOG_LEVEL_DEBUG, "reading/writing a dir not allowed!");
         fuse_reply_err(req, EISDIR);
     }
     else if ((fi->flags & O_ACCMODE) != O_RDONLY &&
              (fi->flags & O_ACCMODE) != O_WRONLY &&
              (fi->flags & O_ACCMODE) != O_RDWR)
     {
-        log_debug("Invalid access mode specified");
+        LOG_DBG(LOG_LEVEL_DEBUG, "Invalid access mode specified");
         fuse_reply_err(req, EINVAL);
     }
     else if (!xinode->is_redirected)
@@ -1987,7 +1945,7 @@ static void xfuse_cb_open(fuse_req_t req, fuse_ino_t ino,
 
         if (!full_path || !fip)
         {
-           log_error("system out of memory");
+           LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
            fuse_reply_err(req, ENOMEM);
            free(fip);
            free(full_path);
@@ -2014,7 +1972,7 @@ static void xfuse_cb_open(fuse_req_t req, fuse_ino_t ino,
              */
             if (devredir_file_open(fip, xinode->device_id, cptr, fi->flags))
             {
-                log_error("failed to send devredir_file_open() cmd");
+                LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_file_open() cmd");
                 fuse_reply_err(req, EREMOTEIO);
                 free(fip);
             }
@@ -2040,7 +1998,7 @@ static void xfuse_cb_release(fuse_req_t req, fuse_ino_t ino, struct
 
     if ((xinode = xfs_get(g_xfs, ino)) == NULL)
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else if (!xinode->is_redirected)
@@ -2055,7 +2013,7 @@ static void xfuse_cb_release(fuse_req_t req, fuse_ino_t ino, struct
         struct state_close *fip = g_new0(struct state_close, 1);
         if (fip == NULL)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(req, ENOMEM);
             return;
         }
@@ -2072,7 +2030,7 @@ static void xfuse_cb_release(fuse_req_t req, fuse_ino_t ino, struct
          */
         if (devredir_file_close(fip, xinode->device_id, handle->FileId))
         {
-            log_error("failed to send devredir_close_file() cmd");
+            LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_close_file() cmd");
             fuse_reply_err(req, EREMOTEIO);
             free(fip);
         }
@@ -2095,7 +2053,7 @@ static void xfuse_cb_read(fuse_req_t req, fuse_ino_t ino, size_t size,
     XFS_INODE            *xinode;
     struct req_list_item  *rli;
 
-    LOGM((LOG_LEVEL_DEBUG, "want_bytes %zd bytes at off %lld", size, (long long) off));
+    LOG_DBG(LOG_LEVEL_DEBUG, "want_bytes %zd bytes at off %lld", size, (long long) off);
 
     if ((fh = (XFUSE_HANDLE *)fi->fh) == NULL)
     {
@@ -2105,11 +2063,11 @@ static void xfuse_cb_read(fuse_req_t req, fuse_ino_t ino, size_t size,
     {
         /* target file is in .clipboard dir */
 
-        LOGM((LOG_LEVEL_DEBUG, "target file is in .clipboard dir"));
+        LOG_DBG(LOG_LEVEL_DEBUG, "target file is in .clipboard dir");
 
         if ((xinode = xfs_get(g_xfs, ino)) == NULL)
         {
-            LOGM((LOG_LEVEL_ERROR, "ino does not exist in xrdp_fs"));
+            LOG_DBG(LOG_LEVEL_ERROR, "ino does not exist in xrdp_fs");
             fuse_reply_buf(req, 0, 0);
             return;
         }
@@ -2139,7 +2097,7 @@ static void xfuse_cb_read(fuse_req_t req, fuse_ino_t ino, size_t size,
         fusep = g_new0(struct state_read, 1);
         if (fusep == NULL)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(req, ENOMEM);
         }
         else
@@ -2172,13 +2130,13 @@ static void xfuse_cb_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 
     if ((fh = (XFUSE_HANDLE *)fi->fh) == NULL)
     {
-        LOGM((LOG_LEVEL_ERROR, "file handle fi->fh is NULL"));
+        LOG_DBG(LOG_LEVEL_ERROR, "file handle fi->fh is NULL");
         fuse_reply_err(req, EINVAL);
     }
     else if (fh->is_loc_resource)
     {
         /* target file is in .clipboard dir */
-        log_debug("THIS IS STILL A TODO!");
+        LOG_DBG(LOG_LEVEL_DEBUG, "THIS IS STILL A TODO!");
         fuse_reply_err(req, EROFS);
     }
     else
@@ -2188,7 +2146,7 @@ static void xfuse_cb_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
         fusep = g_new0(struct state_write, 1);
         if (fusep == NULL)
         {
-            log_error("system out of memory");
+            LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
             fuse_reply_err(req, ENOMEM);
         }
         else
@@ -2231,8 +2189,8 @@ static void xfuse_cb_create(fuse_req_t req, fuse_ino_t parent,
 static void xfuse_cb_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
                            struct fuse_file_info *fi)
 {
-    LOGM((LOG_LEVEL_DEBUG, "#################### entered: ino=%ld datasync=%d", ino, datasync));
-    LOGM((LOG_LEVEL_DEBUG, "function not required"));
+    LOG_DBG(LOG_LEVEL_DEBUG, "#################### entered: ino=%ld datasync=%d", ino, datasync);
+    LOG_DBG(LOG_LEVEL_DEBUG, "function not required");
     fuse_reply_err(req, EINVAL);
 }
 #endif
@@ -2255,11 +2213,11 @@ static void xfuse_cb_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 {
     XFS_INODE   *xinode;
 
-    LOGM((LOG_LEVEL_DEBUG, "entered to_set=0x%x", to_set));
+    LOG_DBG(LOG_LEVEL_DEBUG, "entered to_set=0x%x", to_set);
 
     if ((xinode = xfs_get(g_xfs, ino)) == NULL)
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else if (((to_set & FUSE_SET_ATTR_UID) && attr->st_uid != xinode->uid) ||
@@ -2272,7 +2230,7 @@ static void xfuse_cb_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
               (attr->st_mode & ~(0777 | S_IFDIR | S_IFREG)) != 0)
     {
         /* We only support standard mode bits and S_IFDIR / S_IFREG */
-        log_error("Asking for invalid mode bits 0%o to be set", attr->st_mode);
+        LOG_DBG(LOG_LEVEL_ERROR, "Asking for invalid mode bits 0%o to be set", attr->st_mode);
         fuse_reply_err(req, EINVAL);
     }
     else    
@@ -2321,7 +2279,7 @@ static void xfuse_cb_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
             char *full_path = xfs_get_full_path(g_xfs, ino);
             if (!full_path || !fip)
             {
-                log_error("system out of memory");
+                LOG_DBG(LOG_LEVEL_ERROR, "system out of memory");
                 fuse_reply_err(req, ENOMEM);
                 free(fip);
                 free(full_path);
@@ -2368,11 +2326,11 @@ static void xfuse_cb_opendir(fuse_req_t req, fuse_ino_t ino,
 {
     XFS_INODE      *xinode;
 
-    LOGM((LOG_LEVEL_DEBUG, "inode=%ld", ino));
+    LOG_DBG(LOG_LEVEL_DEBUG, "inode=%ld", ino);
 
     if ((xinode = xfs_get(g_xfs, ino)) == NULL)
     {
-        log_error("inode %ld is not valid", ino);
+        LOG_DBG(LOG_LEVEL_ERROR, "inode %ld is not valid", ino);
         fuse_reply_err(req, ENOENT);
     }
     else if (!xinode->is_redirected)
@@ -2388,7 +2346,7 @@ static void xfuse_cb_opendir(fuse_req_t req, fuse_ino_t ino,
     }
     else
     {
-        log_debug("did not find entry; redirecting call to devredir");
+        LOG_DBG(LOG_LEVEL_DEBUG, "did not find entry; redirecting call to devredir");
         struct state_dirscan *fip = g_new0(struct state_dirscan, 1);
         char *full_path = xfs_get_full_path(g_xfs, ino);
 
@@ -2401,7 +2359,7 @@ static void xfuse_cb_opendir(fuse_req_t req, fuse_ino_t ino,
         else
         {
             const char      *cptr;
-            log_debug("dev_id=%d ino=%ld full_path=%s",
+            LOG_DBG(LOG_LEVEL_DEBUG, "dev_id=%d ino=%ld full_path=%s",
                       xinode->device_id, ino, full_path);
 
             fip->req = req;
@@ -2420,7 +2378,7 @@ static void xfuse_cb_opendir(fuse_req_t req, fuse_ino_t ino,
              */
             if (devredir_get_dir_listing(fip, xinode->device_id, cptr))
             {
-                log_error("failed to send devredir_get_dir_listing() cmd");
+                LOG_DBG(LOG_LEVEL_ERROR, "failed to send devredir_get_dir_listing() cmd");
                 fuse_reply_buf(req, NULL, 0);
                 free(fip);
             }

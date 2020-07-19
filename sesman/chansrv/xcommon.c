@@ -56,9 +56,9 @@ xcommon_error_handler(Display *dis, XErrorEvent *xer)
     char text[256];
 
     XGetErrorText(dis, xer->error_code, text, 255);
-    LOGM((LOG_LEVEL_ERROR, "X error [%s](%d) opcodes %d/%d "
+    LOG_DBG(LOG_LEVEL_ERROR, "X error [%s](%d) opcodes %d/%d "
           "resource 0x%lx", text, xer->error_code,
-          xer->request_code, xer->minor_code, xer->resourceid));
+          xer->request_code, xer->minor_code, xer->resourceid);
     return 0;
 }
 
@@ -103,7 +103,7 @@ xcommon_init(void)
 {
     if (g_display != 0)
     {
-        LOGM((LOG_LEVEL_DEBUG, "xcommon_init: xcommon_init already called"));
+        LOG_DBG(LOG_LEVEL_DEBUG, "xcommon_init: xcommon_init already called");
         return 0;
     }
 
@@ -111,11 +111,11 @@ xcommon_init(void)
 
     if (g_display == 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "xcommon_init: error, XOpenDisplay failed"));
+        LOG_DBG(LOG_LEVEL_ERROR, "xcommon_init: error, XOpenDisplay failed");
         return 1;
     }
 
-    LOGM((LOG_LEVEL_INFO, "xcommon_init: connected to display ok"));
+    LOG_DBG(LOG_LEVEL_INFO, "xcommon_init: connected to display ok");
 
     /* setting the error handlers can cause problem when shutting down
        chansrv on some xlibs */
@@ -126,7 +126,7 @@ xcommon_init(void)
 
     if (g_x_socket == 0)
     {
-        LOGM((LOG_LEVEL_ERROR, "xcommon_init: XConnectionNumber failed"));
+        LOG_DBG(LOG_LEVEL_ERROR, "xcommon_init: XConnectionNumber failed");
         return 1;
     }
 
@@ -185,8 +185,8 @@ xcommon_check_wait_objs(void)
         rail_rv = rail_xevent(&xevent);
         if ((clip_rv == 1) && (rail_rv == 1))
         {
-            LOGM((LOG_LEVEL_DEBUG, "xcommon_check_wait_objs unknown xevent type %d",
-                     xevent.type));
+            LOG_DBG(LOG_LEVEL_DEBUG, "xcommon_check_wait_objs unknown xevent type %d",
+                     xevent.type);
         }
     }
     return 0;
