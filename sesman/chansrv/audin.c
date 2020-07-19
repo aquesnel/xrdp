@@ -222,7 +222,7 @@ audin_process_version(int chan_id, struct stream *s)
         return 1;
     }
     in_uint32_le(s, version);
-    LOG_DBG(LOG_LEVEL_INFO, "audin_process_version: version %d", version);
+    LOG(LOG_LEVEL_INFO, "audin_process_version: version %d", version);
     return audin_send_formats(chan_id);
 }
 
@@ -290,7 +290,7 @@ audin_process_open_reply(int chan_id, struct stream *s)
         return 1;
     }
     in_uint32_le(s, result);
-    LOG_DBG(LOG_LEVEL_INFO, "audin_process_open_reply: result 0x%8.8x", result);
+    LOG(LOG_LEVEL_INFO, "audin_process_open_reply: result 0x%8.8x", result);
     return 0;
 }
 
@@ -402,13 +402,12 @@ static int
 audin_data_fragment(int chan_id, char *data, int bytes)
 {
     int rv;
-    int left;
 
     LOG_DBG(LOG_LEVEL_DEBUG, "audin_data_fragment:");
     if (!s_check_rem(g_in_s, bytes))
     {
-        left = (int) (g_in_s->end - g_in_s->p);
-        LOG_DBG(LOG_LEVEL_ERROR, "audin_data_fragment: error bytes %d left %d", bytes, left);
+        LOG_DBG(LOG_LEVEL_ERROR, "audin_data_fragment: error bytes %d left %d", 
+                bytes, (int) (g_in_s->end - g_in_s->p));
         return 1;
     }
     out_uint8a(g_in_s, data, bytes);

@@ -1034,7 +1034,7 @@ sound_process_training(struct stream *s, int size)
     int time_diff;
 
     time_diff = g_time3() - g_training_sent_time;
-    LOG_DBG(LOG_LEVEL_INFO, "sound_process_training: round trip time %u", time_diff);
+    LOG(LOG_LEVEL_INFO, "sound_process_training: round trip time %u", time_diff);
     return 0;
 }
 
@@ -1055,7 +1055,7 @@ sound_process_wave_confirm(struct stream *s, int size)
     in_uint8(s, cConfirmedBlockNo);
     time_diff = time - g_sent_time[cConfirmedBlockNo & 0xff];
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "sound_process_wave_confirm: wTimeStamp %d, "
+    LOG(LOG_LEVEL_DEBUG, "sound_process_wave_confirm: wTimeStamp %d, "
         "cConfirmedBlockNo %d time diff %d",
         wTimeStamp, cConfirmedBlockNo, time_diff);
 

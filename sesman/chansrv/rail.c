@@ -461,7 +461,7 @@ rail_process_exec(struct stream *s, int size)
     ExeOrFile = read_uni(s, ExeOrFileLength);
     WorkingDir = read_uni(s, WorkingDirLength);
     Arguments = read_uni(s, ArgumentsLen);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x ExeOrFileLength %d WorkingDirLength %d "
+    LOG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x ExeOrFileLength %d WorkingDirLength %d "
              "ArgumentsLen %d ExeOrFile [%s] WorkingDir [%s] "
              "Arguments [%s]", flags, ExeOrFileLength, WorkingDirLength,
              ArgumentsLen, ExeOrFile, WorkingDir, Arguments);
@@ -920,7 +920,7 @@ rail_process_handshake(struct stream *s, int size)
 
     LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_handshake:");
     in_uint32_le(s, build_number);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  build_number 0x%8.8x", build_number);
+    LOG(LOG_LEVEL_DEBUG, "  build_number 0x%8.8x", build_number);
     return 0;
 }
 
@@ -936,7 +936,7 @@ rail_process_notify_event(struct stream *s, int size)
     in_uint32_le(s, window_id);
     in_uint32_le(s, notify_id);
     in_uint32_le(s, message);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x notify_id 0x%8.8x message 0x%8.8x",
+    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x notify_id 0x%8.8x message 0x%8.8x",
              window_id, notify_id, message);
     return 0;
 }
@@ -996,7 +996,7 @@ rail_process_local_move_size(struct stream *s, int size)
     pos_x = si16;
     in_uint16_le(s, si16);
     pos_y = si16;
-    LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x is_move_size_start %d move_size_type %d "
+    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x is_move_size_start %d move_size_type %d "
              "pos_x %d pos_y %d", window_id, is_move_size_start, move_size_type,
              pos_x, pos_y);
     return 0;
@@ -1019,7 +1019,7 @@ rail_process_client_status(struct stream *s, int size)
 
     LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_client_status:");
     in_uint32_le(s, flags);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x", flags);
+    LOG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x", flags);
     return 0;
 }
 
@@ -1038,7 +1038,7 @@ rail_process_sys_menu(struct stream *s, int size)
     left = si16;
     in_uint16_le(s, si16);
     top = si16;
-    LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d", window_id, left, top);
+    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d", window_id, left, top);
     return 0;
 }
 
@@ -1050,7 +1050,7 @@ rail_process_lang_bar_info(struct stream *s, int size)
 
     LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_lang_bar_info:");
     in_uint32_le(s, language_bar_status);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  language_bar_status 0x%8.8x", language_bar_status);
+    LOG(LOG_LEVEL_DEBUG, "  language_bar_status 0x%8.8x", language_bar_status);
     return 0;
 }
 

@@ -368,7 +368,7 @@ clipboard_init(void)
         LOG_DBG(LOG_LEVEL_DEBUG, "clipboard_init: g_xfixes_event_base %d",
               g_xfixes_event_base);
         st = XFixesQueryVersion(g_display, &ver_maj, &ver_min);
-        LOG_DBG(LOG_LEVEL_DEBUG, "clipboard_init st %d, maj %d min %d", st,
+        LOG(LOG_LEVEL_DEBUG, "clipboard_init st %d, maj %d min %d", st,
               ver_maj, ver_min);
         g_clip_property_atom = XInternAtom(g_display, "XRDP_CLIP_PROPERTY_ATOM",
                                            False);
@@ -2223,7 +2223,7 @@ clipboard_event_selection_request(XEvent *xevent)
     }
     else
     {
-        LOG_DBG(LOG_LEVEL_ERROR, "clipboard_event_selection_request: unknown "
+        LOG(LOG_LEVEL_ERROR, "clipboard_event_selection_request: unknown "
               "target %s", get_atom_text(lxev->target));
     }
 

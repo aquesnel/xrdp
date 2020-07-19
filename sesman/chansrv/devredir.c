@@ -924,12 +924,11 @@ devredir_proc_device_iocompletion(struct stream *s)
         }
         else
         {
-            const char *pathname = (irp->pathname) ? irp->pathname : "<none>";
             LOG_DBG(LOG_LEVEL_ERROR, "CompletionType = %s, IoStatus=%08x "
                       "Pathname = %s",
                       completion_type_to_str(comp_type),
                       IoStatus,
-                      pathname);
+                      (irp->pathname) ? irp->pathname : "<none>");
         }
 
         switch (comp_type)
