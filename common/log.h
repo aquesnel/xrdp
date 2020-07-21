@@ -30,11 +30,11 @@
 enum logLevels
 {
     LOG_LEVEL_ALWAYS = 0,
-    LOG_LEVEL_ERROR,
-    LOG_LEVEL_WARNING,
-    LOG_LEVEL_INFO,
-    LOG_LEVEL_DEBUG,
-    LOG_LEVEL_TRACE
+    LOG_LEVEL_ERROR,     /* for describing non-recoverable error states in a request or method */
+    LOG_LEVEL_WARNING,   /* for describing recoverable error states in a request or method */
+    LOG_LEVEL_INFO,      /* for low verbosity and high level descriptions of normal operations */
+    LOG_LEVEL_DEBUG,     /* for medium verbosity and low level descriptions of normal operations */
+    LOG_LEVEL_TRACE      /* for high verbosity and low level descriptions of normal operations (eg. method or wire tracing) */
 };
 
 /* startup return values */
@@ -59,9 +59,38 @@ enum logReturns
 /*#define LOG_ENABLE_THREAD*/
 
 #ifdef XRDP_DEBUG
+
+/*
+ * Logging macro for messages that are for an XRDP developper to understand and 
+ * debug XRDP code.
+ * 
+ * Note: all log levels are relavant to help a developper understand XRDP at 
+ *      different levels of granularity.
+ * 
+ * Note: the logging function calls are removed when XRDP_DEBUG is NOT defined.
+ * 
+ * Note: when the build is configured with --disable-xrdpdebug, then 
+ *      "#define XRDP_DEBUG" can temporarily be added to any c file to
+ *      add targeted developper logging in that compilation unit.
+ * 
+ * @param lvl, the log level
+ * @param msg, the log text as a printf format c-string
+ * @param ... the arguments for the printf format c-string
+ */
 #define LOG_DEVEL(log_level, args...) \
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 
+/*
+ * Logging macro for messages that are for a systeam administrator to
+ * configure and run XRDP on their machine.
+ * 
+ * Note: the logging function calls contain additional code location info when 
+ *      XRDP_DEBUG is defined.
+ * 
+ * @param lvl, the log level
+ * @param msg, the log text as a printf format c-string
+ * @param ... the arguments for the printf format c-string
+ */
 #define LOG(log_level, args...) \
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 #else
@@ -182,6 +211,9 @@ log_end(void);
 
 /**
  * the log function that all files use to log an event.
+ * 
+ * Please prefer to use the LOG and LOG_DEVEL macros instead of this function directly.
+ * 
  * @param lvl, the loglevel
  * @param msg, the logtext.
  * @param ...
@@ -193,9 +225,12 @@ log_message(const enum logLevels lvl, const char *msg, ...) printflike(2, 3);
 /**
  * the log function that all files use to log an event, 
  * with the function name and file line.
- * @param function_name, the function name (typicaly the \x5F\x5Ffunc\x5F\x5F macro)
- * @param file_name, the file name (typicaly the \x5F\x5FFILE\x5F\x5F macro)
- * @param line_number, the line number in the file (typicaly the \x5F\x5FLINE\x5F\x5F macro)
+ *
+ * Please prefer to use the LOG and LOG_DEVEL macros instead of this function directly.
+ * 
+ * @param function_name, the function name (typicaly the __func__ macro)
+ * @param file_name, the file name (typicaly the __FILE__ macro)
+ * @param line_number, the line number in the file (typicaly the __LINE__ macro)
  * @param lvl, the loglevel
  * @param msg, the logtext.
  * @param ...
