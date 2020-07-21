@@ -56,11 +56,11 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     current_try = retries;
 
     data = auth_userpass(s->username, s->password,NULL);
-    /*LOG_DBG(LOG_LEVEL_DEBUG, "user: %s\npass: %s", s->username, s->password);*/
+    /*LOG_DEVEL(LOG_LEVEL_DEBUG, "user: %s\npass: %s", s->username, s->password);*/
 
     while ((!data) && ((retries == 0) || (current_try > 0)))
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "data %ld - retry %d - currenttry %d - expr %d",
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "data %ld - retry %d - currenttry %d - expr %d",
                 data, retries, current_try,
                 ((!data) && ((retries == 0) || (current_try > 0))));
 

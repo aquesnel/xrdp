@@ -59,13 +59,13 @@ enum logReturns
 /*#define LOG_ENABLE_THREAD*/
 
 #ifdef XRDP_DEBUG
-#define LOG_DBG(log_level, args...) \
+#define LOG_DEVEL(log_level, args...) \
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 
 #define LOG(log_level, args...) \
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 #else
-#define LOG_DBG(log_level, args...)
+#define LOG_DEVEL(log_level, args...)
 #define LOG(log_level, args...) log_message(log_level, args);
 #endif
 

@@ -196,7 +196,7 @@ rail_get_window_data(Window window)
     unsigned char* prop_return;
     struct rail_window_data* rv;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_get_window_data:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_get_window_data:");
     rv = 0;
     actual_type_return = 0;
     actual_format_return = 0;
@@ -283,7 +283,7 @@ rail_send_init(void)
     int bytes;
     char *size_ptr;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_send_init:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_send_init:");
     make_stream(s);
     init_stream(s, 8182);
     out_uint16_le(s, TS_RAIL_ORDER_HANDSHAKE);
@@ -337,7 +337,7 @@ rail_is_another_wm_running(void)
 int
 rail_init(void)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_init:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_init:");
     xcommon_init();
 
     return 0;
@@ -387,11 +387,11 @@ rail_startup(void)
 
     if (g_xrr_event_base > 0)
     {
-        LOG_DBG(LOG_LEVEL_INFO, "rail_init: found RandR extension");
+        LOG_DEVEL(LOG_LEVEL_INFO, "rail_init: found RandR extension");
         st = XRRQueryVersion(g_display, &ver_maj, &ver_min);
         if (st)
         {
-            LOG_DBG(LOG_LEVEL_INFO, "rail_init: RandR version major %d minor %d", ver_maj, ver_min);
+            LOG_DEVEL(LOG_LEVEL_INFO, "rail_init: RandR version major %d minor %d", ver_maj, ver_min);
         }
         XRRSelectInput(g_display, g_root_window, RRScreenChangeNotifyMask);
     }
@@ -453,7 +453,7 @@ rail_process_exec(struct stream *s, int size)
     char *WorkingDir;
     char *Arguments;
 
-    LOG_DBG(LOG_LEVEL_INFO, "chansrv::rail_process_exec:");
+    LOG_DEVEL(LOG_LEVEL_INFO, "chansrv::rail_process_exec:");
     in_uint16_le(s, flags);
     in_uint16_le(s, ExeOrFileLength);
     in_uint16_le(s, WorkingDirLength);
@@ -470,14 +470,14 @@ rail_process_exec(struct stream *s, int size)
     {
         rail_startup();
 
-        LOG_DBG(LOG_LEVEL_DEBUG, "rail_process_exec: pre");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_process_exec: pre");
         /* ask main thread to fork */
         tc_mutex_lock(g_exec_mutex);
         g_exec_name = ExeOrFile;
         g_set_wait_obj(g_exec_event);
         tc_sem_dec(g_exec_sem);
         tc_mutex_unlock(g_exec_mutex);
-        LOG_DBG(LOG_LEVEL_DEBUG, "rail_process_exec: post");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_process_exec: post");
     }
 
     g_free(ExeOrFile);
@@ -512,7 +512,7 @@ rail_win_popdown(void)
             window_attributes.map_state == IsViewable &&
             list_index_of(g_window_list, children[i]) >= 0)
         {
-            LOG_DBG(LOG_LEVEL_DEBUG, "  dismiss pop up 0x%8.8lx", children[i]);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  dismiss pop up 0x%8.8lx", children[i]);
             rail_send_key_esc(children[i]);
             rv = 1;
         }
@@ -528,7 +528,7 @@ rail_close_window(int window_id)
 {
     XEvent ce;
 
-    LOG_DBG(LOG_LEVEL_INFO, "chansrv::rail_close_window:");
+    LOG_DEVEL(LOG_LEVEL_INFO, "chansrv::rail_close_window:");
 
     rail_win_popdown();
 
@@ -549,10 +549,10 @@ rail_close_window(int window_id)
 void
 my_timeout(void* data)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "my_timeout: g_got_focus %d", g_got_focus);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "my_timeout: g_got_focus %d", g_got_focus);
     if (g_focus_counter == (int)(long)data)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "my_timeout: g_focus_counter %d", g_focus_counter);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "my_timeout: g_focus_counter %d", g_focus_counter);
         rail_win_popdown();
     }
 }
@@ -567,21 +567,21 @@ rail_process_activate(struct stream *s, int size)
     XWindowAttributes window_attributes;
     Window transient_for = 0;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate:");
     in_uint32_le(s, window_id);
     in_uint8(s, enabled);
 
     index = list_index_of(g_window_list, window_id);
     if (index < 0)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: window 0x%8.8x not in list",
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: window 0x%8.8x not in list",
                  window_id);
         return 0;
     }
 
     g_focus_counter++;
     g_got_focus = enabled;
-    LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x enabled %d", window_id, enabled);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x enabled %d", window_id, enabled);
 
     XGetWindowAttributes(g_display, window_id, &window_attributes);
 
@@ -606,17 +606,17 @@ rail_process_activate(struct stream *s, int size)
                 /* Owner window should be raised up as well */
                 XRaiseWindow(g_display, transient_for);
             }
-            LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
             XRaiseWindow(g_display, window_id);
-            LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
             XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
         }
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
         XRaiseWindow(g_display, window_id);
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
         XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
     } else {
-        LOG_DBG(LOG_LEVEL_DEBUG, "  window attributes: override_redirect %d",
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  window attributes: override_redirect %d",
                  window_attributes.override_redirect);
         add_timeout(200, my_timeout, (void*)(long)g_focus_counter);
     }
@@ -672,9 +672,9 @@ rail_process_system_param(struct stream *s, int size)
 {
     int system_param;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_param:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_param:");
     in_uint32_le(s, system_param);
-    LOG_DBG(LOG_LEVEL_DEBUG, "  system_param 0x%8.8x", system_param);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  system_param 0x%8.8x", system_param);
     /*
      * Ask client to re-create the existing rail windows. This is supposed
      * to be done after handshake and client is initialised properly, we
@@ -682,7 +682,7 @@ rail_process_system_param(struct stream *s, int size)
      */
     if (system_param == 0x0000002F) /*SPI_SET_WORK_AREA*/
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "  restore rail windows");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  restore rail windows");
         rail_restore_windows();
     }
     return 0;
@@ -705,7 +705,7 @@ rail_get_property(Display* display, Window target, Atom type, Atom property,
     if ((ret != Success || nitems < 1) && atom_return == None)
     {
         prop_name = XGetAtomName(g_display, property);
-        LOG_DBG(LOG_LEVEL_DEBUG, "  rail_get_property %s: failed", prop_name);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  rail_get_property %s: failed", prop_name);
         XFree(prop_name);
         return 1;
     }
@@ -744,7 +744,7 @@ rail_win_get_state(Window win)
     {
         rv = *(unsigned long *)data;
         XFree(data);
-        LOG_DBG(LOG_LEVEL_DEBUG, "  rail_win_get_state: %d", rv);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  rail_win_get_state: %d", rv);
     }
 
     return rv;
@@ -757,7 +757,7 @@ rail_win_set_state(Window win, unsigned long state)
     int old_state;
     unsigned long data[2] = { state, None };
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "  rail_win_set_state: %ld", state);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  rail_win_set_state: %ld", state);
     /* check whether WM_STATE exists */
     old_state = rail_win_get_state(win);
     if (old_state == -1)
@@ -765,7 +765,7 @@ rail_win_set_state(Window win, unsigned long state)
         /* create WM_STATE property */
         XChangeProperty(g_display, win, g_wm_state, g_wm_state, 32, PropModeAppend,
                         (unsigned char *)data, 2);
-        LOG_DBG(LOG_LEVEL_DEBUG, "  rail_win_set_state: create WM_STATE property");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  rail_win_set_state: create WM_STATE property");
     }
     else
     {
@@ -819,7 +819,7 @@ rail_win_get_text(Window win, char **data)
 static int
 rail_minmax_window(int window_id, int max)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_minmax_window 0x%8.8x:", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_minmax_window 0x%8.8x:", window_id);
     if (max)
     {
 
@@ -840,15 +840,15 @@ rail_restore_window(int window_id)
 {
     XWindowAttributes window_attributes;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_restore_window 0x%8.8x:", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_restore_window 0x%8.8x:", window_id);
     XGetWindowAttributes(g_display, window_id, &window_attributes);
     if (window_attributes.map_state != IsViewable)
     {
         XMapWindow(g_display, window_id);
     }
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
     XRaiseWindow(g_display, window_id);
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
     XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
 
     return 0;
@@ -862,14 +862,14 @@ rail_process_system_command(struct stream *s, int size)
     int command;
     int index;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, command);
 
     index = list_index_of(g_window_list, window_id);
     if (index < 0)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command: window 0x%8.8x not in list",
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command: window 0x%8.8x not in list",
                  window_id);
         return 0;
     }
@@ -877,34 +877,34 @@ rail_process_system_command(struct stream *s, int size)
     switch (command)
     {
         case SC_SIZE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_SIZE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_SIZE", window_id);
             break;
         case SC_MOVE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MOVE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MOVE", window_id);
             break;
         case SC_MINIMIZE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MINIMIZE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MINIMIZE", window_id);
             rail_minmax_window(window_id, 0);
             break;
         case SC_MAXIMIZE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MAXIMIZE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MAXIMIZE", window_id);
             break;
         case SC_CLOSE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_CLOSE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_CLOSE", window_id);
             rail_close_window(window_id);
             break;
         case SC_KEYMENU:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_KEYMENU", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_KEYMENU", window_id);
             break;
         case SC_RESTORE:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_RESTORE", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_RESTORE", window_id);
             rail_restore_window(window_id);
             break;
         case SC_DEFAULT:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_DEFAULT", window_id);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_DEFAULT", window_id);
             break;
         default:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x unknown command command %d",
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x unknown command command %d",
                      window_id, command);
             break;
     }
@@ -918,7 +918,7 @@ rail_process_handshake(struct stream *s, int size)
 {
     int build_number;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_handshake:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_handshake:");
     in_uint32_le(s, build_number);
     LOG(LOG_LEVEL_DEBUG, "  build_number 0x%8.8x", build_number);
     return 0;
@@ -932,7 +932,7 @@ rail_process_notify_event(struct stream *s, int size)
     int notify_id;
     int message;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_notify_event:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_notify_event:");
     in_uint32_le(s, window_id);
     in_uint32_le(s, notify_id);
     in_uint32_le(s, message);
@@ -953,7 +953,7 @@ rail_process_window_move(struct stream *s, int size)
     tsi16 si16;
     struct rail_window_data* rwd;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_window_move:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_window_move:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, si16);
     left = si16;
@@ -963,7 +963,7 @@ rail_process_window_move(struct stream *s, int size)
     right = si16;
     in_uint16_le(s, si16);
     bottom = si16;
-    LOG_DBG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d right %d bottom %d width %d height %d",
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d right %d bottom %d width %d height %d",
              window_id, left, top, right, bottom, right - left, bottom - top);
     XMoveResizeWindow(g_display, window_id, left, top, right - left, bottom - top);
     rwd = (struct rail_window_data*)
@@ -988,7 +988,7 @@ rail_process_local_move_size(struct stream *s, int size)
     int pos_y;
     tsi16 si16;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_local_move_size:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_local_move_size:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, is_move_size_start);
     in_uint16_le(s, move_size_type);
@@ -1007,7 +1007,7 @@ rail_process_local_move_size(struct stream *s, int size)
 static int
 rail_process_min_max_info(struct stream *s, int size)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_min_max_info:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_min_max_info:");
     return 0;
 }
 
@@ -1017,7 +1017,7 @@ rail_process_client_status(struct stream *s, int size)
 {
     int flags;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_client_status:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_client_status:");
     in_uint32_le(s, flags);
     LOG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x", flags);
     return 0;
@@ -1032,7 +1032,7 @@ rail_process_sys_menu(struct stream *s, int size)
     int top;
     tsi16 si16;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_sys_menu:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_sys_menu:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, si16);
     left = si16;
@@ -1048,7 +1048,7 @@ rail_process_lang_bar_info(struct stream *s, int size)
 {
     int language_bar_status;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_lang_bar_info:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_lang_bar_info:");
     in_uint32_le(s, language_bar_status);
     LOG(LOG_LEVEL_DEBUG, "  language_bar_status 0x%8.8x", language_bar_status);
     return 0;
@@ -1058,7 +1058,7 @@ rail_process_lang_bar_info(struct stream *s, int size)
 static int
 rail_process_appid_req(struct stream *s, int size)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_req:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_req:");
     return 0;
 }
 
@@ -1066,7 +1066,7 @@ rail_process_appid_req(struct stream *s, int size)
 static int
 rail_process_appid_resp(struct stream *s, int size)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_resp:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_resp:");
     return 0;
 }
 
@@ -1075,7 +1075,7 @@ rail_process_appid_resp(struct stream *s, int size)
 static int
 rail_process_exec_result(struct stream *s, int size)
 {
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_process_exec_result:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_exec_result:");
     return 0;
 }
 
@@ -1088,7 +1088,7 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
     int code;
     int size;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_data_in:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_data_in:");
     in_uint8(s, code);
     in_uint8s(s, 1);
     in_uint16_le(s, size);
@@ -1141,7 +1141,7 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
             rail_process_exec_result(s, size);
             break;
         default:
-            LOG_DBG(LOG_LEVEL_DEBUG, "rail_data_in: unknown code %d size %d", code, size);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_data_in: unknown code %d size %d", code, size);
             break;
     }
 
@@ -1232,7 +1232,7 @@ rail_win_send_text(Window win)
     int crc;
     struct rail_window_data* rwd;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text:");
     len = rail_win_get_text(win, &data);
     rwd = rail_get_window_data_safe(win);
     if (rwd != 0)
@@ -1244,7 +1244,7 @@ rail_win_send_text(Window win)
                 crc = get_string_crc(data);
                 if (rwd->title_crc == crc)
                 {
-                    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: skipping, title not changed");
+                    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: skipping, title not changed");
                     g_free(data);
                     XFree(rwd);
                     return 0;
@@ -1254,13 +1254,13 @@ rail_win_send_text(Window win)
     }
     else
     {
-        LOG_DBG(LOG_LEVEL_ERROR, "chansrv::rail_win_send_text: error rail_get_window_data_safe failed");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "chansrv::rail_win_send_text: error rail_get_window_data_safe failed");
         g_free(data);
         return 1;
     }
     if (data && len > 0)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: 0x%8.8lx text %s length %d",
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: 0x%8.8lx text %s length %d",
                  win, data, len);
         make_stream(s);
         init_stream(s, len + 1024);
@@ -1290,7 +1290,7 @@ rail_destroy_window(Window window_id)
 {
     struct stream *s;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_destroy_window 0x%8.8lx", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_destroy_window 0x%8.8lx", window_id);
     make_stream(s);
     init_stream(s, 1024);
 
@@ -1310,7 +1310,7 @@ rail_show_window(Window window_id, int show_state)
     int flags;
     struct stream* s;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_show_window 0x%8.8lx 0x%x", window_id, show_state);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_show_window 0x%8.8lx 0x%x", window_id, show_state);
     make_stream(s);
     init_stream(s, 1024);
 
@@ -1352,31 +1352,31 @@ rail_create_window(Window window_id, Window owner_id)
     struct rail_window_data* rwd;
     struct stream* s;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_create_window 0x%8.8lx", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_create_window 0x%8.8lx", window_id);
 
     rwd = rail_get_window_data_safe(window_id);
     if (rwd == 0)
     {
-        LOG_DBG(LOG_LEVEL_ERROR, "chansrv::rail_create_window: error rail_get_window_data_safe failed");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "chansrv::rail_create_window: error rail_get_window_data_safe failed");
         return 0;
     }
     XGetGeometry(g_display, window_id, &root, &x, &y, &width, &height,
                  &border, &depth);
     XGetWindowAttributes(g_display, window_id, &attributes);
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", x, y, width,
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", x, y, width,
              height, border);
 
     index = list_index_of(g_window_list, window_id);
     if (index == -1)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "  create new window");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  create new window");
         flags = WINDOW_ORDER_TYPE_WINDOW | WINDOW_ORDER_STATE_NEW;
         list_add_item(g_window_list, window_id);
     }
     else
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "  update existing window");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "  update existing window");
         flags = WINDOW_ORDER_TYPE_WINDOW;
     }
 
@@ -1416,7 +1416,7 @@ rail_create_window(Window window_id, Window owner_id)
     out_uint32_le(s, ext_style); /* extended_style */
     flags |= WINDOW_ORDER_FIELD_STYLE;
     out_uint32_le(s, 0x05); /* show_state */
-    LOG_DBG(LOG_LEVEL_DEBUG, "  title %s", title_bytes);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  title %s", title_bytes);
     flags |= WINDOW_ORDER_FIELD_SHOW;
     if (title_size > 0)
     {
@@ -1433,7 +1433,7 @@ rail_create_window(Window window_id, Window owner_id)
         rwd->valid |= RWD_TITLE;
         rwd->title_crc = 0;
     }
-    LOG_DBG(LOG_LEVEL_DEBUG, "  set title info %d", title_size);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  set title info %d", title_size);
     flags |= WINDOW_ORDER_FIELD_TITLE;
     out_uint32_le(s, 0); /* client_offset_x */
     out_uint32_le(s, 0); /* client_offset_y */
@@ -1504,14 +1504,14 @@ rail_configure_request_window(XConfigureRequestEvent* config)
 
     window_id = config->window;
     mask = config->value_mask;
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: mask %d", mask);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: mask %d", mask);
     if (mask & CWStackMode)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: CWStackMode "
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: CWStackMode "
                  "detail 0x%8.8x above 0x%8.8lx", config->detail, config->above);
         if (config->detail == Above)
         {
-            LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: bring to front "
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: bring to front "
                      "window_id 0x%8.8x", window_id);
             /* 0x05 - Show the window in its current size and position. */
             rail_show_window(window_id, 5);
@@ -1621,17 +1621,17 @@ rail_configure_request_window(XConfigureRequestEvent* config)
         return 0;
     }
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_configure_request_window: 0x%8.8x", window_id);
 
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", config->x,
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", config->x,
              config->y, config->width, config->height, config->border_width);
 
     index = list_index_of(g_window_list, window_id);
     if (index == -1)
     {
         /* window isn't mapped yet */
-        LOG_DBG(LOG_LEVEL_ERROR, "chansrv::rail_configure_request_window: window not mapped");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "chansrv::rail_configure_request_window: window not mapped");
         return 0;
     }
 
@@ -1706,10 +1706,10 @@ rail_configure_window(XConfigureEvent *config)
 
     window_id = config->window;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_configure_window 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_configure_window 0x%8.8x", window_id);
 
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", config->x,
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", config->x,
              config->y, config->width, config->height, config->border_width);
 
     index = list_index_of(g_window_list, window_id);
@@ -1778,7 +1778,7 @@ rail_configure_window(XConfigureEvent *config)
 static int
 rail_desktop_resize(XEvent *lxevent)
 {
-    LOG_DBG(LOG_LEVEL_INFO, "rail_desktop_resize:");
+    LOG_DEVEL(LOG_LEVEL_INFO, "rail_desktop_resize:");
     return 0;
 }
 
@@ -1795,7 +1795,7 @@ rail_xevent(void *xevent)
     XWindowAttributes wnd_attributes;
     char* prop_name;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "chansrv::rail_xevent:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_xevent:");
 
     if (!g_rail_up)
     {
@@ -1809,7 +1809,7 @@ rail_xevent(void *xevent)
     {
         case PropertyNotify:
             prop_name = XGetAtomName(g_display, lxevent->xproperty.atom);
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got PropertyNotify window_id 0x%8.8lx %s state new %d",
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got PropertyNotify window_id 0x%8.8lx %s state new %d",
                      lxevent->xproperty.window, prop_name,
                      lxevent->xproperty.state == PropertyNewValue);
 
@@ -1832,7 +1832,7 @@ rail_xevent(void *xevent)
             break;
 
         case ConfigureRequest:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got ConfigureRequest window_id 0x%8.8lx", lxevent->xconfigurerequest.window);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ConfigureRequest window_id 0x%8.8lx", lxevent->xconfigurerequest.window);
             g_memset(&xwc, 0, sizeof(xwc));
             xwc.x = lxevent->xconfigurerequest.x;
             xwc.y = lxevent->xconfigurerequest.y;
@@ -1850,13 +1850,13 @@ rail_xevent(void *xevent)
             break;
 
         case CreateNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, " got CreateNotify window 0x%8.8lx parent 0x%8.8lx",
+            LOG_DEVEL(LOG_LEVEL_DEBUG, " got CreateNotify window 0x%8.8lx parent 0x%8.8lx",
                      lxevent->xcreatewindow.window, lxevent->xcreatewindow.parent);
             rail_select_input(lxevent->xcreatewindow.window);
             break;
 
         case DestroyNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got DestroyNotify window 0x%8.8lx event 0x%8.8lx",
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got DestroyNotify window 0x%8.8lx event 0x%8.8lx",
                      lxevent->xdestroywindow.window, lxevent->xdestroywindow.event);
             if (lxevent->xdestroywindow.window != lxevent->xdestroywindow.event)
             {
@@ -1872,12 +1872,12 @@ rail_xevent(void *xevent)
             break;
 
         case MapRequest:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got MapRequest window 0x%8.8lx", lxevent->xmaprequest.window);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got MapRequest window 0x%8.8lx", lxevent->xmaprequest.window);
             XMapWindow(g_display, lxevent->xmaprequest.window);
             break;
 
         case MapNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got MapNotify window 0x%8.8lx event 0x%8.8lx",
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got MapNotify window 0x%8.8lx event 0x%8.8lx",
                      lxevent->xmap.window, lxevent->xmap.event);
             if (lxevent->xmap.window != lxevent->xmap.event)
             {
@@ -1903,7 +1903,7 @@ rail_xevent(void *xevent)
             break;
 
         case UnmapNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got UnmapNotify 0x%8.8lx", lxevent->xunmap.event);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got UnmapNotify 0x%8.8lx", lxevent->xunmap.event);
             if (lxevent->xunmap.window != lxevent->xunmap.event)
             {
                 break;
@@ -1911,7 +1911,7 @@ rail_xevent(void *xevent)
             if (is_window_valid_child_of_root(lxevent->xunmap.window))
             {
                 index = list_index_of(g_window_list, lxevent->xunmap.window);
-                LOG_DBG(LOG_LEVEL_DEBUG, "  window 0x%8.8lx is unmapped", lxevent->xunmap.window);
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "  window 0x%8.8lx is unmapped", lxevent->xunmap.window);
                 if (index >= 0)
                 {
                     XGetWindowAttributes(g_display, lxevent->xunmap.window, &wnd_attributes);
@@ -1930,7 +1930,7 @@ rail_xevent(void *xevent)
             break;
 
         case ConfigureNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got ConfigureNotify 0x%8.8lx event 0x%8.8lx", lxevent->xconfigure.window,
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ConfigureNotify 0x%8.8lx event 0x%8.8lx", lxevent->xconfigure.window,
                      lxevent->xconfigure.event);
             rv = 0;
             if (lxevent->xconfigure.event != lxevent->xconfigure.window ||
@@ -1955,28 +1955,28 @@ rail_xevent(void *xevent)
             break;
 
         case FocusIn:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got FocusIn");
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got FocusIn");
             g_focus_win = lxevent->xfocus.window;
             break;
 
         case FocusOut:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got FocusOut");
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got FocusOut");
             break;
 
         case ButtonPress:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got ButtonPress");
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ButtonPress");
             break;
 
         case EnterNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got EnterNotify");
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got EnterNotify");
             break;
 
         case LeaveNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got LeaveNotify");
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got LeaveNotify");
             break;
 
         case ReparentNotify:
-            LOG_DBG(LOG_LEVEL_DEBUG, "  got ReparentNotify window 0x%8.8lx parent 0x%8.8lx "
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ReparentNotify window 0x%8.8lx parent 0x%8.8lx "
                      "event 0x%8.8lx x %d y %d override redirect %d",
                      lxevent->xreparent.window, lxevent->xreparent.parent,
                      lxevent->xreparent.event, lxevent->xreparent.x,

@@ -99,7 +99,7 @@ scp_v0c_connect(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     init_stream(c->in_s, c->in_s->size);
     init_stream(c->out_s, c->in_s->size);
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "starting connection");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "starting connection");
     g_tcp_set_non_blocking(c->in_sck);
     g_tcp_set_no_delay(c->in_sck);
     s_push_layer(c->out_s, channel_hdr, 8);
@@ -212,7 +212,7 @@ scp_v0c_connect(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     in_uint16_be(c->in_s, sz);
     s->display = sz;
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "connection terminated");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "connection terminated");
     return SCP_CLIENT_STATE_END;
 }
 
@@ -416,7 +416,7 @@ scp_v0s_accept(struct SCP_CONNECTION *c, struct SCP_SESSION **s, int skipVchk)
 
     if (!skipVchk)
     {
-        LOG_DBG(LOG_LEVEL_DEBUG, "starting connection");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "starting connection");
 
         if (0 == scp_tcp_force_recv(c->in_sck, c->in_s->data, 8))
         {
@@ -484,7 +484,7 @@ scp_v0s_allow_connection(struct SCP_CONNECTION *c, SCP_DISPLAY d, const tui8 *gu
         return SCP_SERVER_STATE_NETWORK_ERR;
     }
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "connection terminated (allowed)");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "connection terminated (allowed)");
     return SCP_SERVER_STATE_OK;
 }
 
@@ -505,7 +505,7 @@ scp_v0s_deny_connection(struct SCP_CONNECTION *c)
         return SCP_SERVER_STATE_NETWORK_ERR;
     }
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "connection terminated (denied)");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "connection terminated (denied)");
     return SCP_SERVER_STATE_OK;
 }
 
@@ -528,6 +528,6 @@ scp_v0s_replyauthentication(struct SCP_CONNECTION *c, unsigned short int value)
         return SCP_SERVER_STATE_NETWORK_ERR;
     }
 
-    LOG_DBG(LOG_LEVEL_DEBUG, "connection terminated (scp_v0s_deny_authentication)");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "connection terminated (scp_v0s_deny_authentication)");
     return SCP_SERVER_STATE_OK;
 }

@@ -410,7 +410,7 @@ xfs_add_entry(struct xfs_fs *xfs, fuse_ino_t parent_inum,
                 fuse_ino_t inum = xfs->free_list[--xfs->free_count];
                 if (xfs->inode_table[inum] != NULL)
                 {
-                    LOG_DBG(LOG_LEVEL_ERROR, "Unexpected non-NULL value in inode table "
+                    LOG_DEVEL(LOG_LEVEL_ERROR, "Unexpected non-NULL value in inode table "
                               "entry %ld", inum);
                 }
                 xfs->inode_table[inum] = xino;
