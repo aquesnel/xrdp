@@ -46,6 +46,7 @@
 extern int g_rail_chan_id;      /* in chansrv.c */
 extern int g_display_num;       /* in chansrv.c */
 extern char *g_exec_name;       /* in chansrv.c */
+extern int g_exec_pid;          /* in chansrv.c */
 extern tbus g_exec_event;       /* in chansrv.c */
 extern tbus g_exec_mutex;       /* in chansrv.c */
 extern tbus g_exec_sem;         /* in chansrv.c */
@@ -226,6 +227,12 @@ rail_set_window_data(Window window, struct rail_window_data *rwd)
     int bytes;
 
     bytes = sizeof(struct rail_window_data);
+
+    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XChangeProperty XRDP_RAIL_WINDOW_DATA "
+              "PropModeReplace window_id 0x%8.8lx rail_window_data.valid 0x%4.4x "
+              "rail_window_data.x %d rail_window_data.y %d rail_window_data.width %d "
+              "rail_window_data.height %d rail_window_data.title_crc %d ",
+              window, rwd->valid, rwd->x, rwd->y, rwd->width, rwd->height, rwd->title_crc);
     XChangeProperty(g_display, window, g_rwd_atom, XA_STRING, 8,
                     PropModeReplace, (unsigned char *)rwd, bytes);
     return 0;
@@ -284,7 +291,6 @@ rail_send_init(void)
     int bytes;
     char *size_ptr;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_send_init:");
     make_stream(s);
     init_stream(s, 8182);
     out_uint16_le(s, TS_RAIL_ORDER_HANDSHAKE);
@@ -296,6 +302,10 @@ rail_send_init(void)
     size_ptr[0] = bytes;
     size_ptr[1] = bytes >> 8;
     bytes = (int)(s->end - s->data);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPERP] TS_RAIL_ORDER_HANDSHAKE "
+              "orderType %x orderLength %d buildNumber 1", 
+              TS_RAIL_ORDER_HANDSHAKE, bytes);
+    
     send_channel_data(g_rail_chan_id, s->data, bytes);
     free_stream(s);
     return 0;
@@ -305,6 +315,9 @@ rail_send_init(void)
 static int
 anotherWMRunning(Display *display, XErrorEvent *xe)
 {
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "X ErrorHandler callback called, "
+              "assuming that the rail window manager is not running. Display %s",
+              DisplayString(display));
     g_rail_running = 0;
     return -1;
 }
@@ -322,12 +335,16 @@ rail_is_another_wm_running(void)
                  SubstructureRedirectMask | ButtonPressMask |
                  SubstructureNotifyMask | FocusChangeMask |
                  EnterWindowMask | LeaveWindowMask);
-    XSync(g_display, 0);
+    // flush the event buffer to force any errors to be processed by the error handler
+    XSync(g_display, /* discard events */ 0); 
     XSetErrorHandler((XErrorHandler)old);
     g_rail_up = g_rail_running;
 
     if (!g_rail_up)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "XSelectInput caused an error, "
+                  "therefore assuming rail window manager is not running. "
+                  "Display %s", DisplayString(g_display));
         return 1;
     }
 
@@ -370,8 +387,8 @@ rail_startup(void)
 
     if (rail_is_another_wm_running())
     {
-        LOG(LOG_LEVEL_ERROR, "rail_init: another window manager "
-            "is running");
+        LOG(LOG_LEVEL_WARNING, "rail_startup: another window manager "
+            "is running, deleting existing window list");
     }
 
     list_delete(g_window_list);
@@ -383,16 +400,21 @@ rail_startup(void)
     if (!XRRQueryExtension(g_display, &g_xrr_event_base, &dummy))
     {
         g_xrr_event_base = 0;
-        LOG(LOG_LEVEL_ERROR, "rail_init: RandR extension not found");
+        LOG(LOG_LEVEL_WARNING, 
+            "rail_startup: RandR extension not found, proceeding without RandR");
     }
 
     if (g_xrr_event_base > 0)
     {
-        LOG_DEVEL(LOG_LEVEL_INFO, "rail_init: found RandR extension");
+        LOG(LOG_LEVEL_INFO, "rail_startup: found RandR extension");
         st = XRRQueryVersion(g_display, &ver_maj, &ver_min);
         if (st)
         {
-            LOG_DEVEL(LOG_LEVEL_INFO, "rail_init: RandR version major %d minor %d", ver_maj, ver_min);
+            LOG(LOG_LEVEL_INFO, "rail_startup: RandR version major %d minor %d", ver_maj, ver_min);
+        }
+        else
+        {
+            LOG(LOG_LEVEL_WARNING, "rail_startup: failure getting RandR version");
         }
         XRRSelectInput(g_display, g_root_window, RRScreenChangeNotifyMask);
     }
@@ -402,6 +424,7 @@ rail_startup(void)
         g_default_cursor = XCreateFontCursor(g_display, XC_left_ptr);
         XDefineCursor(g_display, g_root_window, g_default_cursor);
     }
+    LOG_DEVEL(LOG_LEVEL_INFO, "rail_startup: completed");
 
     return 0;
 }
@@ -454,7 +477,6 @@ rail_process_exec(struct stream *s, int size)
     char *WorkingDir;
     char *Arguments;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "chansrv::rail_process_exec:");
     in_uint16_le(s, flags);
     in_uint16_le(s, ExeOrFileLength);
     in_uint16_le(s, WorkingDirLength);
@@ -462,23 +484,47 @@ rail_process_exec(struct stream *s, int size)
     ExeOrFile = read_uni(s, ExeOrFileLength);
     WorkingDir = read_uni(s, WorkingDirLength);
     Arguments = read_uni(s, ArgumentsLen);
-    LOG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x ExeOrFileLength %d WorkingDirLength %d "
-        "ArgumentsLen %d ExeOrFile [%s] WorkingDir [%s] "
-        "Arguments [%s]", flags, ExeOrFileLength, WorkingDirLength,
-        ArgumentsLen, ExeOrFile, WorkingDir, Arguments);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_EXEC "
+              "flags 0x%8.8x, ExeOrFileLength %d, WorkingDirLength %d, "
+              "ArgumentsLen %d, ExeOrFile [%s], WorkingDir [%s], "
+              "Arguments [%s]", flags, ExeOrFileLength, WorkingDirLength,
+              ArgumentsLen, ExeOrFile, WorkingDir, Arguments);
 
     if (g_strlen(ExeOrFile) > 0)
     {
         rail_startup();
 
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_process_exec: pre");
-        /* ask main thread to fork */
+        LOG(LOG_LEVEL_DEBUG, "Received RAIL execute request with "
+            "WorkingDir [%s] ExeOrFile [%s] Arguments [%s]", 
+            WorkingDir, ExeOrFile, Arguments);
+        if (g_strlen(WorkingDir) > 0)
+        {
+            LOG(LOG_LEVEL_WARNING, 
+                "XRDP channel server does not support RAIL Working directory");
+        }
+        if (g_strlen(Arguments) > 0)
+        {
+            LOG(LOG_LEVEL_WARNING, 
+                "XRDP channel server does not support RAIL Arguments");
+        }
+
+        /* ask main thread to fork and exec g_exec_name */
+        /* in chansrv.c : run_exec() */
         tc_mutex_lock(g_exec_mutex);
         g_exec_name = ExeOrFile;
         g_set_wait_obj(g_exec_event);
         tc_sem_dec(g_exec_sem);
         tc_mutex_unlock(g_exec_mutex);
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_process_exec: post");
+        
+        LOG(LOG_LEVEL_INFO, 
+            "RAIL started process [%s] with pid %d and environment variables "
+            "DISPLAY [%s] XAUTHORITY [%s]", 
+            g_exec_name, g_exec_pid, g_getenv("DISPLAY"), g_getenv("XAUTHORITY"));
+    }
+    else
+    {
+        LOG(LOG_LEVEL_ERROR, 
+            "Received RAIL execute request with empty string as the executable.");
     }
 
     g_free(ExeOrFile);
@@ -529,7 +575,7 @@ rail_close_window(int window_id)
 {
     XEvent ce;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "chansrv::rail_close_window:");
+    LOG_DEVEL(LOG_LEVEL_INFO, "closing window_id 0x%8.8x", window_id);
 
     rail_win_popdown();
 
@@ -541,6 +587,9 @@ rail_close_window(int window_id)
     ce.xclient.format = 32;
     ce.xclient.data.l[0] = g_wm_delete_window_atom;
     ce.xclient.data.l[1] = CurrentTime;
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XSendEvent NoEventMask "
+              "WM_DELETE_WINDOW CurrentTime window_id 0x%8.8x ", window_id);
     XSendEvent(g_display, window_id, False, NoEventMask, &ce);
 
     return 0;
@@ -568,29 +617,34 @@ rail_process_activate(struct stream *s, int size)
     XWindowAttributes window_attributes;
     Window transient_for = 0;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate:");
     in_uint32_le(s, window_id);
     in_uint8(s, enabled);
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_ACTIVATE "
+              "WindowId 0x%8.8x Enabled %d", window_id, enabled);
 
     index = list_index_of(g_window_list, window_id);
     if (index < 0)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: window 0x%8.8x not in list",
-                  window_id);
+        LOG_DEVEL(LOG_LEVEL_WARNING, 
+                  "Ignorning activate order, window 0x%8.8x not in the list of "
+                  "valid RAIL windows", window_id);
         return 0;
     }
 
     g_focus_counter++;
     g_got_focus = enabled;
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x enabled %d", window_id, enabled);
 
     XGetWindowAttributes(g_display, window_id, &window_attributes);
 
     if (enabled)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "Enabling window 0x%8.8x", window_id);
         if (g_focus_win == window_id)
         {
             /* In case that window is unmapped upon minimization and not yet mapped*/
+            LOG_DEVEL(LOG_LEVEL_TRACE, 
+                          "calling XMapWindow for window 0x%8.8x", window_id);
             XMapWindow(g_display, window_id);
         }
         else
@@ -599,28 +653,46 @@ rail_process_activate(struct stream *s, int size)
             if (window_attributes.map_state != IsViewable)
             {
                 /* In case that window is unmapped upon minimization and not yet mapped */
+                LOG_DEVEL(LOG_LEVEL_TRACE, 
+                          "calling XMapWindow for window 0x%8.8x", window_id);
                 XMapWindow(g_display, window_id);
             }
             XGetTransientForHint(g_display, window_id, &transient_for);
             if (transient_for > 0)
             {
                 /* Owner window should be raised up as well */
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Enabling owner window 0x%8.8lx", transient_for);
+                LOG_DEVEL(LOG_LEVEL_TRACE, 
+                          "calling XRaiseWindow for window 0x%8.8lx", transient_for);
                 XRaiseWindow(g_display, transient_for);
             }
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+            /* Why is this raise window and set input focus called twice 
+               with the same arguments? Can this first call be removed? */
+            LOG_DEVEL(LOG_LEVEL_TRACE, "calling XRaiseWindow for window 0x%8.8x", window_id);
             XRaiseWindow(g_display, window_id);
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+            
+            LOG_DEVEL(LOG_LEVEL_TRACE, 
+                      "calling XSetInputFocus for window 0x%8.8x, "
+                      "RevertToParent, CurrentTime", window_id);
             XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
         }
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "calling XRaiseWindow for window 0x%8.8x", window_id);
         XRaiseWindow(g_display, window_id);
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                      "calling XSetInputFocus for window 0x%8.8x, "
+                      "RevertToParent, CurrentTime", window_id);
         XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
     }
     else
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "  window attributes: override_redirect %d",
-                  window_attributes.override_redirect);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "Disabling window 0x%8.8x", window_id);
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "Registering conditional rail_win_popdown to be executed in 200ms");
+        
+        /* What does the window attribute override_redirect have to do with 
+           this timeout callback? */
+        LOG_DEVEL(LOG_LEVEL_TRACE, "  window 0x%8.8x attributes: override_redirect %d",
+                  window_id, window_attributes.override_redirect);
         add_timeout(200, my_timeout, (void *)(long)g_focus_counter);
     }
     return 0;
@@ -648,6 +720,7 @@ rail_restore_windows(void)
     Window p;
     Window *children;
 
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "  restore rail windows");
     XQueryTree(g_display, g_root_window, &r, &p, &children, &nchild);
     for (i = 0; i < nchild; i++)
     {
@@ -675,9 +748,9 @@ rail_process_system_param(struct stream *s, int size)
 {
     int system_param;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_param:");
     in_uint32_le(s, system_param);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  system_param 0x%8.8x", system_param);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_SYSPARAM "
+              "SystemParam 0x%8.8x", system_param);
     /*
      * Ask client to re-create the existing rail windows. This is supposed
      * to be done after handshake and client is initialised properly, we
@@ -685,8 +758,12 @@ rail_process_system_param(struct stream *s, int size)
      */
     if (system_param == 0x0000002F) /*SPI_SET_WORK_AREA*/
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "  restore rail windows");
         rail_restore_windows();
+    }
+    else
+    {
+        LOG_DEVEL(LOG_LEVEL_WARNING, 
+                  "Ignoring unknown SystemParam order 0x%8.8x", system_param);
     }
     return 0;
 }
@@ -822,13 +899,17 @@ rail_win_get_text(Window win, char **data)
 static int
 rail_minmax_window(int window_id, int max)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_minmax_window 0x%8.8x:", window_id);
     if (max)
     {
-
-    }
+        LOG_DEVEL(LOG_LEVEL_WARNING, 
+                  "Ignoring maximize command, command not supported");
+    } 
     else
     {
+        LOG_DEVEL(LOG_LEVEL_INFO, "Minimizing window_id 0x%8.8x", window_id);
+        
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "calling XUnmapWindow window_id 0x%8.8x", window_id);
         XUnmapWindow(g_display, window_id);
         /* change window state to IconicState (3) */
         rail_win_set_state(window_id, 0x3);
@@ -845,15 +926,21 @@ rail_restore_window(int window_id)
 {
     XWindowAttributes window_attributes;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_restore_window 0x%8.8x:", window_id);
+    LOG_DEVEL(LOG_LEVEL_INFO, "restoring window_id 0x%8.8x:", window_id);
     XGetWindowAttributes(g_display, window_id, &window_attributes);
     if (window_attributes.map_state != IsViewable)
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "calling XMapWindow window_id 0x%8.8x", window_id);
         XMapWindow(g_display, window_id);
     }
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XRaiseWindow 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "calling XRaiseWindow window_id 0x%8.8x", window_id);
     XRaiseWindow(g_display, window_id);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_activate: calling XSetInputFocus 0x%8.8x", window_id);
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+              "calling XSetInputFocus window_id 0x%8.8x, RevertToParent, CurrentTime", 
+              window_id);
     XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
 
     return 0;
@@ -867,50 +954,54 @@ rail_process_system_command(struct stream *s, int size)
     int command;
     int index;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, command);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_SYSCOMMAND"
+              "WindowId 0x%8.8x Command 0x%4.4x", window_id, command);
 
     index = list_index_of(g_window_list, window_id);
     if (index < 0)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_system_command: window 0x%8.8x not in list",
-                  window_id);
+        LOG_DEVEL(LOG_LEVEL_WARNING, 
+                  "Ignorning system command order, window 0x%8.8x not in the "
+                  "list of valid RAIL windows", window_id);
         return 0;
     }
 
     switch (command)
     {
         case SC_SIZE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_SIZE", window_id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignorning system command order SC_SIZE, command not supported");
             break;
         case SC_MOVE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MOVE", window_id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignorning system command order SC_MOVE, command not supported");
             break;
         case SC_MINIMIZE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MINIMIZE", window_id);
             rail_minmax_window(window_id, 0);
             break;
         case SC_MAXIMIZE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_MAXIMIZE", window_id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignorning system command order SC_MAXIMIZE, command not supported");
             break;
         case SC_CLOSE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_CLOSE", window_id);
             rail_close_window(window_id);
             break;
         case SC_KEYMENU:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_KEYMENU", window_id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignorning system command order SC_KEYMENU, command not supported");
             break;
         case SC_RESTORE:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_RESTORE", window_id);
             rail_restore_window(window_id);
             break;
         case SC_DEFAULT:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x SC_DEFAULT", window_id);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignorning system command order SC_DEFAULT, command not supported");
             break;
         default:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x unknown command command %d",
-                      window_id, command);
+            LOG_DEVEL(LOG_LEVEL_WARNING, "Ignorning unknown system command order, "
+                      "command 0x%4.4x", command);
             break;
     }
 
@@ -923,9 +1014,11 @@ rail_process_handshake(struct stream *s, int size)
 {
     int build_number;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_handshake:");
     in_uint32_le(s, build_number);
-    LOG(LOG_LEVEL_DEBUG, "  build_number 0x%8.8x", build_number);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_HANDSHAKE "
+        "buildNumber 0x%8.8x", build_number);
+    
+    LOG(LOG_LEVEL_INFO, "client has build number 0x%8.8x", build_number);
     return 0;
 }
 
@@ -937,12 +1030,15 @@ rail_process_notify_event(struct stream *s, int size)
     int notify_id;
     int message;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_notify_event:");
     in_uint32_le(s, window_id);
     in_uint32_le(s, notify_id);
     in_uint32_le(s, message);
-    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x notify_id 0x%8.8x message 0x%8.8x",
-        window_id, notify_id, message);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_NOTIFY_EVENT "
+              "WindowId 0x%8.8x NotifyIconId 0x%8.8x Message 0x%8.8x",
+              window_id, notify_id, message);
+             
+    LOG_DEVEL(LOG_LEVEL_WARNING, "Ignoring icon notify event, all icon notify "
+              "events are not supported");
     return 0;
 }
 
@@ -958,7 +1054,6 @@ rail_process_window_move(struct stream *s, int size)
     tsi16 si16;
     struct rail_window_data *rwd;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_window_move:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, si16);
     left = si16;
@@ -968,11 +1063,18 @@ rail_process_window_move(struct stream *s, int size)
     right = si16;
     in_uint16_le(s, si16);
     bottom = si16;
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d right %d bottom %d width %d height %d",
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_WINDOWMOVE "
+              "WindowId  0x%8.8x Left %d Top %d Right %d Bottom %d width %d height %d",
               window_id, left, top, right, bottom, right - left, bottom - top);
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XMoveResizeWindow "
+              "WindowId  0x%8.8x Left %d Top %d width %d height %d",
+              window_id, left, top, right - left, bottom - top);
     XMoveResizeWindow(g_display, window_id, left, top, right - left, bottom - top);
+    
     rwd = (struct rail_window_data *)
           g_malloc(sizeof(struct rail_window_data), 1);
+    /* Why is rwd->valid not set here? */
     rwd->x = left;
     rwd->y = top;
     rwd->width = right - left;
@@ -993,7 +1095,6 @@ rail_process_local_move_size(struct stream *s, int size)
     int pos_y;
     tsi16 si16;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_local_move_size:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, is_move_size_start);
     in_uint16_le(s, move_size_type);
@@ -1001,9 +1102,14 @@ rail_process_local_move_size(struct stream *s, int size)
     pos_x = si16;
     in_uint16_le(s, si16);
     pos_y = si16;
-    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x is_move_size_start %d move_size_type %d "
-        "pos_x %d pos_y %d", window_id, is_move_size_start, move_size_type,
-        pos_x, pos_y);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_LOCALMOVESIZE "
+            "WindowId 0x%8.8x, IsMoveSizeStart %d, MoveSizeType 0x%4.4x, "
+            "PosX 0x%4.4x, PosY 0x%4.4x", 
+            window_id, is_move_size_start, move_size_type,  pos_x, pos_y);
+    
+    LOG_DEVEL(LOG_LEVEL_WARNING, "RDP Protocol error: Ignoring invalid message. "
+              "Server received a [MS-RDPERP] TS_RAIL_ORDER_LOCALMOVESIZE message "
+              "which is only supposed to be sent from the server to the client.");
     return 0;
 }
 
@@ -1012,7 +1118,10 @@ rail_process_local_move_size(struct stream *s, int size)
 static int
 rail_process_min_max_info(struct stream *s, int size)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_min_max_info:");
+    LOG_DEVEL(LOG_LEVEL_WARNING, "RDP Protocol error: Ignoring invalid message. "
+              "Server received a [MS-RDPERP] TS_RAIL_ORDER_MINMAXINFO message "
+              "which is only supposed to be sent from the server to the client.");
+            
     return 0;
 }
 
@@ -1022,9 +1131,10 @@ rail_process_client_status(struct stream *s, int size)
 {
     int flags;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_client_status:");
     in_uint32_le(s, flags);
-    LOG(LOG_LEVEL_DEBUG, "  flags 0x%8.8x", flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_CLIENTSTATUS "
+            "Flags 0x%8.8x", flags);
+
     return 0;
 }
 
@@ -1037,13 +1147,16 @@ rail_process_sys_menu(struct stream *s, int size)
     int top;
     tsi16 si16;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_sys_menu:");
     in_uint32_le(s, window_id);
     in_uint16_le(s, si16);
     left = si16;
     in_uint16_le(s, si16);
     top = si16;
-    LOG(LOG_LEVEL_DEBUG, "  window_id 0x%8.8x left %d top %d", window_id, left, top);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_SYSMENU "
+            "WindowId 0x%8.8x Left %d Top %d", window_id, left, top);
+    
+    LOG_DEVEL(LOG_LEVEL_WARNING, 
+              "Ignoring system menu order, command not supported");
     return 0;
 }
 
@@ -1053,9 +1166,12 @@ rail_process_lang_bar_info(struct stream *s, int size)
 {
     int language_bar_status;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_lang_bar_info:");
     in_uint32_le(s, language_bar_status);
-    LOG(LOG_LEVEL_DEBUG, "  language_bar_status 0x%8.8x", language_bar_status);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_LANGBARINFO "
+              "LanguageBarStatus 0x%8.8x", language_bar_status);
+    
+    LOG_DEVEL(LOG_LEVEL_WARNING, 
+              "Ignoring language bar info order, command not supported");
     return 0;
 }
 
@@ -1063,7 +1179,14 @@ rail_process_lang_bar_info(struct stream *s, int size)
 static int
 rail_process_appid_req(struct stream *s, int size)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_req:");
+    int window_id;
+
+    in_uint32_le(s, window_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_GET_APPID_REQ "
+              "WindowId 0x%8.8x", window_id);
+    
+    LOG_DEVEL(LOG_LEVEL_DEBUG, 
+              "Ignoring get application id order, server support is optional");
     return 0;
 }
 
@@ -1071,7 +1194,10 @@ rail_process_appid_req(struct stream *s, int size)
 static int
 rail_process_appid_resp(struct stream *s, int size)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_appid_resp:");
+    LOG_DEVEL(LOG_LEVEL_WARNING, "RDP Protocol error: Ignoring invalid message. "
+              "Server received a [MS-RDPERP] TS_RAIL_ORDER_GET_APPID_RESP message "
+              "which is only supposed to be sent from the server to the client.");
+
     return 0;
 }
 
@@ -1080,7 +1206,9 @@ rail_process_appid_resp(struct stream *s, int size)
 static int
 rail_process_exec_result(struct stream *s, int size)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_process_exec_result:");
+    LOG_DEVEL(LOG_LEVEL_WARNING, "RDP Protocol error: Ignoring invalid message. "
+              "Server received a [MS-RDPERP] TS_RAIL_ORDER_EXEC_RESULT message "
+              "which is only supposed to be sent from the server to the client.");
     return 0;
 }
 
@@ -1093,11 +1221,14 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
     int code;
     int size;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_data_in:");
+    /* Why are only the lower 8 bits read from the orderType field which is  16 bits? 
+    https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdperp/fcc18e69-a182-4db0-a1ea-c52783eb488c */
     in_uint8(s, code);
     in_uint8s(s, 1);
     in_uint16_le(s, size);
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_PDU_HEADER "
+              "orderType %d orderLength %d", code, size);
     switch (code)
     {
         case TS_RAIL_ORDER_EXEC: /* 1 */
@@ -1146,10 +1277,12 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
             rail_process_exec_result(s, size);
             break;
         default:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_data_in: unknown code %d size %d", code, size);
+            LOG_DEVEL(LOG_LEVEL_WARNING, 
+                      "Ignoring unknown code %d size %d", code, size);
             break;
     }
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XFlush");
     XFlush(g_display);
     return  0;
 }
@@ -1800,26 +1933,32 @@ rail_xevent(void *xevent)
     XWindowAttributes wnd_attributes;
     char *prop_name;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_xevent:");
-
     if (!g_rail_up)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "rail is not initialised");
         return 1;
     }
 
     rv = 1;
     lxevent = (XEvent *)xevent;
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] type 0x%8.8x serial %lu", 
+              lxevent->type, lxevent->xany.serial);
 
     switch (lxevent->type)
     {
         case PropertyNotify:
             prop_name = XGetAtomName(g_display, lxevent->xproperty.atom);
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got PropertyNotify window_id 0x%8.8lx %s state new %d",
-                      lxevent->xproperty.window, prop_name,
-                      lxevent->xproperty.state == PropertyNewValue);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] PropertyNotify "
+                      "window_id 0x%8.8lx, prop_name %s, state %d",
+                     lxevent->xproperty.window, prop_name,
+                     lxevent->xproperty.state);
 
             if (list_index_of(g_window_list, lxevent->xproperty.window) < 0)
             {
+                LOG_DEVEL(LOG_LEVEL_WARNING, 
+                          "Ignorning [XEvent] PropertyNotify, window 0x%8.8lx "
+                          "not in the list of valid RAIL windows", 
+                          lxevent->xproperty.window);
                 break;
             }
 
@@ -1832,6 +1971,12 @@ rail_xevent(void *xevent)
                     rail_win_send_text(lxevent->xproperty.window);
                     rv = 0;
                 }
+            }
+            else
+            {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, 
+                          "Ignorning [XEvent] PropertyNotify, unknown property [%s]", 
+                          prop_name);
             }
             XFree(prop_name);
             break;
@@ -2010,11 +2155,13 @@ rail_xevent(void *xevent)
             {
                 if (lxevent->type == g_xrr_event_base + RRScreenChangeNotify)
                 {
+                    LOG_DEVEL(LOG_LEVEL_DEBUG, "  got RRScreenChangeNotify window");
                     rail_desktop_resize(lxevent);
                     rv = 0;
                     break;
                 }
             }
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "Received [XEvent] with unknown type");
     }
 
     return rv;
