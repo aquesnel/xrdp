@@ -103,32 +103,26 @@ xcommon_init(void)
 {
     if (g_display != 0)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "xcommon_init: xcommon_init already called");
+        LOG(LOG_LEVEL_WARNING, "display has already been initialized, "
+                  "re-using the existing display %s", DisplayString(g_display));
         return 0;
     }
 
-    g_display = XOpenDisplay(0);
+    /* null display string means use the "DISPLAY" environment variable*/
+    g_display = XOpenDisplay(0); 
 
     if (g_display == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "xcommon_init: error, XOpenDisplay failed");
+        LOG(LOG_LEVEL_ERROR, "Failed to connect to display %s", g_getenv("DISPLAY"));
         return 1;
     }
-
-    LOG_DEVEL(LOG_LEVEL_INFO, "xcommon_init: connected to display ok");
 
     /* setting the error handlers can cause problem when shutting down
        chansrv on some xlibs */
     XSetErrorHandler(xcommon_error_handler);
     XSetIOErrorHandler(xcommon_fatal_handler);
 
-    g_x_socket = XConnectionNumber(g_display);
-
-    if (g_x_socket == 0)
-    {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "xcommon_init: XConnectionNumber failed");
-        return 1;
-    }
+    g_x_socket = ConnectionNumber(g_display);
 
     g_x_wait_obj = g_create_wait_obj_from_socket(g_x_socket, 0);
     g_screen_num = DefaultScreen(g_display);
@@ -141,6 +135,9 @@ xcommon_init(void)
     g_utf8_string = XInternAtom(g_display, "UTF8_STRING", 0);
     g_net_wm_name = XInternAtom(g_display, "_NET_WM_NAME", 0);
     g_wm_state = XInternAtom(g_display, "WM_STATE", 0);
+
+    LOG(LOG_LEVEL_INFO, "Channel server connected to Xserver display %s", 
+        DisplayString(g_display));
 
     return 0;
 }
