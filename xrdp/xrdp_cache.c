@@ -361,7 +361,7 @@ xrdp_cache_add_bitmap(struct xrdp_cache *self, struct xrdp_bitmap *bitmap,
         lbm = self->bitmap_items[cache_id][cache_idx].bitmap;
         if ((lbm != NULL) && COMPARE_WITH_CRC32(lbm, bitmap))
         {
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "found bitmap at %d %d", index, jndex);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "found bitmap at %d", jndex);
             found = 1;
             break;
         }

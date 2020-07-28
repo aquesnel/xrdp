@@ -54,7 +54,7 @@ xrdp_wm_create(struct xrdp_process *owner,
     pid = g_getpid();
     g_snprintf(event_name, 255, "xrdp_%8.8x_wm_login_mode_event_%8.8x",
                pid, owner->session_id);
-    LOG(LOG_LEVEL_DEBUG, "%s", event_name);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "%s", event_name);
     self->login_mode_event = g_create_wait_obj(event_name);
     self->painter = xrdp_painter_create(self, self->session);
     self->cache = xrdp_cache_create(self, self->session, self->client_info);
@@ -770,7 +770,7 @@ xrdp_wm_init(struct xrdp_wm *self)
             else
             {
                 /* Hopefully, we never reach here. */
-                LOG(LOG_LEVEL_DEBUG,
+                LOG_DEVEL(LOG_LEVEL_WARNING,
                             "Control should never reach %s:%d", __FILE__, __LINE__);
             }
 
@@ -1880,6 +1880,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (id == 0) /* "id" should be "struct xrdp_process*" as long */
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_process");
         return 0;
     }
 
@@ -1887,11 +1888,13 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (wm == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_wm");
         return 0;
     }
 
     rv = 0;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: message code %d", msg);
     switch (msg)
     {
         case RDP_INPUT_SYNCHRONIZE:
@@ -1923,7 +1926,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
             rv = xrdp_mm_check_chan(wm->mm);
             break;
         case 0x5557:
-            LOG_DEVEL(LOG_LEVEL_TRACE, "callback: frame ack %d", param1);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "callback: frame ack %ld", param1);
             xrdp_mm_frame_ack(wm->mm, param1);
             break;
         case 0x5558:
@@ -1933,6 +1936,9 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
             xrdp_mm_suppress_output(wm->mm, param1,
                                     LOWORD(param2), HIWORD(param2),
                                     LOWORD(param3), HIWORD(param3));
+            break;
+        default:
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: ERROR unknown message code 0x%x", msg);
             break;
     }
     return rv;
