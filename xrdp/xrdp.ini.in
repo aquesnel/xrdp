@@ -161,6 +161,8 @@ rdpsnd=true
 drdynvc=true
 cliprdr=true
 rail=true
+rail_ri=true
+rail_wi=true
 xrdpvr=true
 tcutils=true
 
