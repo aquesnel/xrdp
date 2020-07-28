@@ -96,7 +96,7 @@ g_xrdp_sync(long (*sync_func)(long param1, long param2), long sync_param1,
         /* this is the main thread, call the function directly */
         /* in fork mode, this always happens too */
         sync_result = sync_func(sync_param1, sync_param2);
-        /*g_writeln("g_xrdp_sync processed IN main thread -> continue");*/
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_xrdp_sync processed IN main thread -> continue");
     }
     else
     {
@@ -130,7 +130,7 @@ g_xrdp_sync(long (*sync_func)(long param1, long param2), long sync_param1,
 
                                 * has processed the request */
         tc_mutex_unlock(g_sync1_mutex);
-        /*g_writeln("g_xrdp_sync processed BY main thread -> continue");*/
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_xrdp_sync processed BY main thread -> continue");
     }
 
     return sync_result;
@@ -143,8 +143,8 @@ xrdp_shutdown(int sig)
     tbus threadid;
 
     threadid = tc_get_threadid();
-    g_writeln("shutting down");
-    g_writeln("signal %d threadid %lld", sig, (long long)threadid);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "shutting down");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "signal %d threadid %lld", sig, (long long)threadid);
 
     if (!g_is_wait_obj_set(g_term_event))
     {
@@ -167,7 +167,7 @@ xrdp_child(int sig)
 void
 xrdp_hang_up(int sig)
 {
-    log_message(LOG_LEVEL_INFO, "caught SIGHUP, noop...");
+    LOG(LOG_LEVEL_INFO, "caught SIGHUP, noop...");
 }
 
 /*****************************************************************************/
@@ -229,7 +229,7 @@ void
 pipe_sig(int sig_num)
 {
     /* do nothing */
-    g_writeln("got XRDP SIGPIPE(%d)", sig_num);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "got XRDP SIGPIPE(%d)", sig_num);
 }
 
 /*****************************************************************************/
@@ -435,8 +435,8 @@ main(int argc, char **argv)
         DEBUG(("Argument %i - %s", test, argv[test]));
     }
 
+    g_snprintf(pid_file, 255, "%s/xrdp.pid", XRDP_PID_PATH);
     g_snprintf(cfg_file, 255, "%s/xrdp.ini", XRDP_CFG_PATH);
-    DEBUG(("cfg_file: %s", cfg_file));
 
     startup_params = (struct xrdp_startup_params *)
                      g_malloc(sizeof(struct xrdp_startup_params), 1);
@@ -453,10 +453,6 @@ main(int argc, char **argv)
         g_deinit();
         g_exit(1);
     }
-
-    g_snprintf(pid_file, 255, "%s/xrdp.pid", XRDP_PID_PATH);
-    DEBUG(("pid_file: %s", pid_file));
-    no_daemon = 0;
 
     if (startup_params->help)
     {
@@ -516,6 +512,8 @@ main(int argc, char **argv)
         g_exit(0);
     }
 
+    g_writeln("config file: %s", cfg_file);
+    
     /* starting logging subsystem */
     error = log_start(cfg_file, "xrdp");
 
@@ -539,25 +537,22 @@ main(int argc, char **argv)
         g_exit(1);
     }
 
-
-
     if (g_file_exist(pid_file)) /* xrdp.pid */
     {
-        g_writeln("It looks like xrdp is already running.");
-        g_writeln("If not, delete %s and try again.", pid_file);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "It looks like xrdp is already running.");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "If not, delete %s and try again.", pid_file);
         g_deinit();
         g_exit(0);
     }
 
+    no_daemon = 0;
     if (startup_params->no_daemon)
     {
         no_daemon = 1;
     }
 
-
     if (!no_daemon)
     {
-
         /* make sure containing directory exists */
         g_create_path(pid_file);
 
@@ -566,14 +561,14 @@ main(int argc, char **argv)
 
         if (fd == -1)
         {
-            g_writeln("running in daemon mode with no access to pid files, quitting");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "running in daemon mode with no access to pid files, quitting");
             g_deinit();
             g_exit(0);
         }
 
         if (g_file_write(fd, "0", 1) == -1)
         {
-            g_writeln("running in daemon mode with no access to pid files, quitting");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "running in daemon mode with no access to pid files, quitting");
             g_deinit();
             g_exit(0);
         }
@@ -587,7 +582,7 @@ main(int argc, char **argv)
         /* if can't listen, exit with failure status */
         if (xrdp_listen_test(startup_params) != 0)
         {
-            log_message(LOG_LEVEL_ERROR, "Failed to start xrdp daemon, "
+            LOG(LOG_LEVEL_ERROR, "Failed to start xrdp daemon, "
                                          "possibly address already in use.");
             g_deinit();
             /* must exit with failure status,
@@ -599,14 +594,14 @@ main(int argc, char **argv)
 
         if (pid == -1)
         {
-            g_writeln("problem forking");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "problem forking");
             g_deinit();
             g_exit(1);
         }
 
         if (0 != pid)
         {
-            g_writeln("daemon process %d started ok", pid);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "daemon process %d started ok", pid);
             /* exit, this is the main process */
             g_deinit();
             g_exit(0);
@@ -619,9 +614,9 @@ main(int argc, char **argv)
 
         if (fd == -1)
         {
-            g_writeln("trying to write process id to xrdp.pid");
-            g_writeln("problem opening xrdp.pid");
-            g_writeln("maybe no rights");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "trying to write process id to xrdp.pid");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "problem opening xrdp.pid");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "maybe no rights");
         }
         else
         {
@@ -660,13 +655,13 @@ main(int argc, char **argv)
     g_sync_mutex = tc_mutex_create();
     g_sync1_mutex = tc_mutex_create();
     pid = g_getpid();
-    log_message(LOG_LEVEL_INFO, "starting xrdp with pid %d", pid);
+    LOG(LOG_LEVEL_INFO, "starting xrdp with pid %d", pid);
     g_snprintf(text, 255, "xrdp_%8.8x_main_term", pid);
     g_term_event = g_create_wait_obj(text);
 
     if (g_term_event == 0)
     {
-        g_writeln("error creating g_term_event");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "error creating g_term_event");
     }
 
     g_snprintf(text, 255, "xrdp_%8.8x_main_sync", pid);
@@ -674,7 +669,7 @@ main(int argc, char **argv)
 
     if (g_sync_event == 0)
     {
-        g_writeln("error creating g_sync_event");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "error creating g_sync_event");
     }
 
     g_listen->startup_params = startup_params;

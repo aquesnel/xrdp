@@ -64,7 +64,7 @@ xrdp_wm_create(struct xrdp_process *owner,
     pid = g_getpid();
     g_snprintf(event_name, 255, "xrdp_%8.8x_wm_login_mode_event_%8.8x",
                pid, owner->session_id);
-    log_message(LOG_LEVEL_DEBUG, "%s", event_name);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "%s", event_name);
     self->login_mode_event = g_create_wait_obj(event_name);
     self->painter = xrdp_painter_create(self, self->session);
     self->cache = xrdp_cache_create(self, self->session, self->client_info);
@@ -246,7 +246,7 @@ xrdp_wm_load_pointer(struct xrdp_wm *self, char *file_name, char *data,
 
     if (!g_file_exist(file_name))
     {
-        log_message(LOG_LEVEL_ERROR,"xrdp_wm_load_pointer: error pointer file [%s] does not exist",
+        LOG(LOG_LEVEL_ERROR,"xrdp_wm_load_pointer: error pointer file [%s] does not exist",
                   file_name);
         return 1;
     }
@@ -257,7 +257,7 @@ xrdp_wm_load_pointer(struct xrdp_wm *self, char *file_name, char *data,
 
     if (fd < 0)
     {
-        log_message(LOG_LEVEL_ERROR,"xrdp_wm_load_pointer: error loading pointer from file [%s]",
+        LOG(LOG_LEVEL_ERROR,"xrdp_wm_load_pointer: error loading pointer from file [%s]",
                   file_name);
         xstream_free(fs);
         return 1;
@@ -507,7 +507,7 @@ xrdp_wm_load_static_colors_plus(struct xrdp_wm *self, char *autorun_name)
     }
     else
     {
-        log_message(LOG_LEVEL_ERROR,"xrdp_wm_load_static_colors: Could not read xrdp.ini file %s", cfg_file);
+        LOG(LOG_LEVEL_ERROR,"xrdp_wm_load_static_colors: Could not read xrdp.ini file %s", cfg_file);
     }
 
     if (self->screen->bpp == 8)
@@ -541,13 +541,13 @@ xrdp_wm_load_static_pointers(struct xrdp_wm *self)
     struct xrdp_pointer_item pointer_item;
     char file_path[256];
 
-    DEBUG(("sending cursor"));
+    LOG_DEVEL(LOG_LEVEL_TRACE, "sending cursor");
     g_snprintf(file_path, 255, "%s/cursor1.cur", XRDP_SHARE_PATH);
     g_memset(&pointer_item, 0, sizeof(pointer_item));
     xrdp_wm_load_pointer(self, file_path, pointer_item.data,
                          pointer_item.mask, &pointer_item.x, &pointer_item.y);
     xrdp_cache_add_pointer_static(self->cache, &pointer_item, 1);
-    DEBUG(("sending cursor"));
+    LOG_DEVEL(LOG_LEVEL_TRACE, "sending cursor");
     g_snprintf(file_path, 255, "%s/cursor0.cur", XRDP_SHARE_PATH);
     g_memset(&pointer_item, 0, sizeof(pointer_item));
     xrdp_wm_load_pointer(self, file_path, pointer_item.data,
@@ -703,7 +703,7 @@ xrdp_wm_init(struct xrdp_wm *self)
              * in xrdp.ini, fallback to default_section_name */
             if (file_read_section(fd, section_name, names, values) != 0)
             {
-                log_message(LOG_LEVEL_INFO,
+                LOG(LOG_LEVEL_INFO,
                             "Module \"%s\" specified by %s from %s port %s "
                             "is not configured. Using \"%s\" instead.",
                             section_name,
@@ -780,7 +780,7 @@ xrdp_wm_init(struct xrdp_wm *self)
             else
             {
                 /* Hopefully, we never reach here. */
-                log_message(LOG_LEVEL_DEBUG,
+                LOG_DEVEL(LOG_LEVEL_WARNING,
                             "Control should never reach %s:%d", __FILE__, __LINE__);
             }
 
@@ -790,7 +790,7 @@ xrdp_wm_init(struct xrdp_wm *self)
         }
         else
         {
-            log_message(LOG_LEVEL_ERROR,"xrdp_wm_init: Could not read xrdp.ini file %s", cfg_file);
+            LOG(LOG_LEVEL_ERROR,"xrdp_wm_init: Could not read xrdp.ini file %s", cfg_file);
         }
     }
     else
@@ -1738,7 +1738,7 @@ static int
 xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
                             int x, int y)
 {
-    // DEBUG(("mouse event flags %4.4x x %d y %d", device_flags, x, y));
+    // LOG_DEVEL(LOG_LEVEL_TRACE, "mouse event flags %4.4x x %d y %d", device_flags, x, y);
 
     if (device_flags & PTRFLAGS_MOVE)
     {
@@ -1890,7 +1890,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (id == 0) /* "id" should be "struct xrdp_process*" as long */
     {
-        LOG_DBG("xrdp_wm - session callback: error null xrdp_process");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_process");
         return 0;
     }
 
@@ -1898,13 +1898,13 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (wm == 0)
     {
-        LOG_DBG("xrdp_wm - session callback: error null xrdp_wm");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_wm");
         return 0;
     }
 
     rv = 0;
 
-    LOG_DBG("xrdp_wm - session callback: message code %d", msg);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: message code %d", msg);
     switch (msg)
     {
         case RDP_INPUT_SYNCHRONIZE:
@@ -1948,7 +1948,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
                                     LOWORD(param3), HIWORD(param3));
             break;
         default:
-            LOG_DBG("xrdp_wm - session callback: ERROR unknown message code 0x%x", msg);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: ERROR unknown message code 0x%x", msg);
             break;
     }
     return rv;
@@ -2184,7 +2184,7 @@ xrdp_wm_log_msg(struct xrdp_wm *self, enum logLevels loglevel,
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 
-    log_message(loglevel, "xrdp_wm_log_msg: %s", msg);
+    LOG(loglevel, "xrdp_wm_log_msg: %s", msg);
     add_string_to_logwindow(msg, self->log);
     return 0;
 }
