@@ -1866,6 +1866,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (id == 0) /* "id" should be "struct xrdp_process*" as long */
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_process");
         return 0;
     }
 
@@ -1873,11 +1874,13 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (wm == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_wm");
         return 0;
     }
 
     rv = 0;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: message code %d", msg);
     switch (msg)
     {
         case RDP_INPUT_SYNCHRONIZE:
@@ -1919,6 +1922,9 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
             xrdp_mm_suppress_output(wm->mm, param1,
                                     LOWORD(param2), HIWORD(param2),
                                     LOWORD(param3), HIWORD(param3));
+            break;
+        default:
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: ERROR unknown message code 0x%x", msg);
             break;
     }
     return rv;

@@ -127,10 +127,12 @@ xrdp_process_data_in(struct trans *self)
     struct stream *s;
     int len;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_process_data_in");
-    pro = (struct xrdp_process *)(self->callback_data);
 
+    pro = (struct xrdp_process *)(self->callback_data);
     s = pro->server_trans->in_s;
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_process_data_in process->server_trans->extra_flags %d", 
+            pro->server_trans->extra_flags);
     switch (pro->server_trans->extra_flags)
     {
         case 0:
@@ -217,6 +219,13 @@ xrdp_process_data_in(struct trans *self)
 }
 
 /*****************************************************************************/
+/*
+  Main event loop for processing a connected rdp client.
+  Initializes the session, configures the callback for receiving data on 
+  client connection's and the session event callback, and then loops processing
+  session and transport events until the term event occurs.
+  returns error code
+*/
 int
 xrdp_process_main_loop(struct xrdp_process *self)
 {
