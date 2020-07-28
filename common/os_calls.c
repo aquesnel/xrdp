@@ -913,7 +913,11 @@ g_tcp_connect(int sck, const char* address, const char* port)
     {
         res = 0;
     }
-
+    if(res == -1)
+    {
+        log_message(LOG_LEVEL_ERROR, "g_sck_local_connect received error code %s when connecting to %s %s", strerror(errno), address, port);
+    }
+    
     return res;
 }
 #endif
@@ -927,13 +931,19 @@ g_sck_local_connect(int sck, const char *port)
     return -1;
 #else
     struct sockaddr_un s;
+    int retval;
 
     memset(&s, 0, sizeof(struct sockaddr_un));
     s.sun_family = AF_UNIX;
     strncpy(s.sun_path, port, sizeof(s.sun_path));
     s.sun_path[sizeof(s.sun_path) - 1] = 0;
 
-    return connect(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_un));
+    retval = connect(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_un));
+    if(retval == -1)
+    {
+        log_message(LOG_LEVEL_ERROR, "g_sck_local_connect received error code %s when connecting to %s", strerror(errno), port);
+    }
+    return retval;
 #endif
 }
 
@@ -3098,6 +3108,25 @@ g_execvp(const char *p1, char *args[])
     int rv;
 
     g_rm_temp_dir();
+    
+    int index = 0;
+    int totalLen = 0;
+    int len = 2048;
+    char logstr[2048];
+    logstr[0] = 0;
+    for (index = 0; args[index] != 0; index++)
+    {
+        /* +1 = one space*/
+        totalLen = totalLen + g_strlen(args[index]) + 1;
+
+        if (len > totalLen)
+        {
+            g_strcat(logstr, args[index]);
+            g_strcat(logstr, " ");
+        }
+    }
+    log_message(LOG_LEVEL_DEBUG, "Exec-ing from pid %d: %s", g_getpid(), logstr);
+    
     rv = execvp(p1, args);
     g_mk_socket_path(0);
     return rv;
@@ -3115,6 +3144,7 @@ g_execlp3(const char *a1, const char *a2, const char *a3)
     int rv;
 
     g_rm_temp_dir();
+    log_message(LOG_LEVEL_DEBUG, "Exec-ing from pid %d: %s %s %s",  g_getpid(), a1, a2, a3);
     rv = execlp(a1, a2, a3, (void *)0);
     g_mk_socket_path(0);
     return rv;
@@ -3212,7 +3242,12 @@ g_fork(void)
 
     if (rv == 0) /* child */
     {
+        log_message(LOG_LEVEL_DEBUG, "Forked process in child with pid %d ", g_getpid());
         g_mk_socket_path(0);
+    }
+    else
+    {
+        log_message(LOG_LEVEL_DEBUG, "Forked parent  process pid %d with child pid %d ", g_getpid(), rv);
     }
 
     return rv;
@@ -3386,6 +3421,7 @@ g_setenv(const char *name, const char *value, int rewrite)
 #if defined(_WIN32)
     return 0;
 #else
+    log_message(LOG_LEVEL_DEBUG, "Setting environment variable: %s = %s", name, value);
     return setenv(name, value, rewrite);
 #endif
 }
@@ -3406,6 +3442,7 @@ g_getenv(const char *name)
 int
 g_exit(int exit_code)
 {
+    log_message(LOG_LEVEL_DEBUG, "Exiting process %d with exit code %d", g_getpid(), exit_code);
     exit(exit_code);
     return 0;
 }

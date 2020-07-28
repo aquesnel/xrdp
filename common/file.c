@@ -27,6 +27,10 @@
 #include "list.h"
 #include "file.h"
 #include "parse.h"
+#include "defines.h"
+
+#undef DEBUG
+#define DEBUG(args...)
 
 #define FILE_MAX_LINE_BYTES 2048
 
@@ -274,6 +278,7 @@ l_file_read_section(int fd, int max_file_size, const char *section,
             {
                 if (g_strcasecmp(section, text) == 0)
                 {
+                    DEBUG(("l_file_read_section - found section: %s", text));
                     while (file_read_ini_line(s, text,
                                               FILE_MAX_LINE_BYTES) == 0)
                     {
@@ -294,15 +299,18 @@ l_file_read_section(int fd, int max_file_size, const char *section,
                                 if (lvalue != 0)
                                 {
                                     list_add_item(values, (tbus)g_strdup(lvalue));
+                                    DEBUG(("l_file_read_section - found line: %s = %s", name, lvalue));
                                 }
                                 else
                                 {
                                     list_add_item(values, (tbus)g_strdup(""));
+                                    DEBUG(("l_file_read_section - found line: %s = %s", name, "''"));
                                 }
                             }
                             else
                             {
                                 list_add_item(values, (tbus)g_strdup(value));
+                                DEBUG(("l_file_read_section - found line: %s = %s", name, value));
                             }
                         }
                     }

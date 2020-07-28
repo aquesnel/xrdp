@@ -31,6 +31,7 @@
 #include "file.h"
 #include "os_calls.h"
 #include "thread_calls.h"
+#include "defines.h"
 
 /* Add a define here so that the log.h will hold more information
  * when compiled from this C file.
@@ -279,6 +280,7 @@ internalReadConfiguration(const char *inFilename, const char *applicationName)
         return ret;
     }
 
+    DEBUG(("inFilename: %s", inFilename));
     fd = g_file_open(inFilename);
 
     if (-1 == fd)
@@ -341,7 +343,8 @@ internal_config_read_logging(int file, struct log_config *lc,
     for (i = 0; i < param_n->count; i++)
     {
         buf = (char *)list_get_item(param_n, i);
-
+        DEBUG(("config: %s = %s", buf, ((char *)list_get_item(param_v, i))));
+        
         if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_FILE))
         {
             lc->log_file = g_strdup((char *)list_get_item(param_v, i));

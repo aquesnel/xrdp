@@ -27,6 +27,7 @@
 #include "arch.h"
 #include "parse.h"
 #include "ssl_calls.h"
+#include "log.h"
 
 #define MAX_SBYTES 0
 
@@ -694,6 +695,7 @@ trans_connect(struct trans *self, const char *server, const char *port,
         g_tcp_set_non_blocking(self->sck);
         while (1)
         {
+            log_message(LOG_LEVEL_INFO, "trans_connect: Connecting to TCP socket at %s %s", server, port);
             error = g_tcp_connect(self->sck, server, port);
             if (error == 0)
             {
@@ -738,6 +740,7 @@ trans_connect(struct trans *self, const char *server, const char *port,
         g_tcp_set_non_blocking(self->sck);
         while (1)
         {
+            log_message(LOG_LEVEL_INFO, "trans_connect: Connecting to UNIX socket at %s", port);
             error = g_tcp_local_connect(self->sck, port);
             if (error == 0)
             {
@@ -831,6 +834,7 @@ trans_listen_address(struct trans *self, char *port, const char *address)
         {
             if (g_tcp_listen(self->sck) == 0)
             {
+                log_message(LOG_LEVEL_INFO, "trans_listen_address: Listening on TCP socket at %s %s", address, port);
                 self->status = TRANS_STATUS_UP; /* ok */
                 self->type1 = TRANS_TYPE_LISTENER; /* listener */
                 return 0;
@@ -855,6 +859,7 @@ trans_listen_address(struct trans *self, char *port, const char *address)
 
             if (g_tcp_listen(self->sck) == 0)
             {
+                log_message(LOG_LEVEL_INFO, "trans_listen_address: Listening on UNIX socket at %s", port);
                 g_chmod_hex(port, 0x0660);
                 self->status = TRANS_STATUS_UP; /* ok */
                 self->type1 = TRANS_TYPE_LISTENER; /* listener */
@@ -876,6 +881,7 @@ trans_listen_address(struct trans *self, char *port, const char *address)
         {
             if (g_tcp_listen(self->sck) == 0)
             {
+                log_message(LOG_LEVEL_INFO, "trans_listen_address: Listening on VSOCK socket at %s %s", address, port);
                 self->status = TRANS_STATUS_UP; /* ok */
                 self->type1 = TRANS_TYPE_LISTENER; /* listener */
                 return 0;
@@ -894,6 +900,7 @@ trans_listen_address(struct trans *self, char *port, const char *address)
         {
             if (g_tcp_listen(self->sck) == 0)
             {
+                log_message(LOG_LEVEL_INFO, "trans_listen_address: Listening on TCP IPv4 socket at %s %s", address, port);
                 self->status = TRANS_STATUS_UP; /* ok */
                 self->type1 = TRANS_TYPE_LISTENER; /* listener */
                 return 0;
@@ -912,6 +919,7 @@ trans_listen_address(struct trans *self, char *port, const char *address)
         {
             if (g_tcp_listen(self->sck) == 0)
             {
+                log_message(LOG_LEVEL_INFO, "trans_listen_address: Listening on TCP IPv6 socket at %s %s", address, port);
                 self->status = TRANS_STATUS_UP; /* ok */
                 self->type1 = TRANS_TYPE_LISTENER; /* listener */
                 return 0;
