@@ -1242,21 +1242,25 @@ my_trans_conn_in(struct trans *trans, struct trans *new_trans)
 {
     if (trans == 0)
     {
+        DEBUG(("my_trans_conn_in: error - transport is null"));
         return 1;
     }
 
     if (trans != g_lis_trans)
     {
+        DEBUG(("my_trans_conn_in: bug/error - transport is not the global listening transport"));
         return 1;
     }
 
     if (g_con_trans != 0) /* if already set, error */
     {
+        DEBUG(("my_trans_conn_in: bug/error - global connected transport is already set"));
         return 1;
     }
 
     if (new_trans == 0)
     {
+        DEBUG(("my_trans_conn_in: bug/error - connected transport is null"));
         return 1;
     }
 
@@ -1319,12 +1323,14 @@ setup_listen(void)
         g_lis_trans = trans_create(TRANS_MODE_UNIX, 8192, 8192);
         g_lis_trans->is_term = g_is_term;
         g_snprintf(port, 255, XRDP_CHANSRV_STR, g_display_num);
+        LOGM((LOG_LEVEL_INFO, "chanserv - setup_listen: listening on UNIX socket: %s", port));
     }
     else
     {
         g_lis_trans = trans_create(TRANS_MODE_TCP, 8192, 8192);
         g_lis_trans->is_term = g_is_term;
         g_snprintf(port, 255, "%d", 7200 + g_display_num);
+        LOGM((LOG_LEVEL_INFO, "chanserv - setup_listen: listening on TCP socket: %s", port));
     }
 
     g_lis_trans->trans_conn_in = my_trans_conn_in;
