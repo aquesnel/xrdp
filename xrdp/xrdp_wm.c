@@ -1738,7 +1738,7 @@ static int
 xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
                             int x, int y)
 {
-    DEBUG(("mouse event flags %4.4x x %d y %d", device_flags, x, y));
+    // DEBUG(("mouse event flags %4.4x x %d y %d", device_flags, x, y));
 
     if (device_flags & PTRFLAGS_MOVE)
     {
@@ -1890,6 +1890,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (id == 0) /* "id" should be "struct xrdp_process*" as long */
     {
+        LOG_DBG("xrdp_wm - session callback: error null xrdp_process");
         return 0;
     }
 
@@ -1897,11 +1898,13 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (wm == 0)
     {
+        LOG_DBG("xrdp_wm - session callback: error null xrdp_wm");
         return 0;
     }
 
     rv = 0;
 
+    LOG_DBG("xrdp_wm - session callback: message code %d", msg);
     switch (msg)
     {
         case RDP_INPUT_SYNCHRONIZE:
@@ -1943,6 +1946,9 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
             xrdp_mm_suppress_output(wm->mm, param1,
                                     LOWORD(param2), HIWORD(param2),
                                     LOWORD(param3), HIWORD(param3));
+            break;
+        default:
+            LOG_DBG("xrdp_wm - session callback: ERROR unknown message code 0x%x", msg);
             break;
     }
     return rv;

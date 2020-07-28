@@ -2196,6 +2196,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
     {
         name = (char *)list_get_item(names, index);
         value = (char *)list_get_item(values, index);
+        DEBUG(("xrdp_mm_connect - login values: %s = %s", name, value));
 
         if (g_strcasecmp(name, "ip") == 0)
         {

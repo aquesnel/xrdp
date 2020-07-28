@@ -126,18 +126,18 @@ xrdp_process_data_in(struct trans *self)
     struct stream *s;
     int len;
 
-    DEBUG(("xrdp_process_data_in"));
     pro = (struct xrdp_process *)(self->callback_data);
-
     s = pro->server_trans->in_s;
+    
+    LOG_DBG("xrdp_process_data_in process->server_trans->extra_flags %d", 
+            pro->server_trans->extra_flags);
     switch (pro->server_trans->extra_flags)
     {
         case 0:
             /* early in connection sequence, we're in this mode */
             if (xrdp_process_loop(pro, 0) != 0)
             {
-                g_writeln("xrdp_process_data_in: "
-                          "xrdp_process_loop failed");
+                LOG_DBG("xrdp_process_data_in: xrdp_process_loop failed");
                 return 1;
             }
             if (pro->session->up_and_running)
@@ -183,8 +183,7 @@ xrdp_process_data_in(struct trans *self)
             len = libxrdp_get_pdu_bytes(s->p);
             if (len == -1)
             {
-                g_writeln("xrdp_process_data_in: "
-                          "xrdp_process_get_packet_bytes failed");
+                LOG_DBG("xrdp_process_data_in: libxrdp_get_pdu_bytes failed");
                 return 1;
             }
             pro->server_trans->header_size = len;
@@ -203,8 +202,7 @@ xrdp_process_data_in(struct trans *self)
             s->p = s->data;
             if (xrdp_process_loop(pro, s) != 0)
             {
-                g_writeln("xrdp_process_data_in: "
-                          "xrdp_process_loop failed");
+                LOG_DBG("xrdp_process_data_in: xrdp_process_loop failed");
                 return 1;
             }
             init_stream(s, 0);
@@ -216,6 +214,13 @@ xrdp_process_data_in(struct trans *self)
 }
 
 /*****************************************************************************/
+/*
+  Main event loop for processing a connected rdp client.
+  Initializes the session, configures the callback for receiving data on 
+  client connection's and the session event callback, and then loops processing
+  session and transport events until the term event occurs.
+  returns error code
+*/
 int
 xrdp_process_main_loop(struct xrdp_process *self)
 {
@@ -294,7 +299,7 @@ xrdp_process_main_loop(struct xrdp_process *self)
     }
     else
     {
-        g_writeln("xrdp_process_main_loop: libxrdp_process_incoming failed");
+        log_message(LOG_LEVEL_ERROR, "xrdp_process_main_loop: libxrdp_process_incoming failed");
         /* this will try to send a disconnect,
            maybe should check that connection got far enough */
         libxrdp_disconnect(self->session);

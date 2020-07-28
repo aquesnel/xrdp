@@ -436,6 +436,7 @@ main(int argc, char **argv)
     }
 
     g_snprintf(cfg_file, 255, "%s/xrdp.ini", XRDP_CFG_PATH);
+    DEBUG(("cfg_file: %s", cfg_file));
 
     startup_params = (struct xrdp_startup_params *)
                      g_malloc(sizeof(struct xrdp_startup_params), 1);
@@ -454,6 +455,7 @@ main(int argc, char **argv)
     }
 
     g_snprintf(pid_file, 255, "%s/xrdp.pid", XRDP_PID_PATH);
+    DEBUG(("pid_file: %s", pid_file));
     no_daemon = 0;
 
     if (startup_params->help)

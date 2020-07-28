@@ -575,7 +575,7 @@ xrdp_cache_add_char(struct xrdp_cache *self,
             if (xrdp_font_item_compare(&self->char_items[i][j].font_item, font_item))
             {
                 self->char_items[i][j].stamp = self->char_stamp;
-                DEBUG(("found font at %d %d", i, j));
+                // DEBUG(("found font at %d %d", i, j));
                 return MAKELONG(j, i);
             }
         }
@@ -742,7 +742,7 @@ xrdp_cache_add_brush(struct xrdp_cache *self,
                      brush_item_data, 8) == 0)
         {
             self->brush_items[i].stamp = self->brush_stamp;
-            DEBUG(("found brush at %d", i));
+            // DEBUG(("found brush at %d", i));
             return i;
         }
     }
