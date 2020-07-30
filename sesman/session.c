@@ -173,6 +173,7 @@ x_server_running_check_ports(int display)
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, "/tmp/.X%d-lock", display);
         x_running = g_file_exist(text);
     }
@@ -181,6 +182,7 @@ x_server_running_check_ports(int display)
     {
         if ((sck = g_tcp_socket()) != -1)
         {
+            log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
             g_sprintf(text, "59%2.2d", display);
             x_running = g_tcp_bind(sck, text);
             g_tcp_close(sck);
@@ -191,6 +193,7 @@ x_server_running_check_ports(int display)
     {
         if ((sck = g_tcp_socket()) != -1)
         {
+            log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
             g_sprintf(text, "60%2.2d", display);
             x_running = g_tcp_bind(sck, text);
             g_tcp_close(sck);
@@ -201,6 +204,7 @@ x_server_running_check_ports(int display)
     {
         if ((sck = g_tcp_socket()) != -1)
         {
+            log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
             g_sprintf(text, "62%2.2d", display);
             x_running = g_tcp_bind(sck, text);
             g_tcp_close(sck);
@@ -209,34 +213,44 @@ x_server_running_check_ports(int display)
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, XRDP_CHANSRV_STR, display);
         x_running = g_file_exist(text);
     }
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, CHANSRV_PORT_OUT_STR, display);
         x_running = g_file_exist(text);
     }
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, CHANSRV_PORT_IN_STR, display);
         x_running = g_file_exist(text);
     }
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, CHANSRV_API_STR, display);
         x_running = g_file_exist(text);
     }
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, XRDP_X11RDP_STR, display);
         x_running = g_file_exist(text);
     }
-
+    
+    if (x_running)
+    {
+        log_message(LOG_LEVEL_INFO, "Found X server running at %s", text);
+    }
+    
     return x_running;
 }
 
@@ -259,8 +273,14 @@ x_server_running(int display)
 
     if (!x_running)
     {
+        log_message(LOG_LEVEL_INFO, "Did not find a running X server at %s", text);
         g_sprintf(text, "/tmp/.X%d-lock", display);
         x_running = g_file_exist(text);
+    }
+
+    if (x_running)
+    {
+        log_message(LOG_LEVEL_INFO, "Found X server running at %s", text);
     }
 
     return x_running;
@@ -363,6 +383,7 @@ session_start_chansrv(char *username, int display)
         /* building parameters */
         g_snprintf(exe_path, sizeof(exe_path), "%s/xrdp-chansrv",
                    XRDP_SBIN_PATH);
+        log_message(LOG_LEVEL_DEBUG, "session_start_chansrv - exe_path: %s", exe_path);
 
         list_add_item(chansrv_params, (intptr_t) g_strdup(exe_path));
         list_add_item(chansrv_params, 0); /* mandatory */
@@ -464,6 +485,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
 
     if (pid == -1)
     {
+        log_message(LOG_LEVEL_ERROR, "session_start_fork (pid %d): Failed to fork for scp with error: %s", g_getpid(), g_get_strerror());
     }
     else if (pid == 0)
     {
@@ -526,9 +548,11 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                              child forks wm, and waits, todo */
         if (window_manager_pid == -1)
         {
+            log_message(LOG_LEVEL_ERROR, "session_start_fork (pid %d): Failed to fork for the window manager with error: %s", g_getpid(), g_get_strerror());
         }
         else if (window_manager_pid == 0)
         {
+            log_message(LOG_LEVEL_INFO, "session_start_fork (pid %d): waiting for Xserver", g_getpid());
             wait_for_xserver(display);
             env_set_user(s->username,
                          0,
@@ -555,6 +579,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                                     s->program, s->username, g_getpid());
                     }
                 }
+                log_message(LOG_LEVEL_DEBUG, "session_start_fork (pid %d): s->program not set", g_getpid());
                 /* try to execute user window manager if enabled */
                 if (g_cfg->enable_user_wm)
                 {
@@ -575,6 +600,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                                     g_cfg->user_wm);
                     }
                 }
+                log_message(LOG_LEVEL_DEBUG, "session_start_fork (pid %d): g_cfg->enable_user_wm not set", g_getpid());
                 /* if we're here something happened to g_execlp3
                    so we try running the default window manager */
                 g_execlp3(g_cfg->default_wm, g_cfg->default_wm, 0);
@@ -611,10 +637,12 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
         }
         else
         {
+            log_message(LOG_LEVEL_DEBUG, "session_start_fork (pid %d): forking for the Xserver", g_getpid());
             display_pid = g_fork(); /* parent becomes scp,
                                 child becomes X */
             if (display_pid == -1)
             {
+                log_message(LOG_LEVEL_ERROR, "session_start_fork (pid %d): Failed to fork for the X server with error: %s", g_getpid(), g_get_strerror());
             }
             else if (display_pid == 0) /* child */
             {
@@ -635,7 +663,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                                  g_cfg->env_values);
                 }
 
-
+                log_message(LOG_LEVEL_DEBUG, "session_start_fork: setting Xserver environment variables");
                 g_snprintf(text, 255, "%d", g_cfg->sess.max_idle_time);
                 g_setenv("XRDP_SESMAN_MAX_IDLE_TIME", text, 1);
                 g_snprintf(text, 255, "%d", g_cfg->sess.max_disc_time);
@@ -657,6 +685,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
                 /* Add the entry in XAUTHORITY file or exit if error */
                 if (add_xauth_cookie(display, authfile) != 0)
                 {
+                    log_message(LOG_LEVEL_ERROR, "session_start_fork: error setting the xauth cookie. Exiting the Xserver xrdp-sesman fork.");
                     g_exit(1);
                 }
 
@@ -697,7 +726,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
 
                     pp1 = (char **) xserver_params->items;
 
-                    log_message(LOG_LEVEL_INFO, "%s", dumpItemsToString(xserver_params, execvpparams, 2048));
+                    log_message(LOG_LEVEL_INFO, "session_start_fork: Xserver command to run: %s", dumpItemsToString(xserver_params, execvpparams, 2048));
 
                     /* some args are passed via env vars */
                     g_sprintf(geometry, "%d", s->width);
@@ -802,6 +831,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
             }
             else
             {
+                log_message(LOG_LEVEL_DEBUG, "session_start_fork (pid %d): waiting for the Xserver and the creating the channel server", g_getpid());
                 wait_for_xserver(display);
                 chansrv_pid = session_start_chansrv(s->username, display);
                 log_message(LOG_LEVEL_ALWAYS, "waiting for window manager "
@@ -823,6 +853,7 @@ session_start_fork(tbus data, tui8 type, struct SCP_CONNECTION *c,
     }
     else
     {
+        log_message(LOG_LEVEL_INFO, "session_start_fork: setting session info from pid %d", g_getpid());
         temp->item->pid = pid;
         temp->item->display = display;
         temp->item->width = s->width;
