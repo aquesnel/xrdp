@@ -324,6 +324,7 @@ drdynvc_process_capability_response(struct xrdp_channel *self,
             cap_version);
         return 1;
     }
+
     self->drdynvc_state = 1;
     session = self->sec_layer->rdp_layer->session;
     rv = session->callback(session->id, 0x5558, 0, 0, 0, 0);
@@ -664,6 +665,7 @@ xrdp_channel_process_drdynvc(struct xrdp_channel *self,
                 "unknown command 0x%2.2x", cmd);
             break;
     }
+
     return rv;
 }
 

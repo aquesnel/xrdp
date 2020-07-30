@@ -868,7 +868,6 @@ xrdp_sec_process_logon_info(struct xrdp_sec *self, struct stream *s)
            compression used */
         if (self->rdp_layer->client_info.use_bulk_comp)
         {
-
             self->rdp_layer->client_info.rdp_compression = 1;
             LOG(LOG_LEVEL_DEBUG, "Client requested compression enabled.");
         }
@@ -979,6 +978,7 @@ xrdp_sec_process_logon_info(struct xrdp_sec *self, struct stream *s)
             LOG(LOG_LEVEL_ERROR, "ERROR reading password");
             return 1;
         }
+
     }
     else if (self->rdp_layer->client_info.enable_token_login
              && len_user > 0
@@ -1013,6 +1013,7 @@ xrdp_sec_process_logon_info(struct xrdp_sec *self, struct stream *s)
         int size = sizeof(self->rdp_layer->client_info.username);
         g_strncat(self->rdp_layer->client_info.username, self->rdp_layer->client_info.domain_user_separator, size - 1 - g_strlen(self->rdp_layer->client_info.domain_user_separator));
         g_strncat(self->rdp_layer->client_info.username, self->rdp_layer->client_info.domain, size - 1 - g_strlen(self->rdp_layer->client_info.domain));
+        LOG(LOG_LEVEL_DEBUG, "parsed username from domain %s", self->rdp_layer->client_info.username);
     }
 
     if (unicode_utf16_in(s, len_program, self->rdp_layer->client_info.program, sizeof(self->rdp_layer->client_info.program) - 1) != 0)
