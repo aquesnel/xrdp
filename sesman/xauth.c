@@ -51,14 +51,14 @@ add_xauth_cookie(int display, const char *file)
     dp = popen(xauth_str, "r");
     if (dp == NULL)
     {
-        log_message(LOG_LEVEL_ERROR, "Unable to launch xauth");
+        LOG(LOG_LEVEL_ERROR, "Unable to launch xauth");
         return 1;
     }
 
     ret = pclose(dp);
     if (ret < 0)
     {
-        log_message(LOG_LEVEL_ERROR, "An error occurred while running xauth");
+        LOG(LOG_LEVEL_ERROR, "An error occurred while running xauth");
         return 1;
     }
 

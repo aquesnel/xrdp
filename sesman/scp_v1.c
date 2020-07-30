@@ -90,7 +90,7 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     if (!data)
     {
         scp_v1s_deny_connection(c, "Login failed");
-        log_message( LOG_LEVEL_INFO,
+        LOG( LOG_LEVEL_INFO,
                      "Login failed for user %s. Connection terminated", s->username);
         return;
     }
@@ -99,7 +99,7 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     if (0 == access_login_allowed(s->username))
     {
         scp_v1s_deny_connection(c, "Access to Terminal Server not allowed.");
-        log_message(LOG_LEVEL_INFO,
+        LOG(LOG_LEVEL_INFO,
                     "User %s not allowed on TS. Connection terminated", s->username);
         return;
     }
@@ -112,31 +112,31 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
     if (scount == 0)
     {
         /* no disconnected sessions - start a new one */
-        log_message(LOG_LEVEL_DEBUG, "No disconnected sessions for this user "
+        LOG(LOG_LEVEL_DEBUG, "No disconnected sessions for this user "
                     "- we create a new one");
 
         if (0 != s->client_ip)
         {
-            log_message(LOG_LEVEL_INFO, "++ created session (access granted): username %s, ip %s", s->username, s->client_ip);
+            LOG(LOG_LEVEL_INFO, "++ created session (access granted): username %s, ip %s", s->username, s->client_ip);
         }
         else
         {
-            log_message(LOG_LEVEL_INFO, "++ created session (access granted): username %s", s->username);
+            LOG(LOG_LEVEL_INFO, "++ created session (access granted): username %s", s->username);
         }
 
         if (SCP_SESSION_TYPE_XVNC == s->type)
         {
-            log_message(LOG_LEVEL_INFO, "starting Xvnc session...");
+            LOG(LOG_LEVEL_INFO, "starting Xvnc session...");
             display = session_start(data, SESMAN_SESSION_TYPE_XVNC, c, s);
         }
         else if (SCP_SESSION_TYPE_XRDP == s->type)
         {
-            log_message(LOG_LEVEL_INFO, "starting X11rdp session...");
+            LOG(LOG_LEVEL_INFO, "starting X11rdp session...");
             display = session_start(data, SESMAN_SESSION_TYPE_XRDP, c, s);
         }
         else if (SCP_SESSION_TYPE_XORG == s->type)
         {
-            log_message(LOG_LEVEL_INFO, "starting Xorg session...");
+            LOG(LOG_LEVEL_INFO, "starting Xorg session...");
             display = session_start(data, SESMAN_SESSION_TYPE_XORG, c, s);
         }
         /* if the session started up ok, auth_end will be called on
@@ -164,7 +164,7 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
                 /*case SCP_SERVER_STATE_FORCE_NEW:*/
                 /* we should check for MaxSessions */
             case SCP_SERVER_STATE_SELECTION_CANCEL:
-                log_message( LOG_LEVEL_INFO, "Connection cancelled after session listing");
+                LOG( LOG_LEVEL_INFO, "Connection cancelled after session listing");
                 break;
             case SCP_SERVER_STATE_OK:
                 /* ok, reconnecting... */
@@ -173,7 +173,7 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
                 if (0 == sitem)
                 {
                     e = scp_v1s_connection_error(c, "Internal error");
-                    log_message(LOG_LEVEL_INFO, "Cannot find session item on the chain");
+                    LOG(LOG_LEVEL_INFO, "Cannot find session item on the chain");
                 }
                 else
                 {
@@ -183,11 +183,11 @@ scp_v1_process(struct SCP_CONNECTION *c, struct SCP_SESSION *s)
 
                     if (0 != s->client_ip)
                     {
-                        log_message(LOG_LEVEL_INFO, "++ reconnected session: username %s, display :%d.0, session_pid %d, ip %s", s->username, display, sitem->pid, s->client_ip);
+                        LOG(LOG_LEVEL_INFO, "++ reconnected session: username %s, display :%d.0, session_pid %d, ip %s", s->username, display, sitem->pid, s->client_ip);
                     }
                     else
                     {
-                        log_message(LOG_LEVEL_INFO, "++ reconnected session: username %s, display :%d.0, session_pid %d", s->username, display, sitem->pid);
+                        LOG(LOG_LEVEL_INFO, "++ reconnected session: username %s, display :%d.0, session_pid %d", s->username, display, sitem->pid);
                     }
 
                     g_free(sitem);
@@ -220,27 +220,27 @@ static void parseCommonStates(enum SCP_SERVER_STATES_E e, const char *f)
     switch (e)
     {
         case SCP_SERVER_STATE_VERSION_ERR:
-            log_message(LOG_LEVEL_WARNING, "version error");
+            LOG(LOG_LEVEL_WARNING, "version error");
         case SCP_SERVER_STATE_SIZE_ERR:
             /* an unknown scp version was requested, so we shut down the */
             /* connection (and log the fact)                             */
-            log_message(LOG_LEVEL_WARNING,
+            LOG(LOG_LEVEL_WARNING,
                         "protocol violation. connection closed.");
             break;
         case SCP_SERVER_STATE_NETWORK_ERR:
-            log_message(LOG_LEVEL_WARNING, "libscp network error.");
+            LOG(LOG_LEVEL_WARNING, "libscp network error.");
             break;
         case SCP_SERVER_STATE_SEQUENCE_ERR:
-            log_message(LOG_LEVEL_WARNING, "libscp sequence error.");
+            LOG(LOG_LEVEL_WARNING, "libscp sequence error.");
             break;
         case SCP_SERVER_STATE_INTERNAL_ERR:
             /* internal error occurred (eg. malloc() error, ecc.) */
-            log_message(LOG_LEVEL_ERROR, "libscp internal error occurred.");
+            LOG(LOG_LEVEL_ERROR, "libscp internal error occurred.");
             break;
         default:
             /* dummy: scp_v1s_request_password won't generate any other */
             /* error other than the ones before                         */
-            log_message(LOG_LEVEL_ALWAYS, "unknown return from %s", f);
+            LOG(LOG_LEVEL_ALWAYS, "unknown return from %s", f);
             break;
     }
 }
