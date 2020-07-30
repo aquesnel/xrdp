@@ -210,13 +210,14 @@ lib_mod_connect(struct mod *mod)
     {
 
         /* mod->server_msg(mod, "connecting...", 0); */
+        LOG_DEVEL(LOG_LEVEL_INFO, "lib_mod_connect: connecting to %s %s", mod->ip, con_port);
 
         error = -1;
         if (trans_connect(mod->trans, mod->ip, con_port, 3000) == 0)
         {
-            LOG_DEVEL(LOG_LEVEL_INFO, "lib_mod_connect: connected to Xserver "
-                      "(Xorg or X11rdp) sck %lld",
-                      (long long) (mod->trans->sck));
+            LOG(LOG_LEVEL_INFO, "lib_mod_connect: connected to Xserver "
+                "(Xorg or X11rdp) sck %lld",
+                (long long) (mod->trans->sck));
             error = 0;
         }
 
@@ -1620,22 +1621,27 @@ lib_mod_set_param(struct mod *mod, const char *name, const char *value)
 {
     if (g_strcasecmp(name, "username") == 0)
     {
+        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->username, value, INFO_CLIENT_MAX_CB_LEN - 1);
     }
     else if (g_strcasecmp(name, "password") == 0)
     {
+        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to password = <omitted from the log>");
         g_strncpy(mod->password, value, INFO_CLIENT_MAX_CB_LEN - 1);
     }
     else if (g_strcasecmp(name, "ip") == 0)
     {
+        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->ip, value, 255);
     }
     else if (g_strcasecmp(name, "port") == 0)
     {
+        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->port, value, 255);
     }
     else if (g_strcasecmp(name, "client_info") == 0)
     {
+        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, "<struct client_info>");
         g_memcpy(&(mod->client_info), value, sizeof(mod->client_info));
     }
 
