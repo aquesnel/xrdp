@@ -76,7 +76,7 @@ env_check_password_file(const char *filename, const char *passwd)
     fd = g_file_open_ex(filename, 0, 1, 1, 1);
     if (fd == -1)
     {
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "Cannot write VNC password hash to file %s: %s",
                     filename, g_get_strerror());
         return 1;
@@ -172,7 +172,7 @@ env_set_user(const char *username, char **passwd_file, int display,
                     {
                         if (g_mkdir(".vnc") < 0)
                         {
-                            log_message(LOG_LEVEL_ERROR,
+                            LOG(LOG_LEVEL_ERROR,
                                         "Error creating .vnc directory: %s",
                                         g_get_strerror());
                         }
@@ -189,7 +189,7 @@ env_set_user(const char *username, char **passwd_file, int display,
                                   pw_dir, username, display);
                         if (g_file_exist(*passwd_file))
                         {
-                            log_message(LOG_LEVEL_WARNING, "Removing old "
+                            LOG(LOG_LEVEL_WARNING, "Removing old "
                                         "password file %s", *passwd_file);
                             g_file_delete(*passwd_file);
                         }
@@ -197,7 +197,7 @@ env_set_user(const char *username, char **passwd_file, int display,
                                   pw_dir, username);
                         if (g_file_exist(*passwd_file))
                         {
-                            log_message(LOG_LEVEL_WARNING, "Removing insecure "
+                            LOG(LOG_LEVEL_WARNING, "Removing insecure "
                                         "password file %s", *passwd_file);
                             g_file_delete(*passwd_file);
                         }
@@ -229,7 +229,7 @@ env_set_user(const char *username, char **passwd_file, int display,
     }
     else
     {
-        log_message(LOG_LEVEL_ERROR,
+        LOG(LOG_LEVEL_ERROR,
                     "error getting user info for user %s",
                     username);
     }

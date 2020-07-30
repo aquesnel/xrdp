@@ -369,7 +369,7 @@ rail_startup(void)
 
     if (rail_is_another_wm_running())
     {
-        log_message(LOG_LEVEL_ERROR, "rail_init: another window manager "
+        LOG(LOG_LEVEL_ERROR, "rail_init: another window manager "
                     "is running");
     }
 
@@ -382,7 +382,7 @@ rail_startup(void)
     if (!XRRQueryExtension(g_display, &g_xrr_event_base, &dummy))
     {
         g_xrr_event_base = 0;
-        log_message(LOG_LEVEL_ERROR, "rail_init: RandR extension not found");
+        LOG(LOG_LEVEL_ERROR, "rail_init: RandR extension not found");
     }
 
     if (g_xrr_event_base > 0)
