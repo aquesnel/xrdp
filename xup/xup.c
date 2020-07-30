@@ -186,6 +186,7 @@ lib_mod_connect(struct mod *mod)
 
     if (use_uds)
     {
+        LIB_DEBUG(mod, "lib_mod_connect: connecting via UNIX socket");
         mod->trans = trans_create(TRANS_MODE_UNIX, 8 * 8192, 8192);
         if (mod->trans == 0)
         {
@@ -195,6 +196,7 @@ lib_mod_connect(struct mod *mod)
     }
     else
     {
+        LIB_DEBUG(mod, "lib_mod_connect: connecting via TCP socket");
         mod->trans = trans_create(TRANS_MODE_TCP, 8 * 8192, 8192);
         if (mod->trans == 0)
         {
@@ -211,6 +213,7 @@ lib_mod_connect(struct mod *mod)
     {
 
         /* mod->server_msg(mod, "connecting...", 0); */
+        LOG_DBG("lib_mod_connect: connecting to %s %s", mod->ip, con_port);
 
         error = -1;
         if (trans_connect(mod->trans, mod->ip, con_port, 3000) == 0)
@@ -343,7 +346,7 @@ lib_mod_event(struct mod *mod, int msg, tbus param1, tbus param2,
     int key;
     int rv;
 
-    LIB_DEBUG(mod, "in lib_mod_event");
+    // LIB_DEBUG(mod, "in lib_mod_event");
     make_stream(s);
 
     if ((msg >= 15) && (msg <= 16)) /* key events */
@@ -399,7 +402,7 @@ lib_mod_event(struct mod *mod, int msg, tbus param1, tbus param2,
     out_uint32_le(s, len);
     rv = lib_send_copy(mod, s);
     free_stream(s);
-    LIB_DEBUG(mod, "out lib_mod_event");
+    // LIB_DEBUG(mod, "out lib_mod_event");
     return rv;
 }
 
@@ -1546,22 +1549,27 @@ lib_mod_set_param(struct mod *mod, const char *name, const char *value)
 {
     if (g_strcasecmp(name, "username") == 0)
     {
+        log_message(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->username, value, 255);
     }
     else if (g_strcasecmp(name, "password") == 0)
     {
+        log_message(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->password, value, 255);
     }
     else if (g_strcasecmp(name, "ip") == 0)
     {
+        log_message(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->ip, value, 255);
     }
     else if (g_strcasecmp(name, "port") == 0)
     {
+        log_message(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->port, value, 255);
     }
     else if (g_strcasecmp(name, "client_info") == 0)
     {
+        log_message(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, "<struct client_info>");
         g_memcpy(&(mod->client_info), value, sizeof(mod->client_info));
     }
 
