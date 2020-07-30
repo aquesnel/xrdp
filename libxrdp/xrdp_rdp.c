@@ -345,7 +345,7 @@ xrdp_rdp_create(struct xrdp_session *session, struct trans *trans)
     struct xrdp_rdp *self = (struct xrdp_rdp *)NULL;
     int bytes;
 
-    DEBUG(("in xrdp_rdp_create"));
+    LOG_DBG("in xrdp_rdp_create");
     self = (struct xrdp_rdp *)g_malloc(sizeof(struct xrdp_rdp), 1);
     self->session = session;
     self->share_id = 66538;
@@ -369,7 +369,7 @@ xrdp_rdp_create(struct xrdp_session *session, struct trans *trans)
     rfx_context_set_cpu_opt(self->rfx_enc, xrdp_rdp_detect_cpu());
 #endif
     self->client_info.size = sizeof(self->client_info);
-    DEBUG(("out xrdp_rdp_create"));
+    LOG_DBG("out xrdp_rdp_create");
     return self;
 }
 
@@ -418,7 +418,14 @@ xrdp_rdp_init_data(struct xrdp_rdp *self, struct stream *s)
 }
 
 /*****************************************************************************/
-/* returns error */
+/* 
+  Receives and parses pdu code from next packet.
+  
+  @param self
+  @param (in/out) s: the stream to read from. Upon return the stream is ?
+  @param (out) code: the pdu code from the packet
+  returns error
+  */
 int
 xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
 {
@@ -428,7 +435,7 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
     int chan = 0;
     const tui8 *header;
 
-    DEBUG(("in xrdp_rdp_recv"));
+
     if (s->next_packet == 0 || s->next_packet >= s->end)
     {
         /* check for fastpath first */
@@ -437,11 +444,12 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
         {
             if (xrdp_sec_recv_fastpath(self->sec_layer, s) != 0)
             {
+                LOG_DBG("xrdp_rdp_recv: xrdp_sec_recv_fastpath failed");
                 return 1;
             }
             /* next_packet gets set in xrdp_sec_recv_fastpath */
             *code = 2; // special code for fastpath input
-            DEBUG(("out (fastpath) xrdp_rdp_recv"));
+            LOG_DBG("xrdp_rdp_recv: out code 2 (fastpath)");
             return 0;
         }
 
@@ -453,14 +461,13 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
         {
             s->next_packet = 0;
             *code = -1;
-            DEBUG(("out (1) xrdp_rdp_recv"));
+            LOG_DBG("xrdp_rdp_recv: out code -1 (send demand active)");
             return 0;
         }
 
         if (error != 0)
         {
-            DEBUG(("out xrdp_rdp_recv error"));
-            g_writeln("xrdp_rdp_recv: xrdp_sec_recv failed");
+            LOG_DBG("xrdp_rdp_recv: xrdp_sec_recv failed");
             return 1;
         }
 
@@ -470,20 +477,23 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
             {
                 if (xrdp_channel_process(self->sec_layer->chan_layer, s, chan) != 0)
                 {
-                    g_writeln("xrdp_channel_process returned unhandled error") ;
+                    LOG_DBG("xrdp_rdp_recv: xrdp_channel_process failed");
                 }
             }
             else
             {
                 if (chan != 1)
                 {
-                    g_writeln("Wrong channel Id to be handled by xrdp_channel_process %d", chan);
+                    log_message(LOG_LEVEL_WARNING, 
+                                "xrdp_rdp_recv: Wrong channel Id to be handled "
+                                "by xrdp_channel_process, channel id %d", chan);
                 }
             }
 
             s->next_packet = 0;
             *code = 0;
-            DEBUG(("out (2) xrdp_rdp_recv"));
+            LOG_DBG("xrdp_rdp_recv: out code 0 (skip data) "
+                    "data processed by channel id %d", chan);
             return 0;
         }
 
@@ -491,7 +501,7 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
     }
     else
     {
-        DEBUG(("xrdp_rdp_recv stream not touched"))
+        LOG_DBG("xrdp_rdp_recv: stream not touched");
         s->p = s->next_packet;
     }
 
@@ -499,20 +509,20 @@ xrdp_rdp_recv(struct xrdp_rdp *self, struct stream *s, int *code)
     {
         s->next_packet = 0;
         *code = 0;
-        DEBUG(("out (3) xrdp_rdp_recv"));
+
         len = (int)(s->end - s->p);
-        g_writeln("xrdp_rdp_recv: bad RDP packet, length [%d]", len);
+        LOG_DBG("xrdp_rdp_recv: out code 0 (skip data) "
+                "bad RDP packet, length [%d]", len);
         return 0;
     }
     else
     {
         in_uint16_le(s, len);
-        /*g_writeln("New len received : %d next packet: %d s_end: %d",len,s->next_packet,s->end); */
         in_uint16_le(s, pdu_code);
         *code = pdu_code & 0xf;
         in_uint8s(s, 2); /* mcs user id */
         s->next_packet += len;
-        DEBUG(("out (4) xrdp_rdp_recv"));
+        LOG_DBG("xrdp_rdp_recv: out code %d (pdu code) packet length %d", len);
         return 0;
     }
 }
@@ -852,15 +862,16 @@ xrdp_rdp_incoming(struct xrdp_rdp *self)
     struct xrdp_iso *iso;
     iso = self->sec_layer->mcs_layer->iso_layer;
 
-    DEBUG(("in xrdp_rdp_incoming"));
+    LOG_DBG("in xrdp_rdp_incoming");
 
     if (xrdp_sec_incoming(self->sec_layer) != 0)
     {
+        LOG_DBG("xrdp_rdp_incoming: xrdp_sec_incoming failed");
         return 1;
     }
     self->mcs_channel = self->sec_layer->mcs_layer->userid +
                         MCS_USERCHANNEL_BASE;
-    DEBUG(("out xrdp_rdp_incoming mcs channel %d", self->mcs_channel));
+    LOG_DBG("out xrdp_rdp_incoming mcs channel %d", self->mcs_channel);
     g_strncpy(self->client_info.client_addr, iso->trans->addr,
               sizeof(self->client_info.client_addr) - 1);
     g_strncpy(self->client_info.client_port, iso->trans->port,
@@ -1013,7 +1024,7 @@ xrdp_rdp_process_data_control(struct xrdp_rdp *self, struct stream *s)
 {
     int action;
 
-    DEBUG(("xrdp_rdp_process_data_control"));
+    // DEBUG(("xrdp_rdp_process_data_control"));
     in_uint16_le(s, action);
     in_uint8s(s, 2); /* user id */
     in_uint8s(s, 4); /* control id */
@@ -1030,7 +1041,7 @@ xrdp_rdp_process_data_control(struct xrdp_rdp *self, struct stream *s)
     }
     else
     {
-        DEBUG(("xrdp_rdp_process_data_control unknown action"));
+        DEBUG(("xrdp_rdp_process_data_control unknown action %d", action));
     }
 
     return 0;

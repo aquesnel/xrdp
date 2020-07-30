@@ -34,7 +34,7 @@ xrdp_mcs_create(struct xrdp_sec *owner, struct trans *trans,
 {
     struct xrdp_mcs *self;
 
-    DEBUG(("  in xrdp_mcs_create"));
+    LOG_DBG("  in xrdp_mcs_create");
     self = (struct xrdp_mcs *)g_malloc(sizeof(struct xrdp_mcs), 1);
     self->sec_layer = owner;
     self->userid = 1;
@@ -43,7 +43,7 @@ xrdp_mcs_create(struct xrdp_sec *owner, struct trans *trans,
     self->server_mcs_data = server_mcs_data;
     self->iso_layer = xrdp_iso_create(self, trans);
     self->channel_list = list_create();
-    DEBUG(("  out xrdp_mcs_create"));
+    LOG_DBG("  out xrdp_mcs_create");
     return self;
 }
 
@@ -127,19 +127,19 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
     int len;
     int userid;
     int chanid;
-    DEBUG(("  in xrdp_mcs_recv"));
+
 
     while (1)
     {
         if (xrdp_iso_recv(self->iso_layer, s) != 0)
         {
-            DEBUG(("   out xrdp_mcs_recv, xrdp_iso_recv return non zero"));
-            g_writeln("xrdp_mcs_recv: xrdp_iso_recv failed");
+            LOG_DBG("xrdp_mcs_recv: xrdp_iso_recv failed");
             return 1;
         }
 
         if (!s_check_rem(s, 1))
         {
+            LOG_DBG("xrdp_mcs_recv: error - not enough bytes in the stream");
             return 1;
         }
 
@@ -148,8 +148,7 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
 
         if (appid == MCS_DPUM) /* Disconnect Provider Ultimatum */
         {
-            g_writeln("received Disconnect Provider Ultimatum");
-            DEBUG(("  out xrdp_mcs_recv appid != MCS_DPUM"));
+            log_message(LOG_LEVEL_INFO, "xrdp_mcs_recv: received Disconnect Provider Ultimatum");
             return 1;
         }
 
@@ -159,23 +158,26 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
 
             if (!s_check_rem(s, 4))
             {
+                LOG_DBG("xrdp_mcs_recv: error - not enough bytes in the stream");
                 return 1;
             }
 
             in_uint16_be(s, userid);
             in_uint16_be(s, chanid);
-            log_message(LOG_LEVEL_DEBUG,"MCS_CJRQ - channel join request received");
-            DEBUG(("xrdp_mcs_recv  adding channel %4.4x", chanid));
+            log_message(LOG_LEVEL_DEBUG,"xrdp_mcs_recv: "
+                        "MCS_CJRQ - channel join request received for user %4.4x channel %4.4x", 
+                        userid, chanid);
 
             if (xrdp_mcs_send_cjcf(self, userid, chanid) != 0)
             {
-                log_message(LOG_LEVEL_ERROR,"Non handled error from xrdp_mcs_send_cjcf") ;
+                log_message(LOG_LEVEL_ERROR,"xrdp_mcs_recv: "
+                            "Non handled error from xrdp_mcs_send_cjcf") ;
             }
 
             s = libxrdp_force_read(self->iso_layer->trans);
             if (s == 0)
             {
-                g_writeln("xrdp_mcs_recv: libxrdp_force_read failed");
+                LOG_DBG("xrdp_mcs_recv: libxrdp_force_read failed");
                 return 1;
             }
 
@@ -188,7 +190,7 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
         }
         else
         {
-            log_message(LOG_LEVEL_DEBUG,"Received an unhandled appid:%d",appid);
+            log_message(LOG_LEVEL_DEBUG,"xrdp_mcs_recv: Received an unhandled appid:%d",appid);
         }
 
         break;
@@ -196,12 +198,13 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
 
     if (appid != MCS_SDRQ)
     {
-        DEBUG(("  out xrdp_mcs_recv err got 0x%x need MCS_SDRQ", appid));
+        LOG_DBG("xrdp_mcs_recv: error got appid 0x%x need MCS_SDRQ", appid);
         return 1;
     }
 
     if (!s_check_rem(s, 6))
     {
+        LOG_DBG("xrdp_mcs_recv: error - not enough bytes in the stream");
         return 1;
     }
 
@@ -214,12 +217,13 @@ xrdp_mcs_recv(struct xrdp_mcs *self, struct stream *s, int *chan)
     {
         if (!s_check_rem(s, 1))
         {
+            LOG_DBG("xrdp_mcs_recv: error - not enough bytes in the stream");
             return 1;
         }
         in_uint8s(s, 1);
     }
 
-    DEBUG(("  out xrdp_mcs_recv"));
+    LOG_DBG("xrdp_mcs_recv: chan %d", *chan);
     return 0;
 }
 
@@ -333,26 +337,31 @@ xrdp_mcs_recv_connect_initial(struct xrdp_mcs *self)
     s = libxrdp_force_read(self->iso_layer->trans);
     if (s == 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR stream is null");
         return 1;
     }
 
     if (xrdp_iso_recv(self->iso_layer, s) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_iso_recv failed");
         return 1;
     }
 
     if (xrdp_mcs_ber_parse_header(self, s, MCS_CONNECT_INITIAL, &len) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_ber_parse_header with MCS_CONNECT_INITIAL failed");
         return 1;
     }
 
     if (xrdp_mcs_ber_parse_header(self, s, BER_TAG_OCTET_STRING, &len) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_ber_parse_header with BER_TAG_OCTET_STRING failed");
         return 1;
     }
 
     if ((len < 0) || !s_check_rem(s, len))
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR not enough bytes in the stream");
         return 1;
     }
 
@@ -360,11 +369,13 @@ xrdp_mcs_recv_connect_initial(struct xrdp_mcs *self)
 
     if (xrdp_mcs_ber_parse_header(self, s, BER_TAG_OCTET_STRING, &len) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_ber_parse_header with BER_TAG_OCTET_STRING failed");
         return 1;
     }
 
     if ((len < 0) || !s_check_rem(s, len))
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR not enough bytes in the stream");
         return 1;
     }
 
@@ -372,11 +383,13 @@ xrdp_mcs_recv_connect_initial(struct xrdp_mcs *self)
 
     if (xrdp_mcs_ber_parse_header(self, s, BER_TAG_BOOLEAN, &len) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_ber_parse_header with BER_TAG_BOOLEAN failed");
         return 1;
     }
 
     if ((len < 0) || !s_check_rem(s, len))
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR not enough bytes in the stream");
         return 1;
     }
 
@@ -384,32 +397,40 @@ xrdp_mcs_recv_connect_initial(struct xrdp_mcs *self)
 
     if (xrdp_mcs_parse_domain_params(self, s) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_parse_domain_params failed");
         return 1;
     }
 
     if (xrdp_mcs_parse_domain_params(self, s) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_parse_domain_params failed");
         return 1;
     }
 
     if (xrdp_mcs_parse_domain_params(self, s) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: xrdp_mcs_parse_domain_params failed");
         return 1;
     }
 
     if (xrdp_mcs_ber_parse_header(self, s, BER_TAG_OCTET_STRING, &len) != 0)
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: "
+                "xrdp_mcs_ber_parse_header with BER_TAG_OCTET_STRING failed");
         return 1;
     }
 
     /* mcs data can not be zero length */
     if ((len <= 0) || (len > 16 * 1024))
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR "
+                "nread request length too big. len %d", len);
         return 1;
     }
 
     if (!s_check_rem(s, len))
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR not enough bytes in the stream");
         return 1;
     }
 
@@ -425,6 +446,8 @@ xrdp_mcs_recv_connect_initial(struct xrdp_mcs *self)
     }
     else
     {
+        LOG_DBG("xrdp_mcs_recv_connect_initial: ERROR "
+                "the stream should be at the end but it is not");
         return 1;
     }
 }
@@ -913,41 +936,48 @@ xrdp_mcs_incoming(struct xrdp_mcs *self)
 {
     int index;
 
-    DEBUG(("  in xrdp_mcs_incoming"));
+    LOG_DBG("  in xrdp_mcs_incoming");
 
     if (xrdp_mcs_recv_connect_initial(self) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_recv_connect_initial failed");
         return 1;
     }
 
     /* in xrdp_sec.c */
     if (xrdp_sec_process_mcs_data(self->sec_layer) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_sec_process_mcs_data failed");
         return 1;
     }
 
     if (xrdp_mcs_out_gcc_data(self->sec_layer) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_out_gcc_data failed");
         return 1;
     }
 
     if (xrdp_mcs_send_connect_response(self) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_send_connect_response failed");
         return 1;
     }
 
     if (xrdp_mcs_recv_edrq(self) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_recv_edrq failed");
         return 1;
     }
 
     if (xrdp_mcs_recv_aurq(self) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_recv_aurq failed");
         return 1;
     }
 
     if (xrdp_mcs_send_aucf(self) != 0)
     {
+        LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_send_aucf failed");
         return 1;
     }
 
@@ -955,17 +985,19 @@ xrdp_mcs_incoming(struct xrdp_mcs *self)
     {
         if (xrdp_mcs_recv_cjrq(self) != 0)
         {
+            LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_recv_cjrq failed");
             return 1;
         }
 
         if (xrdp_mcs_send_cjcf(self, self->userid,
                       self->userid + MCS_USERCHANNEL_BASE + index) != 0)
         {
+            LOG_DBG("xrdp_mcs_incoming: xrdp_mcs_send_cjcf failed");
             return 1;
         }
     }
 
-    DEBUG(("  out xrdp_mcs_incoming"));
+    LOG_DBG("  out xrdp_mcs_incoming");
     return 0;
 }
 
@@ -1025,13 +1057,13 @@ xrdp_mcs_send(struct xrdp_mcs *self, struct stream *s, int chan)
     char *lp;
     //static int max_len = 0;
 
-    DEBUG(("  in xrdp_mcs_send"));
+    LOG_DBG("  in xrdp_mcs_send");
     s_pop_layer(s, mcs_hdr);
     len = (s->end - s->p) - 8;
 
     if (len > 8192 * 2)
     {
-        g_writeln("error in xrdp_mcs_send, size too big: %d bytes", len);
+        log_message(LOG_LEVEL_WARNING, "xrdp_mcs_send: stream size too big: %d bytes", len);
     }
 
     //if (len > max_len)
@@ -1068,7 +1100,7 @@ xrdp_mcs_send(struct xrdp_mcs *self, struct stream *s, int chan)
 
     if (xrdp_iso_send(self->iso_layer, s) != 0)
     {
-        DEBUG(("  out xrdp_mcs_send error"));
+        LOG_DBG("xrdp_mcs_send: xrdp_iso_send failed");
         return 1;
     }
 
@@ -1079,7 +1111,7 @@ xrdp_mcs_send(struct xrdp_mcs *self, struct stream *s, int chan)
         xrdp_mcs_call_callback(self);
     }
 
-    DEBUG(("  out xrdp_mcs_send"));
+    LOG_DBG("  out xrdp_mcs_send");
     return 0;
 }
 

@@ -30,12 +30,12 @@ xrdp_fastpath_create(struct xrdp_sec *owner, struct trans *trans)
 {
     struct xrdp_fastpath *self;
 
-    DEBUG(("  in xrdp_fastpath_create"));
+    LOG_DBG("  in xrdp_fastpath_create");
     self = (struct xrdp_fastpath *)g_malloc(sizeof(struct xrdp_fastpath), 1);
     self->sec_layer = owner;
     self->trans = trans;
     self->session = owner->rdp_layer->session;
-    DEBUG(("  out xrdp_fastpath_create"));
+    LOG_DBG("  out xrdp_fastpath_create");
     return self;
 }
 
@@ -63,14 +63,14 @@ int
 xrdp_fastpath_recv(struct xrdp_fastpath *self, struct stream *s)
 {
     int fp_hdr;
-    int len = 0; /* unused */
+    int len = 0;
     int byte;
     char *holdp;
 
-    DEBUG(("   in xrdp_fastpath_recv"));
     holdp = s->p;
     if (!s_check_rem(s, 2))
     {
+        LOG_DBG("xrdp_fastpath_recv: ERROR the stream does not contain enough bytes");
         return 1;
     }
     in_uint8(s, fp_hdr); /* fpInputHeader (1 byte) */
@@ -86,6 +86,7 @@ xrdp_fastpath_recv(struct xrdp_fastpath *self, struct stream *s)
 
         if (!s_check_rem(s, 1))
         {
+            LOG_DBG("xrdp_fastpath_recv: ERROR the stream does not contain enough bytes");
             return 1;
         }
         in_uint8(s, byte); /* length 2 (1 byte) */
@@ -97,7 +98,8 @@ xrdp_fastpath_recv(struct xrdp_fastpath *self, struct stream *s)
         len = byte;
     }
     s->next_packet = holdp + len;
-    DEBUG(("  out xrdp_fastpath_recv"));
+    LOG_DBG("xrdp_fastpath_recv: numEvents %d secFlags 0x%x length %d", 
+            self->numEvents, self->secFlags, len);
     return 0;
 }
 
@@ -365,8 +367,8 @@ xrdp_fastpath_process_input_event(struct xrdp_fastpath *self,
                 }
                 break;
             default:
-                g_writeln("xrdp_fastpath_process_input_event: unknown "
-                          "eventCode %d", eventCode);
+                log_message(LOG_LEVEL_ERROR, "xrdp_fastpath_process_input_event: "
+                          "unknown eventCode %d", eventCode);
                 break;
         }
     }
