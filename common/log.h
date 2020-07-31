@@ -76,8 +76,14 @@ enum logReturns
  * Note: the logging function calls are removed when XRDP_DEBUG is NOT defined.
  * 
  * Note: when the build is configured with --disable-xrdpdebug, then 
- *      "#define XRDP_DEBUG" can temporarily be added to any c file to
- *      add targeted developper logging in that compilation unit.
+ *      the source file name and log level can be added to the [Logging_PerLogger]
+ *      section of xrdp.ini to change the logging level for logs in that source file.
+ * 
+ *      For example in xrdp.ini:
+ *      ```     
+ *      [Logging_PerLogger]
+ *      xrdp.c=DEBUG
+ *      ```
  * 
  * @param lvl, the log level
  * @param msg, the log text as a printf format c-string
