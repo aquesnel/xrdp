@@ -145,6 +145,8 @@ ls_btn_cancel_height=30
 [Logging]
 LogFile=xrdp.log
 LogLevel=DEBUG
+EnableConsole=true
+ConsoleLevel=DEBUG
 EnableSyslog=true
 SyslogLevel=DEBUG
 ; LogLevel and SysLogLevel could by any of: core, error, warning, info or debug
