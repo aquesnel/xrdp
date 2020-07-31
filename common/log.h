@@ -22,9 +22,11 @@
 #include <pthread.h>
 
 #include "arch.h"
+#include "list.h"
 
 /* logging buffer size */
 #define LOG_BUFFER_SIZE      1024
+#define LOGGER_NAME_SIZE     25
 
 /* logging levels */
 enum logLevels
@@ -49,11 +51,15 @@ enum logReturns
     LOG_GENERAL_ERROR
 };
 
-#define SESMAN_CFG_LOGGING           "Logging"
-#define SESMAN_CFG_LOG_FILE          "LogFile"
-#define SESMAN_CFG_LOG_LEVEL         "LogLevel"
-#define SESMAN_CFG_LOG_ENABLE_SYSLOG "EnableSyslog"
-#define SESMAN_CFG_LOG_SYSLOG_LEVEL  "SyslogLevel"
+#define SESMAN_CFG_LOGGING            "Logging"
+#define SESMAN_CFG_LOGGING_LOGGER     "Logging_PerLogger"
+#define SESMAN_CFG_LOG_FILE           "LogFile"
+#define SESMAN_CFG_LOG_LEVEL          "LogLevel"
+#define SESMAN_CFG_LOG_ENABLE_CONSOLE "EnableConsole"
+#define SESMAN_CFG_LOG_CONSOLE_LEVEL  "ConsoleLevel"
+#define SESMAN_CFG_LOG_ENABLE_SYSLOG  "EnableSyslog"
+#define SESMAN_CFG_LOG_SYSLOG_LEVEL   "SyslogLevel"
+#define SESMAN_CFG_LOG_ENABLE_PID     "EnableProcessId"
 
 /* enable threading */
 /*#define LOG_ENABLE_THREAD*/
@@ -98,14 +104,24 @@ enum logReturns
 #define LOG(log_level, args...) log_message(log_level, args);
 #endif
 
+struct log_logger_level
+{
+    enum logLevels log_level;
+    char logger_name[LOGGER_NAME_SIZE + 1];
+};
+
 struct log_config
 {
     const char *program_name;
     char *log_file;
     int fd;
     enum logLevels log_level;
+    int enable_console;
+    enum logLevels console_level;
     int enable_syslog;
     enum logLevels syslog_level;
+    struct list *per_logger_level;
+    int enable_pid;
     pthread_mutex_t log_lock;
     pthread_mutexattr_t log_lock_attr;
 };

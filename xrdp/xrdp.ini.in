@@ -148,6 +148,10 @@ LogLevel=DEBUG
 EnableSyslog=true
 SyslogLevel=DEBUG
 ; LogLevel and SysLogLevel could by any of: core, error, warning, info or debug
+#EnableProcessId=false
+
+[Logging_PerLogger]
+#xrdp.c=DEBUG
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.
