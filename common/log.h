@@ -60,8 +60,8 @@ enum logReturns
 
 #ifdef XRDP_DEBUG
 
-/*
- * Logging macro for messages that are for an XRDP developper to understand and 
+/**
+ * @brief Logging macro for messages that are for an XRDP developper to understand and 
  * debug XRDP code.
  * 
  * Note: all log levels are relavant to help a developper understand XRDP at 
@@ -80,8 +80,8 @@ enum logReturns
 #define LOG_DEVEL(log_level, args...) \
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 
-/*
- * Logging macro for messages that are for a systeam administrator to
+/**
+ * @brief Logging macro for messages that are for a systeam administrator to
  * configure and run XRDP on their machine.
  * 
  * Note: the logging function calls contain additional code location info when 
