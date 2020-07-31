@@ -197,7 +197,7 @@ internal_config_read_logging(int file, struct log_config *lc,
  * @return
  */
 enum logReturns
-internal_log_message(const enum logLevels lvl, const char *msg, va_list args);
+internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg, va_list args);
 
 /*End of internal functions*/
 #endif

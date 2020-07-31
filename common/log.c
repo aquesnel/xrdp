@@ -602,6 +602,7 @@ log_message_with_location(const char *function_name,
     char buff[LOG_BUFFER_SIZE];
     struct log_logger_level *logger;
     int i;
+    bool_t force_log = 0;
     
     if (g_staticLogConfig == NULL)
     {
@@ -620,6 +621,7 @@ log_message_with_location(const char *function_name,
             {
                 return LOG_STARTUP_OK;
             }
+            force_log = 1;
             break;
         }
     }
@@ -628,7 +630,7 @@ log_message_with_location(const char *function_name,
                function_name, file_name, line_number, msg);
 
     va_start(ap, msg);
-    rv = internal_log_message(level, buff, ap);
+    rv = internal_log_message(level, force_log, buff, ap);
     va_end(ap);
     return rv;
 }
@@ -640,13 +642,13 @@ log_message(const enum logLevels lvl, const char *msg, ...)
     enum logReturns rv;
     
     va_start(ap, msg);
-    rv = internal_log_message(lvl, msg, ap);
+    rv = internal_log_message(lvl, 0, msg, ap);
     va_end(ap);
     return rv;
 }
 
 enum logReturns
-internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
+internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg, va_list ap)
 {
     char buff[LOG_BUFFER_SIZE + 31]; /* 19 (datetime) 4 (space+cr+lf+\0) */
     int len = 0;
@@ -668,9 +670,9 @@ internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
         return LOG_ERROR_FILE_NOT_OPEN;
     }
 
-    if (!((g_staticLogConfig->fd >= 0 && (lvl <= g_staticLogConfig->log_level))
-            || (g_staticLogConfig->enable_syslog && (lvl <= g_staticLogConfig->syslog_level))
-            || (g_staticLogConfig->enable_console && (lvl <= g_staticLogConfig->console_level))))
+    if (!((g_staticLogConfig->fd >= 0 && (force_log || lvl <= g_staticLogConfig->log_level))
+            || (g_staticLogConfig->enable_syslog && (force_log || lvl <= g_staticLogConfig->syslog_level))
+            || (g_staticLogConfig->enable_console && (force_log || lvl <= g_staticLogConfig->console_level))))
     {
         return LOG_STARTUP_OK;
     }
@@ -714,20 +716,20 @@ internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
 #endif
 #endif
 
-    if (g_staticLogConfig->enable_syslog && (lvl <= g_staticLogConfig->syslog_level))
+    if (g_staticLogConfig->enable_syslog && (force_log || lvl <= g_staticLogConfig->syslog_level))
     {
         /* log to syslog*/
         /* %s fix compiler warning 'not a string literal' */
         syslog(internal_log_xrdp2syslog(lvl), "%s", buff + 20);
     }
 
-    if (g_staticLogConfig->enable_console && (lvl <= g_staticLogConfig->console_level))
+    if (g_staticLogConfig->enable_console && (force_log || lvl <= g_staticLogConfig->console_level))
     {
         /* log to console */
         g_printf("%s", buff);
     }
 
-    if (lvl <= g_staticLogConfig->log_level)
+    if (force_log || lvl <= g_staticLogConfig->log_level)
     {
         /* log to application logfile */
 #ifdef LOG_ENABLE_THREAD
