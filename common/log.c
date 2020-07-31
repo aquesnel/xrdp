@@ -593,7 +593,10 @@ internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
 
     internal_log_lvl2str(lvl, buff + 20);
 
-    len = vsnprintf(buff + 28, LOG_BUFFER_SIZE, msg, ap);
+    g_snprintf(buff + 28, LOG_BUFFER_SIZE, "[pid:%d tid:%lld] ", 
+               g_getpid(), (long long) tc_get_threadid());
+    len = g_strlen(buff + 28);
+    len += vsnprintf(buff + 28 + len, LOG_BUFFER_SIZE - len, msg, ap);
 
     /* checking for truncated messages */
     if (len > LOG_BUFFER_SIZE)
@@ -621,8 +624,7 @@ internal_log_message(const enum logLevels lvl, const char *msg, va_list ap)
     {
         /* log to syslog*/
         /* %s fix compiler warning 'not a string literal' */
-        syslog(internal_log_xrdp2syslog(lvl), "(%d)(%lld)%s", g_getpid(),
-               (long long) tc_get_threadid(), buff + 20);
+        syslog(internal_log_xrdp2syslog(lvl), "%s", buff + 20);
     }
 
     if (lvl <= g_staticLogConfig->log_level)
