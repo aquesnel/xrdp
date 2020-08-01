@@ -604,6 +604,121 @@ log_end(void)
     return ret;
 }
 
+/*****************************************************************************/
+/* produce a hex dump */
+enum logReturns
+log_hexdump_with_location(const char *function_name, 
+                          const char *file_name, 
+                          const int line_number, 
+                          const enum logLevels log_level, 
+                          const char *p, 
+                          int len)
+{
+    unsigned char *line;
+    int i;
+    int dump_number_lines;
+    int dump_line_length;
+    int dump_length;
+    int dump_offset;
+    int thisline;
+    int offset;
+    char *dump_buffer;
+    enum logReturns rv;
+
+    dump_line_length = ((2 + 1 + 1) * 16)  /* = (2 hex + 1 space + 1 char) per byte for 16 bytes */
+                       + 4 + 4 + 1;        /*   + 4 offset + 4 space + 1 newline */
+#ifdef _WIN32
+    dump_line_length += 1;
+#endif
+    dump_number_lines = (len / 16) + 1; /* 16 bytes per line then round up */
+    dump_length = dump_number_lines * dump_line_length /* hex dump space */
+                    + 9 + 2 /* "Hex Dump:" header + newline */
+                    + 1;    /* terminating NULL */
+    dump_buffer = (char *)g_malloc(dump_length, 1);
+    line = (unsigned char *)p;
+    offset = 0;
+
+    /* Start the dump with a new line so that the first line of the dump is 
+       aligned to the first column instead of to after the log message 
+       preamble (eg. time, log level, ...)
+    */
+    g_sprintf(dump_buffer, "Hex Dump:");
+    dump_offset = 9;
+#ifdef _WIN32
+    dump_buffer[dump_offset++] = '\r';
+    dump_buffer[dump_offset++] = '\n';
+#else
+#ifdef _MACOS
+    dump_buffer[dump_offset++] = '\r';
+#else
+    dump_buffer[dump_offset++] = '\n';
+#endif
+#endif
+
+    while (offset < len)
+    {
+        g_sprintf(dump_buffer + dump_offset, "%04x   ", offset);
+        dump_offset += 7;
+        thisline = len - offset;
+        
+        if (thisline > 16)
+        {
+            thisline = 16;
+        }
+
+        for (i = 0; i < thisline; i++)
+        {
+            g_sprintf(dump_buffer + dump_offset, "%02x ", line[i]);
+            dump_offset += 3;
+        }
+
+        for (; i < 16; i++)
+        {
+            dump_buffer[dump_offset++] = ' ';
+            dump_buffer[dump_offset++] = ' ';
+            dump_buffer[dump_offset++] = ' ';
+        }
+
+        dump_buffer[dump_offset++] = ' ';
+        dump_buffer[dump_offset++] = ' ';
+            
+        for (i = 0; i < thisline; i++)
+        {
+            dump_buffer[dump_offset++] = (line[i] >= 0x20 && line[i] < 0x7f) ? line[i] : '.';
+        }
+
+        for (; i < 16; i++)
+        {
+            dump_buffer[dump_offset++] = ' ';
+        }
+        
+#ifdef _WIN32
+        dump_buffer[dump_offset++] = '\r';
+        dump_buffer[dump_offset++] = '\n';
+#else
+#ifdef _MACOS
+        dump_buffer[dump_offset++] = '\r';
+#else
+        dump_buffer[dump_offset++] = '\n';
+#endif
+#endif
+        offset += thisline;
+        line += thisline;
+    }
+    if (dump_offset > dump_length)
+    {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "BUG: dump_offset (%d) is larger than the dump_buffer length (%d)", 
+                  dump_offset, dump_length);
+        g_free(dump_buffer);
+        return LOG_GENERAL_ERROR;
+    }
+    
+    dump_buffer[dump_offset] = '\0';
+    rv = log_message_with_location(function_name, file_name, line_number, log_level, dump_buffer);
+    g_free(dump_buffer);
+    return rv;
+}
+
 enum logReturns
 log_message_with_location(const char *function_name, 
                           const char *file_name, 

@@ -67,6 +67,20 @@ enum logReturns
 #ifdef XRDP_DEBUG
 
 /**
+ * @brief Logging macro for messages that are for a systeam administrator to
+ * configure and run XRDP on their machine.
+ * 
+ * Note: the logging function calls contain additional code location info when 
+ *      XRDP_DEBUG is defined.
+ * 
+ * @param lvl, the log level
+ * @param msg, the log text as a printf format c-string
+ * @param ... the arguments for the printf format c-string
+ */
+#define LOG(log_level, args...) \
+        log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
+
+/**
  * @brief Logging macro for messages that are for an XRDP developper to understand and 
  * debug XRDP code.
  * 
@@ -75,7 +89,7 @@ enum logReturns
  * 
  * Note: the logging function calls are removed when XRDP_DEBUG is NOT defined.
  * 
- * Note: when the build is configured with --disable-xrdpdebug, then 
+ * Note: when the build is configured with --enable-xrdpdebug, then 
  *      the source file name and log level can be added to the [Logging_PerLogger]
  *      section of xrdp.ini to change the logging level for logs in that source file.
  * 
@@ -93,21 +107,32 @@ enum logReturns
         log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
 
 /**
- * @brief Logging macro for messages that are for a systeam administrator to
- * configure and run XRDP on their machine.
+ * @brief Logging macro for byte arrays that are for an XRDP developper to understand and 
+ * debug XRDP code.
  * 
- * Note: the logging function calls contain additional code location info when 
- *      XRDP_DEBUG is defined.
+ * Note: the logging function calls are removed when XRDP_DEBUG is NOT defined.
  * 
- * @param lvl, the log level
- * @param msg, the log text as a printf format c-string
- * @param ... the arguments for the printf format c-string
+ * Note: when the build is configured with --enable-xrdpdebug, then 
+ *      the source file name and log level can be added to the [Logging_PerLogger]
+ *      section of xrdp.ini to change the logging level for logs in that source file.
+ * 
+ *      For example in xrdp.ini:
+ *      ```     
+ *      [Logging_PerLogger]
+ *      xrdp.c=DEBUG
+ *      ```
+ * 
+ * @param log_level, the log level
+ * @param buffer, a pointer to the byte array to log as a hex dump
+ * @param length, the length of the byte array to log
  */
-#define LOG(log_level, args...) \
-        log_message_with_location(__func__, __FILE__, __LINE__, log_level, args);
+#define LOG_DEVEL_HEXDUMP(log_level, buffer, length) \
+        log_hexdump_with_location(__func__, __FILE__, __LINE__, log_level, buffer, length);
+        
 #else
-#define LOG_DEVEL(log_level, args...)
 #define LOG(log_level, args...) log_message(log_level, args);
+#define LOG_DEVEL(log_level, args...)
+#define LOG_DEVEL_HEXDUMP(log_level, buffer, length)
 #endif
 
 enum log_logger_type
@@ -272,6 +297,14 @@ log_message_with_location(const char *function_name,
                           const enum logLevels lvl, 
                           const char *msg, 
                           ...) printflike(5, 6);
+
+enum logReturns
+log_hexdump_with_location(const char *function_name, 
+                          const char *file_name, 
+                          const int line_number, 
+                          const enum logLevels log_level, 
+                          const char *p, 
+                          int len);
 
 /**
  * This function returns the configured file name for the logfile
