@@ -26,7 +26,7 @@
 
 /* logging buffer size */
 #define LOG_BUFFER_SIZE      1024
-#define LOGGER_NAME_SIZE     25
+#define LOGGER_NAME_SIZE     50
 
 /* logging levels */
 enum logLevels
@@ -110,9 +110,16 @@ enum logReturns
 #define LOG(log_level, args...) log_message(log_level, args);
 #endif
 
+enum log_logger_type
+{
+    LOG_TYPE_FILE = 0,
+    LOG_TYPE_FUNCTION,
+};
+
 struct log_logger_level
 {
     enum logLevels log_level;
+    enum log_logger_type logger_type;
     char logger_name[LOGGER_NAME_SIZE + 1];
 };
 

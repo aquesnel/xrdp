@@ -154,6 +154,7 @@ SyslogLevel=DEBUG
 
 [Logging_PerLogger]
 #xrdp.c=DEBUG
+#xrdp_listen_process_startup_params()=DEBUG
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.

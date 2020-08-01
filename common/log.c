@@ -325,6 +325,7 @@ internal_config_read_logging(int file, struct log_config *lc,
     char *buf;
     char *temp_buf;
     char str_level[20];
+    int len;
 
     list_clear(param_v);
     list_clear(param_n);
@@ -421,12 +422,26 @@ internal_config_read_logging(int file, struct log_config *lc,
     for (i = 0; i < param_n->count; i++)
     {
         struct log_logger_level* logger = (struct log_logger_level*)g_malloc(sizeof(struct log_logger_level), 1);
-        g_strncpy(logger->logger_name, (char *)list_get_item(param_n, i), LOGGER_NAME_SIZE);
-        logger->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
-        
         list_add_item(lc->per_logger_level, (tbus) logger);
+        logger->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
         internal_log_lvl2str(logger->log_level, str_level);
-        g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
+        
+        g_strncpy(logger->logger_name, (char *)list_get_item(param_n, i), LOGGER_NAME_SIZE);
+        logger->logger_name[LOGGER_NAME_SIZE] = '\0';
+        len = g_strlen(logger->logger_name);
+        if(len >= 2 
+                && logger->logger_name[len-2] == '(' 
+                && logger->logger_name[len-1] == ')' )
+        {
+            g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
+            logger->logger_type = LOG_TYPE_FUNCTION;
+            logger->logger_name[len-2] = '\0';
+        }
+        else
+        {
+            g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
+            logger->logger_type = LOG_TYPE_FILE;
+        }
     }
     if(param_n->count == 0)
     {
@@ -615,7 +630,10 @@ log_message_with_location(const char *function_name,
     {
         logger = (struct log_logger_level *)list_get_item(g_staticLogConfig->per_logger_level, i);
 
-        if (0 == g_strncmp(logger->logger_name, file_name, LOGGER_NAME_SIZE))
+        if ((logger->logger_type == LOG_TYPE_FILE
+                && 0 == g_strncmp(logger->logger_name, file_name, LOGGER_NAME_SIZE))
+            || (logger->logger_type == LOG_TYPE_FUNCTION
+                && 0 == g_strncmp(logger->logger_name, function_name, LOGGER_NAME_SIZE)))
         {
             if(logger->log_level < level)
             {
