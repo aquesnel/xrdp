@@ -92,8 +92,8 @@ xrdp_shutdown(int sig)
     tbus threadid;
 
     threadid = tc_get_threadid();
-    g_writeln("shutting down");
-    g_writeln("signal %d threadid %p", sig, threadid);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "shutting down");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "signal %d threadid %p", sig, threadid);
 
     if (!g_is_wait_obj_set(g_term_event))
     {
@@ -141,7 +141,7 @@ void
 pipe_sig(int sig_num)
 {
     /* do nothing */
-    g_writeln("got XRDP WIN SIGPIPE(%d)", sig_num);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "got XRDP WIN SIGPIPE(%d)", sig_num);
 }
 
 /*****************************************************************************/
@@ -310,32 +310,32 @@ main(int argc, char **argv)
         if (host_be)
 #endif
         {
-            g_writeln("endian wrong, edit arch.h");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "endian wrong, edit arch.h");
             return 0;
         }
 
     /* check long, int and void* sizes */
     if (sizeof(int) != 4)
     {
-        g_writeln("unusable int size, must be 4");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "unusable int size, must be 4");
         return 0;
     }
 
     if (sizeof(long) != sizeof(void *))
     {
-        g_writeln("long size must match void* size");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "long size must match void* size");
         return 0;
     }
 
     if (sizeof(long) != 4 && sizeof(long) != 8)
     {
-        g_writeln("unusable long size, must be 4 or 8");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "unusable long size, must be 4 or 8");
         return 0;
     }
 
     if (sizeof(tui64) != 8)
     {
-        g_writeln("unusable tui64 size, must be 8");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "unusable tui64 size, must be 8");
         return 0;
     }
 
@@ -348,16 +348,16 @@ main(int argc, char **argv)
                 g_strncasecmp(argv[1], "--help", 255) == 0 ||
                 g_strncasecmp(argv[1], "-h", 255) == 0)
         {
-            g_writeln("%s", "");
-            g_writeln("xrdp: A Remote Desktop Protocol server.");
-            g_writeln("Copyright (C) Jay Sorg 2004-2011");
-            g_writeln("See http://www.xrdp.org for more information.");
-            g_writeln("%s", "");
-            g_writeln("Usage: xrdp [options]");
-            g_writeln("   -h: show help");
-            g_writeln("   -install: install service");
-            g_writeln("   -remove: remove service");
-            g_writeln("%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp: A Remote Desktop Protocol server.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Copyright (C) Jay Sorg 2004-2011");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "See http://www.xrdp.org for more information.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Usage: xrdp [options]");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -h: show help");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -install: install service");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -remove: remove service");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
             g_exit(0);
         }
         else if (g_strncasecmp(argv[1], "-install", 255) == 0 ||
@@ -369,7 +369,7 @@ main(int argc, char **argv)
 
             if (sc_man == 0)
             {
-                g_writeln("error OpenSCManager, do you have rights?");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "error OpenSCManager, do you have rights?");
                 g_exit(0);
             }
 
@@ -387,7 +387,7 @@ main(int argc, char **argv)
             }
             else
             {
-                g_writeln("error service is already installed");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "error service is already installed");
                 CloseServiceHandle(sc_ser);
                 CloseServiceHandle(sc_man);
                 g_exit(0);
@@ -405,7 +405,7 @@ main(int argc, char **argv)
 
             if (sc_man == 0)
             {
-                g_writeln("error OpenSCManager, do you have rights?");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "error OpenSCManager, do you have rights?");
                 g_exit(0);
             }
 
@@ -414,7 +414,7 @@ main(int argc, char **argv)
 
             if (sc_ser == 0)
             {
-                g_writeln("error service is not installed");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "error service is not installed");
                 CloseServiceHandle(sc_man);
                 g_exit(0);
             }
@@ -425,17 +425,17 @@ main(int argc, char **argv)
         }
         else
         {
-            g_writeln("Unknown Parameter");
-            g_writeln("xrdp -h for help");
-            g_writeln("%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Unknown Parameter");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp -h for help");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
             g_exit(0);
         }
     }
     else if (argc > 1)
     {
-        g_writeln("Unknown Parameter");
-        g_writeln("xrdp -h for help");
-        g_writeln("%s", "");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Unknown Parameter");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp -h for help");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
         g_exit(0);
     }
 
@@ -459,7 +459,7 @@ main(int argc, char **argv)
                 (g_strncasecmp(argv[1], "--kill", 255) == 0) ||
                 (g_strncasecmp(argv[1], "-k", 255) == 0))
         {
-            g_writeln("stopping xrdp");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "stopping xrdp");
             /* read the xrdp.pid file */
             fd = -1;
 
@@ -470,7 +470,7 @@ main(int argc, char **argv)
 
             if (fd == -1)
             {
-                g_writeln("cannot open %s, maybe xrdp is not running",
+                LOG_DEVEL(LOG_LEVEL_TRACE, "cannot open %s, maybe xrdp is not running",
                           pid_file);
             }
             else
@@ -478,7 +478,7 @@ main(int argc, char **argv)
                 g_memset(text, 0, 32);
                 g_file_read(fd, text, 31);
                 pid = g_atoi(text);
-                g_writeln("stopping process id %d", pid);
+                LOG_DEVEL(LOG_LEVEL_TRACE, "stopping process id %d", pid);
 
                 if (pid > 0)
                 {
@@ -503,49 +503,49 @@ main(int argc, char **argv)
                  g_strncasecmp(argv[1], "--help", 255) == 0 ||
                  g_strncasecmp(argv[1], "-h", 255) == 0)
         {
-            g_writeln("%s", "");
-            g_writeln("xrdp: A Remote Desktop Protocol server.");
-            g_writeln("Copyright (C) Jay Sorg 2004-2011");
-            g_writeln("See http://www.xrdp.org for more information.");
-            g_writeln("%s", "");
-            g_writeln("Usage: xrdp [options]");
-            g_writeln("   -h: show help");
-            g_writeln("   -nodaemon: don't fork into background");
-            g_writeln("   -kill: shut down xrdp");
-            g_writeln("%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp: A Remote Desktop Protocol server.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Copyright (C) Jay Sorg 2004-2011");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "See http://www.xrdp.org for more information.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Usage: xrdp [options]");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -h: show help");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -nodaemon: don't fork into background");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "   -kill: shut down xrdp");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
             g_exit(0);
         }
         else if ((g_strncasecmp(argv[1], "-v", 255) == 0) ||
                  (g_strncasecmp(argv[1], "--version", 255) == 0))
         {
-            g_writeln("%s", "");
-            g_writeln("xrdp: A Remote Desktop Protocol server.");
-            g_writeln("Copyright (C) Jay Sorg 2004-2011");
-            g_writeln("See http://www.xrdp.org for more information.");
-            g_writeln("Version %s", PACKAGE_VERSION);
-            g_writeln("%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp: A Remote Desktop Protocol server.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Copyright (C) Jay Sorg 2004-2011");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "See http://www.xrdp.org for more information.");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Version %s", PACKAGE_VERSION);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
             g_exit(0);
         }
         else
         {
-            g_writeln("Unknown Parameter");
-            g_writeln("xrdp -h for help");
-            g_writeln("%s", "");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Unknown Parameter");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp -h for help");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
             g_exit(0);
         }
     }
     else if (argc > 1)
     {
-        g_writeln("Unknown Parameter");
-        g_writeln("xrdp -h for help");
-        g_writeln("%s", "");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Unknown Parameter");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp -h for help");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
         g_exit(0);
     }
 
     if (g_file_exist(pid_file)) /* xrdp.pid */
     {
-        g_writeln("It looks like xrdp is already running.");
-        g_writeln("If not, delete %s and try again.", pid_file);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "It looks like xrdp is already running.");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "If not, delete %s and try again.", pid_file);
         g_exit(0);
     }
 
@@ -556,13 +556,13 @@ main(int argc, char **argv)
 
         if (fd == -1)
         {
-            g_writeln("running in daemon mode with no access to pid files, quitting");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "running in daemon mode with no access to pid files, quitting");
             g_exit(0);
         }
 
         if (g_file_write(fd, "0", 1) == -1)
         {
-            g_writeln("running in daemon mode with no access to pid files, quitting");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "running in daemon mode with no access to pid files, quitting");
             g_exit(0);
         }
 
@@ -577,13 +577,13 @@ main(int argc, char **argv)
 
         if (pid == -1)
         {
-            g_writeln("problem forking");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "problem forking");
             g_exit(1);
         }
 
         if (0 != pid)
         {
-            g_writeln("process %d started ok", pid);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "process %d started ok", pid);
             /* exit, this is the main process */
             g_exit(0);
         }
@@ -606,9 +606,9 @@ main(int argc, char **argv)
 
         if (fd == -1)
         {
-            g_writeln("trying to write process id to xrdp.pid");
-            g_writeln("problem opening xrdp.pid");
-            g_writeln("maybe no rights");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "trying to write process id to xrdp.pid");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "problem opening xrdp.pid");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "maybe no rights");
         }
         else
         {
@@ -634,7 +634,7 @@ main(int argc, char **argv)
 
     if (g_term_event == 0)
     {
-        g_writeln("error creating g_term_event");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "error creating g_term_event");
     }
 
     xrdp_listen_main_loop(g_listen);

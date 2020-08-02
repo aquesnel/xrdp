@@ -28,17 +28,7 @@
 #include <painter.h> /* libpainter */
 #endif
 
-#define LLOG_LEVEL 1
-#define LLOGLN(_level, _args) \
-  do \
-  { \
-    if (_level < LLOG_LEVEL) \
-    { \
-        g_write("xrdp:xrdp_painter [%10.10u]: ", g_time3()); \
-        g_writeln _args ; \
-    } \
-  } \
-  while (0)
+
 
 #if defined(XRDP_PAINTER)
 
@@ -71,8 +61,8 @@ xrdp_painter_add_dirty_rect(struct xrdp_painter *self, int x, int y,
     rect.right = x + cx;
     rect.bottom = y + cy;
     xrdp_region_add_rect(self->dirty_region, &rect);
-    LLOGLN(10, ("xrdp_painter_add_dirty_rect: x %d y %d cx %d cy %d",
-           x, y, cx, cy));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_add_dirty_rect: x %d y %d cx %d cy %d",
+           x, y, cx, cy);
     return 0;
 }
 
@@ -92,7 +82,7 @@ xrdp_painter_send_dirty(struct xrdp_painter *self)
     char *dst;
     struct xrdp_rect rect;
 
-    LLOGLN(10, ("xrdp_painter_send_dirty:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_send_dirty:");
 
     bpp = self->wm->screen->bpp;
     Bpp = (bpp + 7) / 8;
@@ -122,8 +112,8 @@ xrdp_painter_send_dirty(struct xrdp_painter *self)
             src += self->wm->screen->line_size;
             dst += cx * Bpp;
         }
-        LLOGLN(10, ("xrdp_painter_send_dirty: x %d y %d cx %d cy %d",
-               rect.left, rect.top, cx, cy));
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_send_dirty: x %d y %d cx %d cy %d",
+               rect.left, rect.top, cx, cy);
         libxrdp_send_bitmap(self->session, cx, cy, bpp,
                             ldata, rect.left, rect.top, cx, cy);
         g_free(ldata);
@@ -146,7 +136,7 @@ xrdp_painter_create(struct xrdp_wm *wm, struct xrdp_session *session)
 {
     struct xrdp_painter *self;
 
-    LLOGLN(10, ("xrdp_painter_create:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_create:");
     self = (struct xrdp_painter *)g_malloc(sizeof(struct xrdp_painter), 1);
     self->wm = wm;
     self->session = session;
@@ -160,11 +150,11 @@ xrdp_painter_create(struct xrdp_wm *wm, struct xrdp_session *session)
         if (painter_create(&(self->painter)) != PT_ERROR_NONE)
         {
             self->painter = 0;
-            LLOGLN(0, ("xrdp_painter_create: painter_create failed"));
+            LOG_DEVEL(LOG_LEVEL_INFO, "xrdp_painter_create: painter_create failed");
         }
         else
         {
-            LLOGLN(10, ("xrdp_painter_create: painter_create success"));
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_create: painter_create success");
         }
         self->dirty_region = xrdp_region_create(wm);
 #endif
@@ -177,7 +167,7 @@ xrdp_painter_create(struct xrdp_wm *wm, struct xrdp_session *session)
 void
 xrdp_painter_delete(struct xrdp_painter *self)
 {
-    LLOGLN(10, ("xrdp_painter_delete:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_delete:");
     if (self == 0)
     {
         return;
@@ -199,7 +189,7 @@ wm_painter_set_target(struct xrdp_painter *self)
     int index;
     struct list *del_list;
 
-    LLOGLN(10, ("wm_painter_set_target:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "wm_painter_set_target:");
 
     if (self->painter != 0)
     {
@@ -239,7 +229,7 @@ wm_painter_set_target(struct xrdp_painter *self)
     }
     else
     {
-        g_writeln("xrdp_painter_begin_update: bad target_surface");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_painter_begin_update: bad target_surface");
     }
 
     return 0;
@@ -249,7 +239,7 @@ wm_painter_set_target(struct xrdp_painter *self)
 int
 xrdp_painter_begin_update(struct xrdp_painter *self)
 {
-    LLOGLN(10, ("xrdp_painter_begin_update:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_begin_update:");
     if (self == 0)
     {
         return 0;
@@ -271,7 +261,7 @@ xrdp_painter_begin_update(struct xrdp_painter *self)
 int
 xrdp_painter_end_update(struct xrdp_painter *self)
 {
-    LLOGLN(10, ("xrdp_painter_end_update:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_end_update:");
     if (self == 0)
     {
         return 0;
@@ -444,7 +434,7 @@ xrdp_painter_text_width(struct xrdp_painter *self, const char *text)
     struct xrdp_font_char *font_item;
     twchar *wstr;
 
-    LLOGLN(10, ("xrdp_painter_text_width:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_text_width:");
     xrdp_painter_font_needed(self);
 
     if (self->font == 0)
@@ -482,7 +472,7 @@ xrdp_painter_text_height(struct xrdp_painter *self, const char *text)
     struct xrdp_font_char *font_item;
     twchar *wstr;
 
-    LLOGLN(10, ("xrdp_painter_text_height:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_text_height:");
     xrdp_painter_font_needed(self);
 
     if (self->font == 0)
@@ -518,7 +508,7 @@ xrdp_painter_setup_brush(struct xrdp_painter *self,
 {
     int cache_id;
 
-    LLOGLN(10, ("xrdp_painter_setup_brush:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_setup_brush:");
 
     if (self->painter != 0)
     {
@@ -590,7 +580,7 @@ xrdp_painter_fill_rect(struct xrdp_painter *self,
     int dy;
     int rop;
 
-    LLOGLN(10, ("xrdp_painter_fill_rect:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_fill_rect:");
 
     if (self == 0)
     {
@@ -607,10 +597,10 @@ xrdp_painter_fill_rect(struct xrdp_painter *self,
         struct xrdp_bitmap *ldst;
         struct painter_bitmap pat;
 
-        LLOGLN(10, ("xrdp_painter_fill_rect: dst->type %d", dst->type));
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_fill_rect: dst->type %d", dst->type);
         if (dst->type != WND_TYPE_OFFSCREEN)
         {
-            LLOGLN(10, ("xrdp_painter_fill_rect: using painter"));
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_fill_rect: using painter");
 
             ldst = self->wm->screen;
 
@@ -621,9 +611,9 @@ xrdp_painter_fill_rect(struct xrdp_painter *self,
             dst_pb.height = ldst->height;
             dst_pb.data = ldst->data;
 
-            LLOGLN(10, ("xrdp_painter_fill_rect: ldst->width %d ldst->height %d "
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_fill_rect: ldst->width %d ldst->height %d "
                        "dst->data %p self->fg_color %d",
-                       ldst->width, ldst->height, ldst->data, self->fg_color));
+                       ldst->width, ldst->height, ldst->data, self->fg_color);
 
             xrdp_bitmap_get_screen_clip(dst, self, &clip_rect, &dx, &dy);
             region = xrdp_region_create(self->wm);
@@ -832,7 +822,7 @@ xrdp_painter_draw_text(struct xrdp_painter *self,
     struct xrdp_font_char *font_item;
     twchar *wstr;
 
-    LLOGLN(10, ("xrdp_painter_draw_text:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_draw_text:");
 
     if (self == 0)
     {
@@ -1025,7 +1015,7 @@ xrdp_painter_draw_text2(struct xrdp_painter *self,
     int dx;
     int dy;
 
-    LLOGLN(0, ("xrdp_painter_draw_text2:"));
+    LOG_DEVEL(LOG_LEVEL_INFO, "xrdp_painter_draw_text2:");
 
     if (self == 0)
     {
@@ -1127,7 +1117,7 @@ xrdp_painter_copy(struct xrdp_painter *self,
     int index;
     struct list *del_list;
 
-    LLOGLN(10, ("xrdp_painter_copy:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_copy:");
 
     if (self == 0 || src == 0 || dst == 0)
     {
@@ -1141,12 +1131,12 @@ xrdp_painter_copy(struct xrdp_painter *self,
         struct painter_bitmap dst_pb;
         struct xrdp_bitmap *ldst;
 
-        LLOGLN(10, ("xrdp_painter_copy: src->type %d dst->type %d", src->type, dst->type));
-        LLOGLN(10, ("xrdp_painter_copy: self->rop 0x%2.2x", self->rop));
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_copy: src->type %d dst->type %d", src->type, dst->type);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_copy: self->rop 0x%2.2x", self->rop);
 
         if (dst->type != WND_TYPE_OFFSCREEN)
         {
-            LLOGLN(10, ("xrdp_painter_copy: using painter"));
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_copy: using painter");
             ldst = self->wm->screen;
 
             g_memset(&dst_pb, 0, sizeof(dst_pb));
@@ -1180,8 +1170,8 @@ xrdp_painter_copy(struct xrdp_painter *self,
                                      draw_rect.left, draw_rect.top,
                                      draw_rect.right - draw_rect.left,
                                      draw_rect.bottom - draw_rect.top);
-                    LLOGLN(10, ("  x %d y %d cx %d cy %d srcx %d srcy %d",
-                           x, y, cx, cy, srcx, srcy));
+                    LOG_DEVEL(LOG_LEVEL_DEBUG, "  x %d y %d cx %d cy %d srcx %d srcy %d",
+                           x, y, cx, cy, srcx, srcy);
                     painter_copy(self->painter, &dst_pb, x, y, cx, cy,
                                  &src_pb, srcx, srcy);
                     xrdp_painter_add_dirty_rect(self, x, y, cx, cy,
@@ -1240,20 +1230,20 @@ xrdp_painter_copy(struct xrdp_painter *self,
     }
     else if (src->type == WND_TYPE_OFFSCREEN)
     {
-        //g_writeln("xrdp_painter_copy: todo");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_painter_copy: todo");
 
         xrdp_bitmap_get_screen_clip(dst, self, &clip_rect, &dx, &dy);
         region = xrdp_region_create(self->wm);
 
         if (dst->type != WND_TYPE_OFFSCREEN)
         {
-            //g_writeln("off screen to screen");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "off screen to screen");
             xrdp_wm_get_vis_region(self->wm, dst, x, y, cx, cy,
                                    region, self->clip_children);
         }
         else
         {
-            //g_writeln("off screen to off screen");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "off screen to off screen");
             xrdp_region_add_rect(region, &clip_rect);
         }
 
@@ -1266,7 +1256,7 @@ xrdp_painter_copy(struct xrdp_painter *self,
 
         if (src->tab_stop == 0)
         {
-            g_writeln("xrdp_painter_copy: warning src not created");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_painter_copy: warning src not created");
             del_list = self->wm->cache->xrdp_os_del_list;
             index = list_index_of(del_list, cache_idx);
             list_remove_item(del_list, index);
@@ -1399,7 +1389,7 @@ xrdp_painter_composite(struct xrdp_painter* self,
     int cache_srcidx;
     int cache_mskidx;
 
-    LLOGLN(0, ("xrdp_painter_composite:"));
+    LOG_DEVEL(LOG_LEVEL_INFO, "xrdp_painter_composite:");
 
     if (self == 0 || src == 0 || dst == 0)
     {
@@ -1473,7 +1463,7 @@ xrdp_painter_line(struct xrdp_painter *self,
     int dy;
     int rop;
 
-    LLOGLN(10, ("xrdp_painter_line:"));
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_line:");
     if (self == 0)
     {
         return 0;
@@ -1488,12 +1478,12 @@ xrdp_painter_line(struct xrdp_painter *self,
         struct painter_bitmap dst_pb;
         struct xrdp_bitmap *ldst;
 
-        LLOGLN(10, ("xrdp_painter_line: dst->type %d", dst->type));
-        LLOGLN(10, ("xrdp_painter_line: self->rop 0x%2.2x", self->rop));
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_line: dst->type %d", dst->type);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_line: self->rop 0x%2.2x", self->rop);
 
         if (dst->type != WND_TYPE_OFFSCREEN)
         {
-            LLOGLN(10, ("xrdp_painter_line: using painter"));
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_painter_line: using painter");
             ldst = self->wm->screen;
 
             g_memset(&dst_pb, 0, sizeof(dst_pb));
