@@ -62,7 +62,7 @@ ssl_protocols=TLSv1.2, TLSv1.3
 ; and password. If empty, the domain name sent by the client is used.
 ; If empty and no domain name is given, the first suitable section in
 ; this file will be used.
-autorun=
+autorun=Xorg
 
 allow_channels=true
 allow_multimon=true
@@ -147,15 +147,25 @@ ls_btn_cancel_height=30
 LogFile=xrdp.log
 LogLevel=DEBUG
 EnableConsole=true
-ConsoleLevel=DEBUG
-EnableSyslog=true
+ConsoleLevel=TRACE
+EnableSyslog=false
 SyslogLevel=DEBUG
 ; LogLevel and SysLogLevel could by any of: core, error, warning, info or debug
-#EnableProcessId=false
+#EnableProcessId=true
 
 [Logging_PerLogger]
 #xrdp.c=DEBUG
 #xrdp_listen_process_startup_params()=DEBUG
+xrdp_iso_recv()=INFO
+xrdp_sec_recv()=INFO
+xrdp_iso_send()=INFO
+xrdp_sec_send()=INFO
+xrdp_mcs_send()=INFO
+xrdp_bitmap32_compress.c=INFO
+xrdp_mppc_enc.c=INFO
+xrdp_bitmap.c=INFO
+xrdp_cache.c=INFO
+os_calls.c=TRACE
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.
