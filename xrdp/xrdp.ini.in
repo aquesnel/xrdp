@@ -67,7 +67,7 @@ ssl_protocols=TLSv1.2, TLSv1.3
 ; and password. If empty, the domain name sent by the client is used.
 ; If empty and no domain name is given, the first suitable section in
 ; this file will be used.
-autorun=
+autorun=Xorg
 
 allow_channels=true
 allow_multimon=true
@@ -153,17 +153,27 @@ ls_btn_cancel_height=30
 ; Note: Log levels can be any of: core, error, warning, info, debug, or trace
 #EnableLogFile=true
 LogFile=xrdp.log
-LogLevel=INFO
-EnableSyslog=true
-#SyslogLevel=INFO
-#EnableConsole=false
-#ConsoleLevel=INFO
-#EnableProcessId=false
+LogLevel=DEBUG
+EnableConsole=true
+ConsoleLevel=TRACE
+EnableSyslog=false
+SyslogLevel=DEBUG
+EnableProcessId=false
 
 [LoggingPerLogger]
 ; Note: per logger configuration is only used in XRDP_DEBUG builds of XRDP.
-#xrdp.c=INFO
-#main()=INFO
+#xrdp.c=DEBUG
+#xrdp_listen_process_startup_params()=DEBUG
+xrdp_iso_recv()=INFO
+xrdp_sec_recv()=INFO
+xrdp_iso_send()=INFO
+xrdp_sec_send()=INFO
+xrdp_mcs_send()=INFO
+xrdp_bitmap32_compress.c=INFO
+xrdp_mppc_enc.c=INFO
+xrdp_bitmap.c=INFO
+xrdp_cache.c=INFO
+os_calls.c=TRACE
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.
