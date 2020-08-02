@@ -337,6 +337,7 @@ internal_config_read_logging(int file, struct log_config *lc,
     lc->program_name = applicationName;
     lc->log_file = 0;
     lc->fd = -1;
+    lc->enable_file = 1;
     lc->log_level = LOG_LEVEL_DEBUG;
     lc->enable_console = 1;
     lc->console_level = LOG_LEVEL_DEBUG;
@@ -370,6 +371,11 @@ internal_config_read_logging(int file, struct log_config *lc,
         if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_LEVEL))
         {
             lc->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
+        }
+        
+        if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_ENABLE_FILE))
+        {
+            lc->enable_file = g_text2bool((char *)list_get_item(param_v, i));
         }
 
         if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_ENABLE_SYSLOG))
@@ -802,13 +808,14 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
     }
 
     if (0 > g_staticLogConfig->fd 
+            && g_staticLogConfig->enable_file == 0
             && g_staticLogConfig->enable_syslog == 0
             && g_staticLogConfig->enable_console == 0)
     {
         return LOG_ERROR_FILE_NOT_OPEN;
     }
 
-    if (!((g_staticLogConfig->fd >= 0 && (force_log || lvl <= g_staticLogConfig->log_level))
+    if (!((g_staticLogConfig->fd >= 0 && g_staticLogConfig->enable_file && (force_log || lvl <= g_staticLogConfig->log_level))
             || (g_staticLogConfig->enable_syslog && (force_log || lvl <= g_staticLogConfig->syslog_level))
             || (g_staticLogConfig->enable_console && (force_log || lvl <= g_staticLogConfig->console_level))))
     {
@@ -874,7 +881,7 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
         pthread_mutex_lock(&(g_staticLogConfig->log_lock));
 #endif
 
-        if (g_staticLogConfig->fd >= 0)
+        if (g_staticLogConfig->fd >= 0 && g_staticLogConfig->enable_file)
         {
             writereply = g_file_write(g_staticLogConfig->fd, buff, g_strlen(buff));
 
