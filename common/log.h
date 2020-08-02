@@ -55,6 +55,7 @@ enum logReturns
 
 #define SESMAN_CFG_LOGGING            "Logging"
 #define SESMAN_CFG_LOGGING_LOGGER     "LoggingPerLogger"
+#define SESMAN_CFG_LOG_ENABLE_FILE    "EnableLogFile"
 #define SESMAN_CFG_LOG_FILE           "LogFile"
 #define SESMAN_CFG_LOG_LEVEL          "LogLevel"
 #define SESMAN_CFG_LOG_ENABLE_CONSOLE "EnableConsole"
@@ -171,6 +172,7 @@ struct log_config
     const char *program_name;
     char *log_file;
     int fd;
+    int enable_file;
     enum logLevels log_level;
     int enable_console;
     enum logLevels console_level;

@@ -151,6 +151,7 @@ ls_btn_cancel_height=30
 
 [Logging]
 ; Note: Log levels can be any of: core, error, warning, info, debug, or trace
+#EnableLogFile=true
 LogFile=xrdp.log
 LogLevel=INFO
 EnableSyslog=true
