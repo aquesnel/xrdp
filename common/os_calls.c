@@ -306,7 +306,7 @@ g_hexdump(const char *p, int len)
             g_printf("%c", (line[i] >= 0x20 && line[i] < 0x7f) ? line[i] : '.');
         }
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
+        g_printf("%s", "\n");
         offset += thisline;
         line += thisline;
     }
@@ -3442,7 +3442,10 @@ g_getenv(const char *name)
 int
 g_exit(int exit_code)
 {
-    LOG(LOG_LEVEL_DEBUG, "Exiting process %d with exit code %d", g_getpid(), exit_code);
+    /* at this point the logs have been de-initialized, so the only place left 
+       to log to is the console
+    */
+    g_writeln("Exiting process %d with exit code %d", g_getpid(), exit_code);
     exit(exit_code);
     return 0;
 }
