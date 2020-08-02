@@ -328,6 +328,7 @@ internal_config_read_logging(int file, struct log_config *lc,
     char *temp_buf;
     char str_level[20];
     int len;
+    struct log_logger_level* logger;
 
     list_clear(param_v);
     list_clear(param_n);
@@ -424,7 +425,7 @@ internal_config_read_logging(int file, struct log_config *lc,
     file_read_section(file, SESMAN_CFG_LOGGING_LOGGER, param_n, param_v);
     for (i = 0; i < param_n->count; i++)
     {
-        struct log_logger_level* logger = (struct log_logger_level*)g_malloc(sizeof(struct log_logger_level), 1);
+        logger = (struct log_logger_level*)g_malloc(sizeof(struct log_logger_level), 1);
         list_add_item(lc->per_logger_level, (tbus) logger);
         logger->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
         internal_log_lvl2str(logger->log_level, str_level);
@@ -464,7 +465,7 @@ internalInitAndAllocStruct(void)
     {
         g_staticLogConfig->fd = -1;
         g_staticLogConfig->enable_syslog = 0;
-        g_staticLogConfig->per_logger_level = (struct list *)g_malloc(sizeof(struct list), 1);
+        g_staticLogConfig->per_logger_level = list_create();
         if (g_staticLogConfig->per_logger_level != NULL)
         {
             g_staticLogConfig->per_logger_level->auto_free = 1;
@@ -493,7 +494,8 @@ internal_free_log_struct(void)
     {
         if (g_staticLogConfig->per_logger_level != NULL)
         {
-            list_clear(g_staticLogConfig->per_logger_level);
+            list_delete(g_staticLogConfig->per_logger_level);
+            g_staticLogConfig->per_logger_level = NULL;
         }
         g_free(g_staticLogConfig);
         g_staticLogConfig = NULL;
