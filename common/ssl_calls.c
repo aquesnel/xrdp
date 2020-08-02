@@ -618,7 +618,7 @@ ssl_tls_print_error(const char *func, SSL *connection, int value)
     switch (SSL_get_error(connection, value))
     {
         case SSL_ERROR_ZERO_RETURN:
-            g_writeln("ssl_tls_print_error: %s: Server closed TLS connection",
+            LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_print_error: %s: Server closed TLS connection",
                       func);
             return 1;
 
@@ -627,16 +627,16 @@ ssl_tls_print_error(const char *func, SSL *connection, int value)
             return 0;
 
         case SSL_ERROR_SYSCALL:
-            g_writeln("ssl_tls_print_error: %s: I/O error", func);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_print_error: %s: I/O error", func);
             return 1;
 
         case SSL_ERROR_SSL:
-            g_writeln("ssl_tls_print_error: %s: Failure in SSL library (protocol error?)",
+            LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_print_error: %s: Failure in SSL library (protocol error?)",
                       func);
             return 1;
 
         default:
-            g_writeln("ssl_tls_print_error: %s: Unknown error", func);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_print_error: %s: Unknown error", func);
             return 1;
     }
 }
@@ -693,7 +693,7 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
     self->ctx = SSL_CTX_new(SSLv23_server_method());
     if (self->ctx == NULL)
     {
-        log_message(LOG_LEVEL_ERROR, "ssl_tls_accept: SSL_CTX_new failed");
+        LOG(LOG_LEVEL_ERROR, "ssl_tls_accept: SSL_CTX_new failed");
         return 1;
     }
 
@@ -707,13 +707,13 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
     DH *dh = ssl_get_dh2236();
     if (dh == NULL)
     {
-        log_message(LOG_LEVEL_ERROR, "ssl_tls_accept: ssl_get_dh2236 failed");
+        LOG(LOG_LEVEL_ERROR, "ssl_tls_accept: ssl_get_dh2236 failed");
         return 1;
     }
 
     if (SSL_CTX_set_tmp_dh(self->ctx, dh) != 1)
     {
-        log_message(LOG_LEVEL_ERROR,
+        LOG(LOG_LEVEL_ERROR,
                     "ssl_tls_accept: SSL_CTX_set_tmp_dh failed");
         return 1;
     }
@@ -725,11 +725,11 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
 
     if (g_strlen(tls_ciphers) > 1)
     {
-        log_message(LOG_LEVEL_TRACE, "ssl_tls_accept: tls_ciphers=%s",
+        LOG(LOG_LEVEL_TRACE, "ssl_tls_accept: tls_ciphers=%s",
             tls_ciphers);
         if (SSL_CTX_set_cipher_list(self->ctx, tls_ciphers) == 0)
         {
-            g_writeln("ssl_tls_accept: invalid cipher options");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: invalid cipher options");
             return 1;
         }
     }
@@ -739,13 +739,13 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
     if (SSL_CTX_use_RSAPrivateKey_file(self->ctx, self->key, SSL_FILETYPE_PEM)
             <= 0)
     {
-        g_writeln("ssl_tls_accept: SSL_CTX_use_RSAPrivateKey_file failed");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: SSL_CTX_use_RSAPrivateKey_file failed");
         return 1;
     }
 
     if (SSL_CTX_use_certificate_chain_file(self->ctx, self->cert) <= 0)
     {
-        g_writeln("ssl_tls_accept: SSL_CTX_use_certificate_chain_file failed");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: SSL_CTX_use_certificate_chain_file failed");
         return 1;
     }
 
@@ -753,13 +753,13 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
 
     if (self->ssl == NULL)
     {
-        g_writeln("ssl_tls_accept: SSL_new failed");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: SSL_new failed");
         return 1;
     }
 
     if (SSL_set_fd(self->ssl, self->trans->sck) < 1)
     {
-        g_writeln("ssl_tls_accept: SSL_set_fd failed");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: SSL_set_fd failed");
         return 1;
     }
 
@@ -793,7 +793,7 @@ ssl_tls_accept(struct ssl_tls *self, long ssl_protocols,
         }
     }
 
-    g_writeln("ssl_tls_accept: TLS connection accepted");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "ssl_tls_accept: TLS connection accepted");
 
     return 0;
 }
@@ -1012,10 +1012,10 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     if (g_pos(str, ",TLSv1.3,") >= 0)
     {
 #if defined(SSL_OP_NO_TLSv1_3)
-        log_message(LOG_LEVEL_DEBUG, "TLSv1.3 enabled");
+        LOG(LOG_LEVEL_DEBUG, "TLSv1.3 enabled");
         protocols &= ~SSL_OP_NO_TLSv1_3;
 #else
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "TLSv1.3 enabled by config, "
                     "but not supported by system OpenSSL");
         rv |= (1 << 6);
@@ -1024,10 +1024,10 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     if (g_pos(str, ",TLSv1.2,") >= 0)
     {
 #if defined(SSL_OP_NO_TLSv1_2)
-        log_message(LOG_LEVEL_DEBUG, "TLSv1.2 enabled");
+        LOG(LOG_LEVEL_DEBUG, "TLSv1.2 enabled");
         protocols &= ~SSL_OP_NO_TLSv1_2;
 #else
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "TLSv1.2 enabled by config, "
                     "but not supported by system OpenSSL");
         rv |= (1 << 1);
@@ -1036,10 +1036,10 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     if (g_pos(str, ",TLSv1.1,") >= 0)
     {
 #if defined(SSL_OP_NO_TLSv1_1)
-        log_message(LOG_LEVEL_DEBUG, "TLSv1.1 enabled");
+        LOG(LOG_LEVEL_DEBUG, "TLSv1.1 enabled");
         protocols &= ~SSL_OP_NO_TLSv1_1;
 #else
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "TLSv1.1 enabled by config, "
                     "but not supported by system OpenSSL");
         rv |= (1 << 2);
@@ -1048,10 +1048,10 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     if (g_pos(str, ",TLSv1,") >= 0)
     {
 #if defined(SSL_OP_NO_TLSv1)
-        log_message(LOG_LEVEL_DEBUG, "TLSv1 enabled");
+        LOG(LOG_LEVEL_DEBUG, "TLSv1 enabled");
         protocols &= ~SSL_OP_NO_TLSv1;
 #else
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "TLSv1 enabled by config, "
                     "but not supported by system OpenSSL");
         rv |= (1 << 3);
@@ -1060,10 +1060,10 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     if (g_pos(str, ",SSLv3,") >= 0)
     {
 #if defined(SSL_OP_NO_SSLv3)
-        log_message(LOG_LEVEL_DEBUG, "SSLv3 enabled");
+        LOG(LOG_LEVEL_DEBUG, "SSLv3 enabled");
         protocols &= ~SSL_OP_NO_SSLv3;
 #else
-        log_message(LOG_LEVEL_WARNING,
+        LOG(LOG_LEVEL_WARNING,
                     "SSLv3 enabled by config, "
                     "but not supported by system OpenSSL");
         rv |= (1 << 4);
@@ -1071,7 +1071,7 @@ ssl_get_protocols_from_string(const char *str, long *ssl_protocols)
     }
     if (protocols == bad_protocols)
     {
-        log_message(LOG_LEVEL_WARNING, "No SSL/TLS protocols enabled. "
+        LOG(LOG_LEVEL_WARNING, "No SSL/TLS protocols enabled. "
                     "At least one protocol should be enabled to accept "
                     "TLS connections.");
         rv |= (1 << 5);

@@ -121,7 +121,7 @@ g_mk_socket_path(const char *app_name)
             /* if failed, still check if it got created by someone else */
             if (!g_directory_exist(XRDP_SOCKET_PATH))
             {
-                log_message(LOG_LEVEL_ERROR,
+                LOG(LOG_LEVEL_ERROR,
                             "g_mk_socket_path: g_create_path(%s) failed",
                             XRDP_SOCKET_PATH);
                 return 1;
@@ -306,7 +306,7 @@ g_hexdump(const char *p, int len)
             g_printf("%c", (line[i] >= 0x20 && line[i] < 0x7f) ? line[i] : '.');
         }
 
-        g_writeln("%s", "");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "%s", "");
         offset += thisline;
         line += thisline;
     }
@@ -360,13 +360,13 @@ g_tcp_set_no_delay(int sck)
             }
             else
             {
-                g_writeln("Error setting tcp_nodelay");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "Error setting tcp_nodelay");
             }
         }
     }
     else
     {
-        g_writeln("Error getting tcp_nodelay");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Error getting tcp_nodelay");
     }
 
     return ret;
@@ -399,13 +399,13 @@ g_tcp_set_keepalive(int sck)
             }
             else
             {
-                g_writeln("Error setting tcp_keepalive");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "Error setting tcp_keepalive");
             }
         }
     }
     else
     {
-        g_writeln("Error getting tcp_keepalive");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Error getting tcp_keepalive");
     }
 
     return ret;
@@ -428,12 +428,12 @@ g_tcp_socket(void)
         switch (errno)
         {
             case EAFNOSUPPORT: /* if IPv6 not supported, retry IPv4 */
-                log_message(LOG_LEVEL_INFO, "IPv6 not supported, falling back to IPv4");
+                LOG(LOG_LEVEL_INFO, "IPv6 not supported, falling back to IPv4");
                 rv = (int)socket(AF_INET, SOCK_STREAM, 0);
                 break;
 
             default:
-                log_message(LOG_LEVEL_ERROR, "g_tcp_socket: %s", g_get_strerror());
+                LOG(LOG_LEVEL_ERROR, "g_tcp_socket: %s", g_get_strerror());
                 return -1;
         }
     }
@@ -442,7 +442,7 @@ g_tcp_socket(void)
 #endif
     if (rv < 0)
     {
-        log_message(LOG_LEVEL_ERROR, "g_tcp_socket: %s", g_get_strerror());
+        LOG(LOG_LEVEL_ERROR, "g_tcp_socket: %s", g_get_strerror());
         return -1;
     }
 #if defined(XRDP_ENABLE_IPV6)
@@ -461,7 +461,7 @@ g_tcp_socket(void)
             if (setsockopt(rv, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&option_value,
                        option_len) < 0)
             {
-                log_message(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
+                LOG(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
             }
         }
     }
@@ -477,7 +477,7 @@ g_tcp_socket(void)
             if (setsockopt(rv, SOL_SOCKET, SO_REUSEADDR, (char *)&option_value,
                        option_len) < 0)
             {
-                log_message(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
+                LOG(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
             }
         }
     }
@@ -494,7 +494,7 @@ g_tcp_socket(void)
             if (setsockopt(rv, SOL_SOCKET, SO_SNDBUF, (char *)&option_value,
                        option_len) < 0)
             {
-                log_message(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
+                LOG(LOG_LEVEL_ERROR, "g_tcp_socket: setsockopt() failed");
             }
         }
     }
@@ -738,7 +738,7 @@ g_sck_close(int sck)
     }
     else
     {
-        log_message(LOG_LEVEL_WARNING, "getsockname() failed on socket %d: %s",
+        LOG(LOG_LEVEL_WARNING, "getsockname() failed on socket %d: %s",
                     sck, g_get_strerror());
 
         if (errno == EBADF || errno == ENOTSOCK)
@@ -751,11 +751,11 @@ g_sck_close(int sck)
 
     if (close(sck) == 0)
     {
-        log_message(LOG_LEVEL_DEBUG, "Closed socket %d (%s)", sck, sockname);
+        LOG(LOG_LEVEL_DEBUG, "Closed socket %d (%s)", sck, sockname);
     }
     else
     {
-        log_message(LOG_LEVEL_WARNING, "Cannot close socket %d (%s): %s", sck,
+        LOG(LOG_LEVEL_WARNING, "Cannot close socket %d (%s): %s", sck,
                     sockname, g_get_strerror());
     }
 
@@ -850,7 +850,7 @@ g_tcp_connect(int sck, const char *address, const char *port)
     }
     if (res != 0)
     {
-        log_message(LOG_LEVEL_ERROR, "g_tcp_connect(%d, %s, %s): getaddrinfo() failed: %s",
+        LOG(LOG_LEVEL_ERROR, "g_tcp_connect(%d, %s, %s): getaddrinfo() failed: %s",
                     sck, address, port, gai_strerror(res));
     }
     if (res > -1)
@@ -951,7 +951,7 @@ g_sck_set_non_blocking(int sck)
     i = i | O_NONBLOCK;
     if (fcntl(sck, F_SETFL, i) < 0)
     {
-        log_message(LOG_LEVEL_ERROR, "g_sck_set_non_blocking: fcntl() failed");
+        LOG(LOG_LEVEL_ERROR, "g_sck_set_non_blocking: fcntl() failed");
     }
 #endif
     return 0;
@@ -988,7 +988,7 @@ g_tcp_bind(int sck, const char *port)
         return 0;
     }
 
-    log_message(LOG_LEVEL_ERROR, "g_tcp_bind(%d, %s) failed "
+    LOG(LOG_LEVEL_ERROR, "g_tcp_bind(%d, %s) failed "
                 "bind IPv6 (errno=%d) and IPv4 (errno=%d).",
                 sck, port, errno6, errno);
     return -1;
@@ -1105,7 +1105,7 @@ bind_loopback(int sck, const char *port)
         return 0;
     }
 
-    log_message(LOG_LEVEL_ERROR, "bind_loopback(%d, %s) failed; "
+    LOG(LOG_LEVEL_ERROR, "bind_loopback(%d, %s) failed; "
                 "IPv6 ::1 (errno=%d), IPv4 127.0.0.1 (errno=%d) and IPv6 ::FFFF:127.0.0.1 (errno=%d).",
                 sck, port, errno6, errno4, errno);
     return -1;
@@ -1142,7 +1142,7 @@ getaddrinfo_bind(int sck, const char *port, const char *address)
     }
     else
     {
-        log_message(LOG_LEVEL_ERROR, "getaddrinfo error: %s", gai_strerror(error));
+        LOG(LOG_LEVEL_ERROR, "getaddrinfo error: %s", gai_strerror(error));
         return -1;
     }
     return res;
@@ -1192,7 +1192,7 @@ g_tcp_bind_address(int sck, const char *port, const char *address)
             }
         }
 
-        log_message(LOG_LEVEL_ERROR, "g_tcp_bind_address(%d, %s, %s) Failed!",
+        LOG(LOG_LEVEL_ERROR, "g_tcp_bind_address(%d, %s, %s) Failed!",
                     sck, port, address);
         return -1;
     }
@@ -1255,7 +1255,7 @@ g_tcp_accept(int sck)
                 g_snprintf(msg, sizeof(msg), "A connection received from %s port %d",
                            inet_ntoa(sock_addr_in->sin_addr),
                            ntohs(sock_addr_in->sin_port));
-                log_message(LOG_LEVEL_INFO, "%s", msg);
+                LOG(LOG_LEVEL_INFO, "%s", msg);
 
                 break;
             }
@@ -1271,7 +1271,7 @@ g_tcp_accept(int sck)
                           &sock_addr_in6->sin6_addr, addr, sizeof(addr));
                 g_snprintf(msg, sizeof(msg), "A connection received from %s port %d",
                            addr, ntohs(sock_addr_in6->sin6_port));
-                log_message(LOG_LEVEL_INFO, "%s", msg);
+                LOG(LOG_LEVEL_INFO, "%s", msg);
 
                 break;
 
@@ -1380,7 +1380,7 @@ g_sck_accept(int sck, char *addr, int addr_bytes, char *port, int port_bytes)
         }
 
 
-        log_message(LOG_LEVEL_INFO, "Socket %d: %s", ret, msg);
+        LOG(LOG_LEVEL_INFO, "Socket %d: %s", ret, msg);
 
     }
 
@@ -2008,7 +2008,7 @@ g_obj_wait(tintptr *read_objs, int rcount, tintptr *write_objs, int wcount,
     }
     else if (rcount > 0)
     {
-        g_writeln("Programming error read_objs is null");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Programming error read_objs is null");
         return 1; /* error */
     }
 
@@ -2031,7 +2031,7 @@ g_obj_wait(tintptr *read_objs, int rcount, tintptr *write_objs, int wcount,
     }
     else if (wcount > 0)
     {
-        g_writeln("Programming error write_objs is null");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Programming error write_objs is null");
         return 1; /* error */
     }
 
@@ -3651,7 +3651,7 @@ g_save_to_bmp(const char* filename, char* data, int stride_bytes,
     }
     else
     {
-        g_writeln("g_save_to_bpp: unimp");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: unimp");
         return 1;
     }
     bm.magic[0] = 'B';
@@ -3684,23 +3684,23 @@ g_save_to_bmp(const char* filename, char* data, int stride_bytes,
     fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd == -1)
     {
-        g_writeln("g_save_to_bpp: open error");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: open error");
         return 1;
     }
     bytes = write(fd, &bm, sizeof(bm));
     if (bytes != sizeof(bm))
     {
-        g_writeln("g_save_to_bpp: write error");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: write error");
     }
     bytes = write(fd, &bh, sizeof(bh));
     if (bytes != sizeof(bh))
     {
-        g_writeln("g_save_to_bpp: write error");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: write error");
     }
     bytes = write(fd, &dh, sizeof(dh));
     if (bytes != sizeof(dh))
     {
-        g_writeln("g_save_to_bpp: write error");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: write error");
     }
     data += stride_bytes * height;
     data -= stride_bytes;
@@ -3721,7 +3721,7 @@ g_save_to_bmp(const char* filename, char* data, int stride_bytes,
             bytes = write(fd, line, file_stride_bytes);
             if (bytes != file_stride_bytes)
             {
-                g_writeln("g_save_to_bpp: write error");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: write error");
             }
             data -= stride_bytes;
         }
@@ -3734,14 +3734,14 @@ g_save_to_bmp(const char* filename, char* data, int stride_bytes,
             bytes = write(fd, data, width * (bits_per_pixel / 8));
             if (bytes != width * (bits_per_pixel / 8))
             {
-                g_writeln("g_save_to_bpp: write error");
+                LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: write error");
             }
             data -= stride_bytes;
         }
     }
     else
     {
-        g_writeln("g_save_to_bpp: unimp");
+        LOG_DEVEL(LOG_LEVEL_TRACE, "g_save_to_bpp: unimp");
     }
     close(fd);
     return 0;
