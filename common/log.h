@@ -124,16 +124,17 @@ enum logReturns
  *      ```
  * 
  * @param log_level, the log level
+ * @param message, a message prefix for the hex dump. Note: no printf like
+ *          formatting is done to this message.
  * @param buffer, a pointer to the byte array to log as a hex dump
  * @param length, the length of the byte array to log
  */
-#define LOG_DEVEL_HEXDUMP(log_level, buffer, length) \
-        log_hexdump_with_location(__func__, __FILE__, __LINE__, log_level, buffer, length);
-        
+#define LOG_DEVEL_HEXDUMP(log_level, message, buffer, length)  \
+        log_hexdump_with_location(__func__, __FILE__, __LINE__, log_level, message, buffer, length);
 #else
 #define LOG(log_level, args...) log_message(log_level, args);
 #define LOG_DEVEL(log_level, args...)
-#define LOG_DEVEL_HEXDUMP(log_level, buffer, length)
+#define LOG_DEVEL_HEXDUMP(log_level, message, buffer, length)
 #endif
 
 enum log_logger_type
@@ -305,6 +306,7 @@ log_hexdump_with_location(const char *function_name,
                           const char *file_name, 
                           const int line_number, 
                           const enum logLevels log_level, 
+                          const char *msg, 
                           const char *p, 
                           int len);
 

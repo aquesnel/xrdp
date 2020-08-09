@@ -622,13 +622,15 @@ log_hexdump_with_location(const char *function_name,
                           const char *file_name, 
                           const int line_number, 
                           const enum logLevels log_level, 
-                          const char *p, 
+                          const char *message, 
+                          const char *src, 
                           int len)
 {
     unsigned char *line;
     int i;
     int dump_number_lines;
     int dump_line_length;
+    int dump_header_length;
     int dump_length;
     int dump_offset;
     int thisline;
@@ -636,25 +638,28 @@ log_hexdump_with_location(const char *function_name,
     char *dump_buffer;
     enum logReturns rv;
 
-    dump_line_length = ((2 + 1 + 1) * 16)  /* = (2 hex + 1 space + 1 char) per byte for 16 bytes */
-                       + 4 + 4 + 1;        /*   + 4 offset + 4 space + 1 newline */
+    dump_line_length = 4 + 3             /* = 4 offset + 3 space */
+                       + ((2 + 1) * 16)  /* + (2 hex + 1 space) per byte for 16 bytes */
+                       + 2 + 16 + 1;     /* + 2 space + 16 bytes as chars + 1 newline */
+    dump_header_length = 12 + 1; /* "%s Hex Dump:" header + newline */
 #ifdef _WIN32
-    dump_line_length += 1;
+    dump_line_length += 1;               /* + 1 WIN32 newline */
+    dump_header_length += 1;             /* + 1 WIN32 newline */
 #endif
     dump_number_lines = (len / 16) + 1; /* 16 bytes per line then round up */
     dump_length = dump_number_lines * dump_line_length /* hex dump space */
-                    + 9 + 2 /* "Hex Dump:" header + newline */
+                    + dump_header_length
                     + 1;    /* terminating NULL */
     dump_buffer = (char *)g_malloc(dump_length, 1);
-    line = (unsigned char *)p;
+    line = (unsigned char *)src;
     offset = 0;
 
     /* Start the dump with a new line so that the first line of the dump is 
        aligned to the first column instead of to after the log message 
        preamble (eg. time, log level, ...)
     */
-    g_sprintf(dump_buffer, "Hex Dump:");
-    dump_offset = 9;
+    g_sprintf(dump_buffer, "%%s Hex Dump:");
+    dump_offset = 12; /* g_strlen("%s Hex Dump:") */
 #ifdef _WIN32
     dump_buffer[dump_offset++] = '\r';
     dump_buffer[dump_offset++] = '\n';
@@ -715,6 +720,14 @@ log_hexdump_with_location(const char *function_name,
 #endif
         offset += thisline;
         line += thisline;
+        
+        /*
+        if ((dump_offset - dump_header_length) % dump_line_length != 0)
+        {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "BUG: dump_offset (%d) at the end of a line is not a multiple of the line length (%d)", 
+                  dump_offset, dump_line_length);
+        }
+        */
     }
     if (dump_offset > dump_length)
     {
@@ -724,8 +737,13 @@ log_hexdump_with_location(const char *function_name,
         return LOG_GENERAL_ERROR;
     }
     
-    dump_buffer[dump_offset] = '\0';
-    rv = log_message_with_location(function_name, file_name, line_number, log_level, dump_buffer);
+    /* replace the last new line with the end of the string since log_message will add a new line */
+    #ifdef _WIN32
+        dump_buffer[dump_offset - 2] = '\0';
+    #else
+        dump_buffer[dump_offset - 1] = '\0';
+    #endif
+    rv = log_message_with_location(function_name, file_name, line_number, log_level, dump_buffer, message);
     g_free(dump_buffer);
     return rv;
 }
