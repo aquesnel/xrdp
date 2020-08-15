@@ -816,6 +816,7 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
     int len = 0;
     enum logReturns rv = LOG_STARTUP_OK;
     int writereply = 0;
+    uint64_t now_milliseconds;
     time_t now_t;
     struct tm *now;
 
@@ -840,22 +841,23 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
         return LOG_STARTUP_OK;
     }
 
-    now_t = time(&now_t);
+    now_milliseconds = g_time3_64();
+    now_t = now_milliseconds / 1000;
     now = localtime(&now_t);
 
-    snprintf(buff, 21, "[%.4d%.2d%.2d-%.2d:%.2d:%.2d] ", now->tm_year + 1900,
+    snprintf(buff, 25, "[%.4d%.2d%.2d-%.2d:%.2d:%.2d.%.3ld] ", now->tm_year + 1900,
              now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min,
-             now->tm_sec);
+             now->tm_sec, now_milliseconds % 1000);
 
-    internal_log_lvl2str(lvl, buff + 20);
+    internal_log_lvl2str(lvl, buff + 24);
 
     if (g_staticLogConfig->enable_pid)
     {
-        g_snprintf(buff + 28, LOG_BUFFER_SIZE, "[pid:%d tid:%lld] ", 
+        g_snprintf(buff + 32, LOG_BUFFER_SIZE, "[pid:%d tid:%lld] ", 
                    g_getpid(), (long long) tc_get_threadid());
-        len = g_strlen(buff + 28);
+        len = g_strlen(buff + 32);
     }
-    len += vsnprintf(buff + 28 + len, LOG_BUFFER_SIZE - len, msg, ap);
+    len += vsnprintf(buff + 32 + len, LOG_BUFFER_SIZE - len, msg, ap);
 
     /* checking for truncated messages */
     if (len > LOG_BUFFER_SIZE)
@@ -866,16 +868,16 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
 
     /* forcing the end of message string */
 #ifdef _WIN32
-    buff[len + 28] = '\r';
-    buff[len + 29] = '\n';
-    buff[len + 30] = '\0';
+    buff[len + 32] = '\r';
+    buff[len + 33] = '\n';
+    buff[len + 34] = '\0';
 #else
 #ifdef _MACOS
-    buff[len + 28] = '\r';
-    buff[len + 29] = '\0';
+    buff[len + 32] = '\r';
+    buff[len + 33] = '\0';
 #else
-    buff[len + 28] = '\n';
-    buff[len + 29] = '\0';
+    buff[len + 32] = '\n';
+    buff[len + 33] = '\0';
 #endif
 #endif
 
@@ -883,7 +885,7 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
     {
         /* log to syslog*/
         /* %s fix compiler warning 'not a string literal' */
-        syslog(internal_log_xrdp2syslog(lvl), "%s", buff + 20);
+        syslog(internal_log_xrdp2syslog(lvl), "%s", buff + 24);
     }
 
     if (g_staticLogConfig->enable_console && (force_log || lvl <= g_staticLogConfig->console_level))
