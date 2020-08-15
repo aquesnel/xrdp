@@ -25,7 +25,7 @@
 #include "list.h"
 
 /* logging buffer size */
-#define LOG_BUFFER_SIZE      1024
+#define LOG_BUFFER_SIZE      8192
 #define LOGGER_NAME_SIZE     50
 
 /* logging levels */
