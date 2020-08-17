@@ -78,7 +78,7 @@ xrdp_caps_process_general(struct xrdp_rdp *self, struct stream *s,
     if (len < 10 + 2)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 12, remaining %d", len);
+            "expected 12, remaining %d", len);
         return 1;
     }
 
@@ -119,7 +119,7 @@ xrdp_caps_process_order(struct xrdp_rdp *self, struct stream *s,
     if (len < 20 + 2 + 2 + 2 + 2 + 2 + 2 + 32 + 2 + 2 + 4 + 4 + 4 + 4)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 84, remaining %d", len);
+            "expected 84, remaining %d", len);
         return 1;
     }
     in_uint8s(s, 20); /* Terminal desc, pad */
@@ -211,7 +211,7 @@ xrdp_caps_process_bmpcache(struct xrdp_rdp *self, struct stream *s,
     if (len < 24 + 2 + 2 + 2 + 2 + 2 + 2)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 36, remaining %d", len);
+            "expected 36, remaining %d", len);
         return 1;
     }
     self->client_info.bitmap_cache_version |= 1;
@@ -255,7 +255,7 @@ xrdp_caps_process_bmpcache2(struct xrdp_rdp *self, struct stream *s,
     if (len < 2 + 2 + 4 + 4 + 4)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 16, remaining %d", len);
+            "expected 16, remaining %d", len);
         return 1;
     }
     self->client_info.bitmap_cache_version |= 2;
@@ -298,7 +298,7 @@ xrdp_caps_process_cache_v3_codec_id(struct xrdp_rdp *self, struct stream *s,
     if (len < 1)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 1, remaining %d", len);
+            "expected 1, remaining %d", len);
         return 1;
     }
     in_uint8(s, codec_id);
@@ -449,7 +449,7 @@ xrdp_caps_process_rail(struct xrdp_rdp *self, struct stream *s, int len)
     if (len < 4)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream: "
-            "len 4, remaining %d", len);
+            "expected 4, remaining %d", len);
         return 1;
     }
     in_uint32_le(s, i32);
