@@ -224,9 +224,13 @@ libxrdp_process_data(struct xrdp_session *session, struct stream *s)
                 dead_lock_counter++;
                 break;
             case PDUTYPE_CONFIRMACTIVEPDU:
+                LOG_DEVEL(LOG_LEVEL_TRACE, "Processing received "
+                          "[MS-RDPBCGR] PDUTYPE_CONFIRMACTIVEPDU");
                 xrdp_caps_process_confirm_active(rdp, s);
                 break;
             case PDUTYPE_DATAPDU:
+                LOG_DEVEL(LOG_LEVEL_TRACE, "Processing received "
+                          "[MS-RDPBCGR] PDUTYPE_DATAPDU");
                 if (xrdp_rdp_process_data(rdp, s) != 0)
                 {
                     LOG_DEVEL(LOG_LEVEL_TRACE, "libxrdp_process_data: xrdp_rdp_process_data failed");
@@ -243,7 +247,7 @@ libxrdp_process_data(struct xrdp_session *session, struct stream *s)
                 }
                 break;
             default:
-                LOG_DEVEL(LOG_LEVEL_TRACE, "libxrdp_process_data: unknown code = %d", code);
+                LOG_DEVEL(LOG_LEVEL_WARNING, "unknown code = %d (ignored)", code);
                 dead_lock_counter++;
                 break;
         }
@@ -253,8 +257,7 @@ libxrdp_process_data(struct xrdp_session *session, struct stream *s)
             /*This situation can happen and this is a workaround*/
             cont = 0;
             LOG_DEVEL(LOG_LEVEL_WARNING, 
-                        "libxrdp_process_data: Serious programming error: "
-                        "we were locked in a deadly loop. "
+                        "Serious programming error: we were locked in a deadly loop. "
                         "Remaining bytes: %d", (int) (s->end - s->next_packet));
             s->next_packet = 0;
         }
