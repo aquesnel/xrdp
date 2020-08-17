@@ -978,7 +978,6 @@ xrdp_sec_process_logon_info(struct xrdp_sec *self, struct stream *s)
             LOG(LOG_LEVEL_ERROR, "ERROR reading password");
             return 1;
         }
-
     }
     else if (self->rdp_layer->client_info.enable_token_login
              && len_user > 0
