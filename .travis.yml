@@ -118,39 +118,51 @@ cppcheck_conf: &cppcheck_conf
 matrix:
   include:
 
-  # Minimal amd64 build
-  - compiler: gcc
-    << : *min_amd64_conf
-  - compiler: g++
-    << : *min_amd64_conf
-  - compiler: clang
-    << : *min_amd64_conf
+  # # Minimal amd64 build
+  # - compiler: gcc
+  #   << : *min_amd64_conf
+  # - compiler: g++
+  #   << : *min_amd64_conf
+  # - compiler: clang
+  #   << : *min_amd64_conf
 
-  # Maximal amd64 build
-  - compiler: gcc
-    << : *max_amd64_conf
-  - compiler: g++
-    << : *max_amd64_conf
-  - compiler: clang
-    << : *max_amd64_conf
+  # # Maximal amd64 build
+  # - compiler: gcc
+  #   << : *max_amd64_conf
+  # - compiler: g++
+  #   << : *max_amd64_conf
+  # - compiler: clang
+  #   << : *max_amd64_conf
 
-  # Maximal debug amd64 build
-  - compiler: gcc
-    << : *max_debug_amd64_conf
+  # # Maximal debug amd64 build
+  # - compiler: gcc
+  #   << : *max_debug_amd64_conf
     
-  # Maximal x86 build
-  - compiler: gcc
-    << : *max_x86_conf
-  - compiler: g++
-    << : *max_x86_conf
-  - compiler: clang
-    << : *max_x86_conf
+  # # Maximal x86 build
+  # - compiler: gcc
+  #   << : *max_x86_conf
+  # - compiler: g++
+  #   << : *max_x86_conf
+  # - compiler: clang
+  #   << : *max_x86_conf
 
-  # cppcheck
-  - name: cppcheck
+  # # cppcheck
+  # - name: cppcheck
+  #   compiler: gcc
+  #   << : *cppcheck_conf
+    
+  # win32
+  - name: win32
+    os: windows
     compiler: gcc
-    << : *cppcheck_conf
-
+    env:
+      - CONF_FLAGS="--disable-ipv6 --disable-jpeg --disable-fuse --disable-mp3lame
+                  --disable-fdkaac --disable-opus --disable-rfxcodec --disable-painter
+                  --disable-pixman --disable-pam"
+    before_install:
+      - choco install nasm
+      - choco install openssl
+      
 script:
   - ./bootstrap
   - ./configure $CONF_FLAGS
