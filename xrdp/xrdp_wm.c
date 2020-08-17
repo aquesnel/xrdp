@@ -1880,7 +1880,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (id == 0) /* "id" should be "struct xrdp_process*" as long */
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_process");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_process is null");
         return 0;
     }
 
@@ -1888,7 +1888,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     if (wm == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: error null xrdp_wm");
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_process->xrdp_wm is null");
         return 0;
     }
 
