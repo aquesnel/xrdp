@@ -145,11 +145,11 @@ ls_btn_cancel_height=30
 [Logging]
 #EnableLogFile=true
 LogFile=xrdp.log
-LogLevel=DEBUG
+LogLevel=TRACE
 EnableConsole=true
 ConsoleLevel=TRACE
 EnableSyslog=false
-SyslogLevel=DEBUG
+SyslogLevel=ERROR
 ; LogLevel and SysLogLevel could by any of: core, error, warning, info or debug
 #EnableProcessId=true
 
@@ -157,7 +157,7 @@ SyslogLevel=DEBUG
 #xrdp.c=DEBUG
 #xrdp_listen_process_startup_params()=DEBUG
 xrdp_iso_recv()=INFO
-xrdp_sec_recv()=INFO
+#xrdp_sec_recv()=INFO
 xrdp_iso_send()=INFO
 xrdp_sec_send()=INFO
 xrdp_mcs_send()=INFO
