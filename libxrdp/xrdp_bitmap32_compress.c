@@ -328,7 +328,7 @@ fpack(char *plane, int cx, int cy, struct stream *s)
     {
         LOG_DEVEL(LOG_LEVEL_DEBUG, "line start line %d cx %d cy %d", jndex, cx, cy);
         ptr8 = plane + jndex * cx;
-        LOG_DEVEL_HEXDUMP(LOG_LEVEL_TRACE, ptr8, cx);
+        LOG_DEVEL_HEXDUMP(LOG_LEVEL_TRACE, "", ptr8, cx);
         lend = ptr8 + (cx - 1);
         colptr = ptr8;
         if (colptr[0] == 0)
