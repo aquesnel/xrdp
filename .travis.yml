@@ -159,7 +159,7 @@ matrix:
       - CONF_FLAGS="--disable-ipv6 --disable-jpeg --disable-fuse --disable-mp3lame
                   --disable-fdkaac --disable-opus --disable-rfxcodec --disable-painter
                   --disable-pixman --disable-pam"
-    install:
+    before_install:
       - |
         if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
             echo && \
@@ -240,19 +240,6 @@ matrix:
                 echo && \
                 echo \"--------------- DONE ----------------------\" \
                 "
-
-        STATUS=$?
-        if [[ -f "$HOME/_CYGWIN_/config.log" ]]; then
-            echo
-            echo "----------- BEGIN OF CONFIG.LOG -----------"
-            echo
-            cat "$HOME/_CYGWIN_/config.log"
-            echo
-            echo "------------ END OF CONFIG.LOG ------------"
-            echo
-        fi
-
-        exit $STATUS
       # - echo "SHELL -- $SHELL"
       # - echo "PATH -- $PATH"
       # - pwd
