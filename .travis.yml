@@ -115,7 +115,7 @@ cppcheck_conf: &cppcheck_conf
     - scripts/run_cppcheck.sh -v $CPPCHECK_VER
 
 
-matrix:
+jobs:
   # include:
 
   # # Minimal amd64 build
