@@ -233,6 +233,12 @@ matrix:
                 echo /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
                 ls -al /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
                 cd /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
+                git config core.autocrlf ; \
+                git config core.autocrlf false ; \
+                git status ; \
+                echo normalizing ; \
+                git add --renormalize . ;\
+                git status ; \
                 ./bootstrap && \
                 echo && \
                 echo \"---------------- CONFIGURE ----------------\" && \
