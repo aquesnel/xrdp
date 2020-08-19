@@ -169,6 +169,8 @@ matrix:
             choco install cygwin
             C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel
             export PATH=/C/tools/cygwin/bin:$PATH
+            cmd.exe //C RefreshEnv.cmd
+            cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c echo -- 'hellow world 1' "
             /C/tools/cygwin/bin/bash.exe -c "echo hello world"
             echo "PATH -- $PATH"
             #[[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
@@ -197,7 +199,7 @@ matrix:
     cache:
       directories:
       - $HOME/AppData/Local/Temp/chocolatey
-      - /C/tools/cygwin
+      # - /C/tools/cygwin
     script:
       - echo "SHELL -- $SHELL"
       - echo "PATH -- $PATH"
@@ -213,7 +215,7 @@ matrix:
       - make CFLAGS="$CFLAGS"
       - test -z "$DISTCHECK" || make distcheck
   allow_failures:
-  #  - name: win32
+    - name: win32
   fast_finish: true
   
 script:
