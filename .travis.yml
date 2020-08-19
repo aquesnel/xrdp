@@ -199,9 +199,9 @@ matrix:
       - echo "SHELL : $SHELL"
       - echo "PATH : $PATH"
       - pwd
-      - "C:\tools\cygwin\bin\bash.exe -c './bootstrap'"
+      - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
       - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
-      - powershell -Command "C:\tools\cygwin\bin\bash.exe -c './bootstrap'";
+      - powershell -Command "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'";
       - ./configure $CONF_FLAGS
       - make CFLAGS="$CFLAGS"
       - test -z "$DISTCHECK" || make distcheck
