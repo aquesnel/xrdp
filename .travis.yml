@@ -196,9 +196,12 @@ matrix:
       - $HOME/AppData/Local/Temp/chocolatey
       - /C/tools/cygwin
     script:
-      - echo "SHELL : $SHELL"
-      - echo "PATH : $PATH"
+      - echo "SHELL -- $SHELL"
+      - echo "PATH -- $PATH"
       - pwd
+      - export shell="cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"
+      - $shell './bootstrap'
+      - cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c './bootstrap'"
       - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
       - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
       - powershell -Command "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'";
