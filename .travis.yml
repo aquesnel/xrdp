@@ -165,7 +165,8 @@ matrix:
           windows)
             [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
             #choco uninstall -y mingw
-            test -d /c/tools/cygwin/bin || choco install cygwin
+            #test -d /c/tools/cygwin/bin || choco install cygwin
+            choco install cygwin
             C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel
             export PATH=/C/tools/cygwin/bin:$PATH
             /C/tools/cygwin/bin/bash.exe -c "echo hello world"
