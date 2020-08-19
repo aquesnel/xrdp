@@ -219,13 +219,15 @@ matrix:
     #   # - /C/tools/cygwin
     script:
       - export GS_PWD=$(pwd)
+      - echo $GS_PWD
+      - echo $TRAVIS_REPO_SLUG
       - export cyg_shell="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c"
-      - export cyg_shell_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c \"cd /cygdrive$GS_PWD ; \$@ \" -- "
+      - export cyg_shell_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c \"cd build/$TRAVIS_REPO_SLUG ; \$@ \" -- "
       
       # - $cyg_shell 'cd "/cygdrive$GS_PWD" ; git config core.autocrlf false'
       - $cyg_shell 'cd "/cygdrive$GS_PWD" ; ./bootstrap'
       - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c pwd
-      - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c -l ./bootstrap
+      - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c ./bootstrap
       - $cyg_shell_2 pwd
       - $cyg_shell_2 ./bootstrap
       - |
