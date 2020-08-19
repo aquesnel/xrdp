@@ -116,7 +116,7 @@ cppcheck_conf: &cppcheck_conf
 
 
 matrix:
-  include:
+  # include:
 
   # # Minimal amd64 build
   # - compiler: gcc
@@ -194,10 +194,10 @@ matrix:
       - $HOME/AppData/Local/Temp/chocolatey
       - /C/tools/cygwin
     script:
-      - echo SHELL : $SHELL
-      - echo PATH : $PATH
+      - echo "SHELL : $SHELL"
+      - echo "PATH : $PATH"
       - pwd
-      - C:\tools\cygwin\bin\bash.exe -c './bootstrap'
+      - "C:\tools\cygwin\bin\bash.exe -c './bootstrap'"
       - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
       - powershell -Command "C:\tools\cygwin\bin\bash.exe -c './bootstrap'";
       - ./configure $CONF_FLAGS
