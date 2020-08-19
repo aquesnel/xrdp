@@ -163,13 +163,13 @@ matrix:
       - |
         if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
             echo && \
-            echo "---- INSTALLATION OF CYGWIN AND CYG-GET ---" && \
+            echo "---- INSTALLATION OF CYGWIN  ---" && \
             echo && \
-            choco.exe install cygwin cyg-get && \
+            choco.exe install cygwin && \
             echo && \
             echo "----- INSTALLATION OF CYGWIN PACKAGES -----" && \
             echo && \
-            cyg-get.bat autoconf automake libtool make nasm openssl-devel pkg-config gcc libX11-devel && \
+            C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel && \
             echo && \
             echo "----------- END OF INSTALLATION -----------" && \
             echo
@@ -224,6 +224,10 @@ matrix:
                 echo && \
                 echo \"----------- AUTORECONF --FORCE ------------\" && \
                 echo && \
+                pwd && \
+                ls -al && \
+                ls -al /c/Users/travis/build/aquesnel/xrdp && \
+                cd /c/Users/travis/build/aquesnel/xrdp && \
                 ./bootstrap && \
                 echo && \
                 echo \"---------------- CONFIGURE ----------------\" && \
