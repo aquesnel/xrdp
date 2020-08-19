@@ -159,6 +159,8 @@ matrix:
       - CONF_FLAGS="--disable-ipv6 --disable-jpeg --disable-fuse --disable-mp3lame
                   --disable-fdkaac --disable-opus --disable-rfxcodec --disable-painter
                   --disable-pixman --disable-pam"
+    git:
+      autocrlf: input
     before_install:
       - |
         if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
@@ -223,11 +225,10 @@ matrix:
       - echo $TRAVIS_REPO_SLUG
       - export cyg_shell="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c"
       - export CYG_SHELL_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c \" \$@ \" -- \"cd build/$TRAVIS_REPO_SLUG ;\" "
-      
       # - $cyg_shell 'cd "/cygdrive$GS_PWD" ; git config core.autocrlf false'
       - $cyg_shell 'cd "/cygdrive$GS_PWD" ; ./bootstrap'
       - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c pwd
-      - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c ./bootstrap
+      # - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c ./bootstrap
       - |
         echo $CYG_SHELL_2 pwd
         $CYG_SHELL_2 pwd
@@ -235,12 +236,9 @@ matrix:
       - |
         cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c " \
                 echo && \
-                cd /cygdrive$GS_PWD ; \
+                cd build/$TRAVIS_REPO_SLUG ; \
                 echo \"----------- bootstrap ------------\" ; \
                 echo ; \
-                git config core.autocrlf false ; \
-                echo normalizing ; \
-                git add --renormalize . ; \
                 ./bootstrap && \
                 echo && \
                 echo \"---------------- CONFIGURE ----------------\" && \
