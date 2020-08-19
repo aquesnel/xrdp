@@ -219,25 +219,21 @@ matrix:
     #   # - /C/tools/cygwin
     script:
       - export GS_PWD=$(pwd)
+      - export cyg_shell=cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c
+      # - $cyg_shell 'cd "/cygdrive$GS_PWD" ; git config core.autocrlf false'
+      - $cyg_shell 'cd "/cygdrive$GS_PWD" ; ./bootstrap'
+      - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c pwd
+      - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c ./bootstrap
       - |
-        pwd && \
-        mkdir -p "$HOME/_CYGWIN_" && \
         cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c " \
                 echo && \
-                echo \"----------- AUTORECONF --FORCE ------------\" ; \
+                cd "/cygdrive$GS_PWD" ; \
+                echo \"----------- bootstrap ------------\" ; \
                 echo ; \
-                pwd ; \
-                ls -al ; \
-                echo GS_PWD = $GS_PWD ; \
-                ls -al "/cygdrive$GS_PWD" ; \
-                echo /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
-                ls -al /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
-                cd /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
-                git config core.autocrlf ; \
                 git config core.autocrlf false ; \
                 git status ; \
                 echo normalizing ; \
-                git add --renormalize . ;\
+                git add --renormalize . ; \
                 git status ; \
                 ./bootstrap && \
                 echo && \
@@ -251,16 +247,7 @@ matrix:
                 echo && \
                 echo \"--------------- DONE ----------------------\" \
                 "
-      # - echo "SHELL -- $SHELL"
-      # - echo "PATH -- $PATH"
-      # - pwd
-      # - export shell='cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"'
-      # - $shell './bootstrap'
       # - ./bootstrap
-      # - cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c './bootstrap'"
-      # - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
-      # - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
-      # - powershell -Command "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'";
       # - ./configure $CONF_FLAGS
       # - make CFLAGS="$CFLAGS"
       # - test -z "$DISTCHECK" || make distcheck
