@@ -159,67 +159,111 @@ matrix:
       - CONF_FLAGS="--disable-ipv6 --disable-jpeg --disable-fuse --disable-mp3lame
                   --disable-fdkaac --disable-opus --disable-rfxcodec --disable-painter
                   --disable-pixman --disable-pam"
-    before_install:
-      - |-
-        case $TRAVIS_OS_NAME in
-          windows)
-            ls -l "C:/tools"
-            ls -l /c/tools
-            [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
-            choco uninstall -y mingw
-            #test -d /c/tools/cygwin/bin || choco install cygwin
-            choco install cygwin
-            C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel
-            export PATH=/C/tools/cygwin/bin:$PATH
-            ls -l /C/tools/cygwin/bin/bash.exe
-            cmd.exe //C RefreshEnv.cmd
-            cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c echo -- 'hellow world 1' "
-            /C/tools/cygwin/bin/bash.exe -c "echo hello world"
-            echo "PATH -- $PATH"
-            taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
-            #[[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
-            #choco uninstall -y mingw
-            #choco upgrade --no-progress -y msys2
-            #export msys2='cmd //C RefreshEnv.cmd '
-            #export msys2+='& set MSYS=winsymlinks:nativestrict '
-            #export msys2+='& C:\\tools\\msys64\\msys2_shell.cmd -defterm -no-start'
-            #export mingw64="$msys2 -mingw64 -full-path -here -c "\"\$@"\" --"
-            #export msys2+=" -msys2 -c "\"\$@"\" --"
-            #$msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-toolchain autoconf automake libtool make nasm openssl-devel pkg-config gcc
-            ### Install more MSYS2 packages from https://packages.msys2.org/base here
-            #taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
-            #export PATH=/C/tools/msys64/mingw64/bin:$PATH
-            #export MAKE=mingw32-make  # so that Autotools can find it
-            ;;
-        esac
-    before_cache:
-      - |-
-          case $TRAVIS_OS_NAME in
-            windows)
-              # https://unix.stackexchange.com/a/137322/107554
-              #$msys2 pacman --sync --clean --noconfirm
-              ;;
-          esac
-    cache:
-      directories:
-      - $HOME/AppData/Local/Temp/chocolatey
-      # - /C/tools/cygwin
+    install:
+      - |
+        if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+            echo && \
+            echo "---- INSTALLATION OF CYGWIN AND CYG-GET ---" && \
+            echo && \
+            choco.exe install cygwin cyg-get && \
+            echo && \
+            echo "----- INSTALLATION OF CYGWIN PACKAGES -----" && \
+            echo && \
+            cyg-get.bat autoconf automake libtool make nasm openssl-devel pkg-config gcc libX11-devel && \
+            echo && \
+            echo "----------- END OF INSTALLATION -----------" && \
+            echo
+        fi
+    # before_install:
+    #   - |-
+    #     case $TRAVIS_OS_NAME in
+    #       windows)
+    #         ls -al /c/tools
+    #         choco uninstall -y mingw msys2
+    #         #test -d /c/tools/cygwin/bin || choco install cygwin
+    #         choco install cygwin
+    #         C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel
+    #         export PATH=/C/tools/cygwin/bin:$PATH
+    #         ls -l /c/tools/cygwin/bin/bash.exe
+    #         cmd.exe //C RefreshEnv.cmd
+    #         cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c echo -- 'hellow world 1' "
+    #         /C/tools/cygwin/bin/bash.exe -c "echo hello world"
+    #         echo "PATH -- $PATH"
+    #         taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
+    #         #[[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
+    #         #choco uninstall -y mingw
+    #         #choco upgrade --no-progress -y msys2
+    #         #export msys2='cmd //C RefreshEnv.cmd '
+    #         #export msys2+='& set MSYS=winsymlinks:nativestrict '
+    #         #export msys2+='& C:\\tools\\msys64\\msys2_shell.cmd -defterm -no-start'
+    #         #export mingw64="$msys2 -mingw64 -full-path -here -c "\"\$@"\" --"
+    #         #export msys2+=" -msys2 -c "\"\$@"\" --"
+    #         #$msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-toolchain autoconf automake libtool make nasm openssl-devel pkg-config gcc
+    #         ### Install more MSYS2 packages from https://packages.msys2.org/base here
+    #         #taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
+    #         #export PATH=/C/tools/msys64/mingw64/bin:$PATH
+    #         #export MAKE=mingw32-make  # so that Autotools can find it
+    #         ;;
+    #     esac
+    # before_cache:
+    #   - |-
+    #       case $TRAVIS_OS_NAME in
+    #         windows)
+    #           # https://unix.stackexchange.com/a/137322/107554
+    #           #$msys2 pacman --sync --clean --noconfirm
+    #           ;;
+    #       esac
+    # cache:
+    #   directories:
+    #   - $HOME/AppData/Local/Temp/chocolatey
+    #   # - /C/tools/cygwin
     script:
-      - echo "SHELL -- $SHELL"
-      - echo "PATH -- $PATH"
-      - pwd
-      - export shell='cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"'
-      - $shell './bootstrap'
-      - ./bootstrap
-      - cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c './bootstrap'"
-      - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
-      - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
-      - powershell -Command "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'";
-      - ./configure $CONF_FLAGS
-      - make CFLAGS="$CFLAGS"
-      - test -z "$DISTCHECK" || make distcheck
+      - |
+        mkdir -p "$HOME/_CYGWIN_" && \
+        cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c " \
+                echo && \
+                echo \"----------- AUTORECONF --FORCE ------------\" && \
+                echo && \
+                ./bootstrap && \
+                echo && \
+                echo \"---------------- CONFIGURE ----------------\" && \
+                echo && \
+                ./configure $CONF_FLAGS && \
+                echo && \
+                echo \"------------------ MAKE -------------------\" && \
+                echo && \
+                make CFLAGS="$CFLAGS" && \
+                echo && \
+                echo \"--------------- DONE ----------------------\" \
+                "
+
+        STATUS=$?
+        if [[ -f "$HOME/_CYGWIN_/config.log" ]]; then
+            echo
+            echo "----------- BEGIN OF CONFIG.LOG -----------"
+            echo
+            cat "$HOME/_CYGWIN_/config.log"
+            echo
+            echo "------------ END OF CONFIG.LOG ------------"
+            echo
+        fi
+
+        exit $STATUS
+      # - echo "SHELL -- $SHELL"
+      # - echo "PATH -- $PATH"
+      # - pwd
+      # - export shell='cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"'
+      # - $shell './bootstrap'
+      # - ./bootstrap
+      # - cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c './bootstrap'"
+      # - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
+      # - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
+      # - powershell -Command "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'";
+      # - ./configure $CONF_FLAGS
+      # - make CFLAGS="$CFLAGS"
+      # - test -z "$DISTCHECK" || make distcheck
   allow_failures:
-    - name: win32
+    # - name: win32
   fast_finish: true
   
 script:
