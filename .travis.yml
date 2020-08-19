@@ -164,10 +164,12 @@ matrix:
         case $TRAVIS_OS_NAME in
           windows)
             [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
-            choco uninstall -y mingw
-            test -d /c/opt/cygwin/bin || choco install cygwin
+            #choco uninstall -y mingw
+            test -d /c/tools/cygwin/bin || choco install cygwin
             C:\\tools\\cygwin\\cygwinsetup.exe -q -P autoconf,automake,libtool,make,nasm,openssl-devel,pkg-config,gcc,libX11-devel
             export PATH=/C/tools/cygwin/bin:$PATH
+            /C/tools/cygwin/bin/bash.exe -c "echo hello world"
+            echo "PATH -- $PATH"
             #[[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
             #choco uninstall -y mingw
             #choco upgrade --no-progress -y msys2
@@ -199,8 +201,9 @@ matrix:
       - echo "SHELL -- $SHELL"
       - echo "PATH -- $PATH"
       - pwd
-      - export shell="cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"
+      - export shell='cmd.exe //C RefreshEnv.cmd & cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c \$\* --"'
       - $shell './bootstrap'
+      - ./bootstrap
       - cmd.exe /c "/C/tools/cygwin/bin/bash.exe -l -c './bootstrap'"
       - "C:\\tools\\cygwin\\bin\\bash.exe -c './bootstrap'"
       - /C/tools/cygwin/bin/bash.exe -c './bootstrap'
@@ -209,7 +212,7 @@ matrix:
       - make CFLAGS="$CFLAGS"
       - test -z "$DISTCHECK" || make distcheck
   allow_failures:
-    - name: win32
+  #  - name: win32
   fast_finish: true
   
 script:
