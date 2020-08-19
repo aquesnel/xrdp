@@ -229,7 +229,7 @@ matrix:
                 pwd ; \
                 ls -al ; \
                 echo GS_PWD = $GS_PWD ; \
-                ls -al $GS_PWD ; \
+                ls -al "/cygdrive$GS_PWD" ; \
                 echo /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
                 ls -al /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
                 cd /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
