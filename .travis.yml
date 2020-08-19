@@ -222,7 +222,7 @@ matrix:
       - echo $GS_PWD
       - echo $TRAVIS_REPO_SLUG
       - export cyg_shell="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c"
-      - export CYG_SHELL_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c \"cd build/$TRAVIS_REPO_SLUG ; \$@ \" -- "
+      - export CYG_SHELL_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c \" \$@ \" -- \"cd build/$TRAVIS_REPO_SLUG ;\" "
       
       # - $cyg_shell 'cd "/cygdrive$GS_PWD" ; git config core.autocrlf false'
       - $cyg_shell 'cd "/cygdrive$GS_PWD" ; ./bootstrap'
@@ -239,7 +239,6 @@ matrix:
                 echo \"----------- bootstrap ------------\" ; \
                 echo ; \
                 git config core.autocrlf false ; \
-                git status ; \
                 echo normalizing ; \
                 git add --renormalize . ; \
                 ./bootstrap && \
