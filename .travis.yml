@@ -218,16 +218,21 @@ matrix:
     #   - $HOME/AppData/Local/Temp/chocolatey
     #   # - /C/tools/cygwin
     script:
+      - export GS_PWD=$(pwd)
       - |
+        pwd && \
         mkdir -p "$HOME/_CYGWIN_" && \
         cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c " \
                 echo && \
-                echo \"----------- AUTORECONF --FORCE ------------\" && \
-                echo && \
-                pwd && \
-                ls -al && \
-                ls -al /c/Users/travis/build/aquesnel/xrdp && \
-                cd /c/Users/travis/build/aquesnel/xrdp && \
+                echo \"----------- AUTORECONF --FORCE ------------\" ; \
+                echo ; \
+                pwd ; \
+                ls -al ; \
+                echo GS_PWD = $GS_PWD ; \
+                ls -al $GS_PWD ; \
+                echo /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
+                ls -al /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
+                cd /cygdrive/c/Users/travis/build/aquesnel/xrdp ; \
                 ./bootstrap && \
                 echo && \
                 echo \"---------------- CONFIGURE ----------------\" && \
