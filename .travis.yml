@@ -223,7 +223,7 @@ matrix:
       - export GS_PWD=$(pwd)
       - echo $GS_PWD
       - echo $TRAVIS_REPO_SLUG
-      - export CYG_SHELL_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c "\" cd build/$TRAVIS_REPO_SLUG ; \$@"\" --"
+      - export CYG_SHELL_2="cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -l -c "\"\$@"\" -- ' cd build/$TRAVIS_REPO_SLUG ; ' "
       - cmd.exe //c C:\\tools\\cygwin\\bin\\bash.exe -c pwd
       - |-
         echo $CYG_SHELL_2 pwd
