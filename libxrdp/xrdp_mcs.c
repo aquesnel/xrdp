@@ -109,7 +109,7 @@ xrdp_mcs_send_cjcf(struct xrdp_mcs *self, int userid, int chanid)
     out_uint16_be(s, chanid); /* channelId (OPTIONAL) */
     s_mark_end(s);
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Sening [ITU-T T.125] ChannelJoinConfirm "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [ITU-T T.125] ChannelJoinConfirm "
               "result SUCCESS, initiator %d, requested %d, "
               "channelId %d",  userid, chanid, chanid);
     if (xrdp_iso_send(self->iso_layer, s) != 0)
