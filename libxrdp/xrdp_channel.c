@@ -510,6 +510,10 @@ xrdp_channel_process_drdynvc(struct xrdp_channel *self,
             length = (int) (s->end - s->p);
             LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_channel_process_drdynvc: "
                     "reading %d bytes from client into buffer", length);
+            if (length > s_rem_out(self->s))
+            {
+                return 1;
+            }
             out_uint8a(self->s, s->p, length);
             in_uint8s(s, length);
             return 0;
@@ -524,6 +528,10 @@ xrdp_channel_process_drdynvc(struct xrdp_channel *self,
             length = (int) (s->end - s->p);
             LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_channel_process_drdynvc: "
                     "reading %d bytes from client into buffer", length);
+            if (length > s_rem_out(self->s))
+            {
+                return 1;
+            }
             out_uint8a(self->s, s->p, length);
             in_uint8s(s, length);
             return 0;
@@ -531,6 +539,10 @@ xrdp_channel_process_drdynvc(struct xrdp_channel *self,
             length = (int) (s->end - s->p);
             LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_channel_process_drdynvc: "
                     "reading %d bytes from client into buffer", length);
+            if (length > s_rem_out(self->s))
+            {
+                return 1;
+            }
             out_uint8a(self->s, s->p, length);
             in_uint8s(s, length);
             LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_channel_process_drdynvc: reading command from buffer");
