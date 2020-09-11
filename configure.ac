@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script
 
 AC_PREREQ(2.65)
-AC_INIT([xrdp], [0.9.13], [xrdp-devel@googlegroups.com])
+AC_INIT([xrdp], [0.9.14], [xrdp-devel@googlegroups.com])
 AC_CONFIG_HEADERS(config_ac.h:config_ac-h.in)
 AM_INIT_AUTOMAKE([1.7.2 foreign])
 AC_CONFIG_MACRO_DIR([m4])
@@ -406,6 +406,9 @@ echo "  exec_prefix             $exec_prefix"
 echo "  libdir                  $libdir"
 echo "  bindir                  $bindir"
 echo "  sysconfdir              $sysconfdir"
+echo ""
+echo "  CFLAGS = $CFLAGS"
+echo "  LDFLAGS = $LDFLAGS"
 
 # xrdp_configure_options.h will be written to the build directory, not the source directory
 echo '#define XRDP_CONFIGURE_OPTIONS \' > ./xrdp_configure_options.h
