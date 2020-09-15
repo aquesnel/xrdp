@@ -156,8 +156,8 @@ AX_TYPE_SOCKLEN_T
 AX_CFLAGS_WARN_ALL
 AX_APPEND_COMPILE_FLAGS([-Wwrite-strings])
 
-AM_COND_IF([LINUX],
-  [AX_APPEND_COMPILE_FLAGS([-Werror])]) # bsd has warnings that have not been fixed yet
+#AM_COND_IF([LINUX],
+#  [AX_APPEND_COMPILE_FLAGS([-Werror])]) # bsd has warnings that have not been fixed yet
 
 AM_COND_IF([XRDP_DEBUG],
   [AX_APPEND_COMPILE_FLAGS([-g -O0])],
