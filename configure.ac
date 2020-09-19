@@ -244,6 +244,9 @@ fi
 
 AS_IF( [test "x$enable_neutrinordp" = "xyes"] , [PKG_CHECK_MODULES(FREERDP, freerdp >= 1.0.0)] )
 
+FREERDP_PATH=`pkg-config --libs-only-L freerdp | sed -e 's/^-L//'`
+AX_APPEND_LINK_FLAGS(["-Wl,-rpath,$FREERDP_PATH"], [FREERDP_LIBS])
+
 # checking for libjpeg
 if test "x$enable_jpeg" = "xyes"
 then
@@ -367,6 +370,8 @@ AC_CONFIG_FILES([
   pkgconfig/Makefile
   pkgconfig/xrdp.pc
   pkgconfig/xrdp-uninstalled.pc
+  tests/Makefile
+  tests/xrdp/Makefile
   sesman/chansrv/Makefile
   sesman/libscp/Makefile
   sesman/Makefile

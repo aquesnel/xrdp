@@ -41,6 +41,7 @@ sesman/xrdp-sesman
 sesman/sesman.ini
 *.so
 stamp-h1
+tests/xrdp/test-xrdp-client
 xrdp/xrdp
 xrdp/xrdp.ini
 xrdp_configure_options.h

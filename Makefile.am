@@ -24,7 +24,7 @@ EXTRA_DIST = \
   vrplayer
 
 if XRDP_NEUTRINORDP
-NEUTRINORDPDIR = neutrinordp
+NEUTRINORDPDIR = neutrinordp tests
 else
 NEUTRINORDPDIR =
 endif
