@@ -541,7 +541,6 @@ log_config_free(struct log_config* config)
             config->per_logger_level = NULL;
         }
         g_free(config);
-        config = NULL;
     }
 
     return LOG_STARTUP_OK;
