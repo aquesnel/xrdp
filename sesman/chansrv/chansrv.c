@@ -1692,34 +1692,6 @@ get_log_path(char *path, int bytes)
 }
 
 /*****************************************************************************/
-static enum logLevels
-get_log_level(const char* level_str, enum logLevels default_level)
-{
-    static const char* levels[] = {
-        "LOG_LEVEL_ALWAYS",
-        "LOG_LEVEL_ERROR",
-        "LOG_LEVEL_WARNING",
-        "LOG_LEVEL_INFO",
-        "LOG_LEVEL_DEBUG",
-        "LOG_LEVEL_TRACE"
-    };
-    unsigned int i;
-
-    if (level_str == NULL || level_str[0] == 0)
-    {
-        return default_level;
-    }
-    for (i = 0; i < ARRAYSIZE(levels); ++i)
-    {
-        if (g_strcasecmp(levels[i], level_str) == 0)
-        {
-            return (enum logLevels) i;
-        }
-    }
-    return default_level;
-}
-
-/*****************************************************************************/
 static int
 run_exec(void)
 {
@@ -1753,14 +1725,14 @@ main(int argc, char **argv)
     tbus waiters[4];
     int pid = 0;
     char text[256];
+    const char *config_path;
     char log_path[256];
     char *display_text;
     char log_file[256];
     enum logReturns error;
-    struct log_config logconfig;
-    enum logLevels log_level;
+    struct log_config *logconfig;
     g_init("xrdp-chansrv"); /* os_calls */
-
+    g_memset(g_drdynvcs, 0, sizeof(g_drdynvcs));
 
     log_path[255] = 0;
     if (get_log_path(log_path, 255) != 0)
@@ -1773,7 +1745,8 @@ main(int argc, char **argv)
     /*
      * The user is unable at present to override the sysadmin-provided
      * sesman.ini location */
-    if ((g_cfg = config_read(0, XRDP_CFG_PATH "/sesman.ini")) == NULL)
+    config_path = XRDP_CFG_PATH "/sesman.ini";
+    if ((g_cfg = config_read(0, config_path)) == NULL)
     {
         main_cleanup();
         return 1;
@@ -1787,28 +1760,20 @@ main(int argc, char **argv)
         get_display_num_from_display(display_text);
     }
 
-    log_level = get_log_level(g_getenv("CHANSRV_LOG_LEVEL"), LOG_LEVEL_INFO);
-
     /* starting logging subsystem */
-    g_memset(&logconfig, 0, sizeof(struct log_config));
-    logconfig.program_name = "xrdp-chansrv";
     g_snprintf(log_file, 255, "%s/xrdp-chansrv.%d.log", log_path, g_display_num);
     g_writeln("chansrv::main: using log file [%s]", log_file);
-
     if (g_file_exist(log_file))
     {
         g_file_delete(log_file);
     }
 
-    g_memset(g_drdynvcs, 0, sizeof(g_drdynvcs));
-
-    logconfig.log_file = log_file;
-    logconfig.fd = -1;
-    logconfig.log_level = log_level;
-    logconfig.enable_syslog = 0;
-    logconfig.syslog_level = LOG_LEVEL_ALWAYS;
-    error = log_start_from_param(&logconfig);
-
+    logconfig = log_config_init_from_config(config_path, "xrdp-chansrv");
+    logconfig->log_file = log_file;
+    error = log_start_from_param(logconfig);
+    logconfig->log_file = NULL;
+    log_config_free(logconfig);
+    
     if (error != LOG_STARTUP_OK)
     {
         switch (error)

@@ -67,22 +67,24 @@ enum logReturns
 #ifdef XRDP_DEBUG
 
 /**
- * @brief Logging macro for messages that are for an XRDP developper to understand and 
- * debug XRDP code.
+ * @brief Logging macro for messages that are for an XRDP developper to 
+ * understand and debug XRDP code.
  * 
  * Note: all log levels are relavant to help a developper understand XRDP at 
  *      different levels of granularity.
  * 
  * Note: the logging function calls are removed when XRDP_DEBUG is NOT defined.
  * 
- * Note: when the build is configured with --disable-xrdpdebug, then 
- *      the source file name and log level can be added to the [Logging_PerLogger]
- *      section of xrdp.ini to change the logging level for logs in that source file.
+ * Note: when the build is configured with --enable-xrdpdebug, then 
+ *      the log level can be configured per the source file name or method name 
+ *      (with the suffix "()") in the [Logging_PerLogger]
+ *      section of the configuration file.
  * 
- *      For example in xrdp.ini:
+ *      For example:
  *      ```     
  *      [Logging_PerLogger]
  *      xrdp.c=DEBUG
+ *      main()=WARNING
  *      ```
  * 
  * @param lvl, the log level
@@ -184,24 +186,9 @@ internal_log_text2level(const char *buf);
  * also init its content.
  * @return  LOG_STARTUP_OK or LOG_ERROR_MALLOC
  */
-enum logReturns
+struct log_config*
 internalInitAndAllocStruct(void);
 
-/**
- * Read configuration from a file and store the values in lists.
- * @param file
- * @param lc
- * @param param_n
- * @param param_v
- * @param applicationName, the application name used in the log events.
- * @return
- */
-enum logReturns
-internal_config_read_logging(int file, struct log_config *lc,
-                             struct list *param_n,
-                             struct list *param_v,
-                             const char *applicationName);
-                             
 /**
  * the log function that all files use to log an event.
  * @param lvl, the loglevel
@@ -214,6 +201,7 @@ internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg
 
 /*End of internal functions*/
 #endif
+
 /**
  * This function initialize the log facilities according to the configuration
  * file, that is described by the in parameter.
@@ -226,11 +214,31 @@ log_start(const char *iniFile, const char *applicationName);
 
 /**
  * An alternative log_start where the caller gives the params directly.
- * @param iniParams
+ * @param config
  * @return
+ * 
+ * @post to avoid memory leaks, the config argument must be free'ed using 
+ * `log_config_free()`
  */
 enum logReturns
-log_start_from_param(const struct log_config *iniParams);
+log_start_from_param(const struct log_config *src_log_config);
+
+/**
+ * Read configuration from a file and store the values in the returned 
+ * log_config.
+ * @param file
+ * @param applicationName, the application name used in the log events.
+ * @return
+ */
+struct log_config*
+log_config_init_from_config(const char *iniFilename, const char *applicationName);
+
+/**
+ * Free the memory for the log_config struct.
+ */
+enum logReturns
+log_config_free(struct log_config* config);
+
 /**
  * Function that terminates all logging
  * @return

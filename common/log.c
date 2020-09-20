@@ -265,61 +265,9 @@ internal_log_text2level(const char *buf)
     return LOG_LEVEL_DEBUG;
 }
 
-enum logReturns
-internalReadConfiguration(const char *inFilename, const char *applicationName)
-{
-    int fd;
-    enum logReturns ret = LOG_GENERAL_ERROR;
-    struct list *param_n;
-    struct list *param_v;
-
-    if (inFilename == NULL)
-    {
-        g_writeln("The inifile is null to readConfiguration!");
-        return ret;
-    }
-
-    fd = g_file_open(inFilename);
-
-    if (-1 == fd)
-    {
-        ret = LOG_ERROR_NO_CFG;
-        g_writeln("We could not open the configuration file to read log parameters");
-        return ret;
-    }
-
-    /* we initialize the memory for the configuration and set all content
-       to zero. */
-    ret = internalInitAndAllocStruct();
-
-    if (ret != LOG_STARTUP_OK)
-    {
-        g_file_close(fd);
-        return ret;
-    }
-
-    param_n = list_create();
-    param_n->auto_free = 1;
-    param_v = list_create();
-    param_v->auto_free = 1;
-
-    /* read logging config */
-    ret = internal_config_read_logging(fd, g_staticLogConfig, param_n,
-                                       param_v, applicationName);
-
-    /* cleanup */
-    list_delete(param_v);
-    list_delete(param_n);
-    g_file_close(fd);
-    return ret;
-}
-
 /******************************************************************************/
-enum logReturns
-internal_config_read_logging(int file, struct log_config *lc,
-                             struct list *param_n,
-                             struct list *param_v,
-                             const char *applicationName)
+struct log_config*
+internal_config_read_logging(int file, const char *applicationName)
 {
     int i;
     char *buf;
@@ -327,7 +275,21 @@ internal_config_read_logging(int file, struct log_config *lc,
     char str_level[20];
     int len;
     struct log_logger_level* logger;
-
+    struct log_config *lc;
+    struct list *param_n;
+    struct list *param_v;
+    
+    lc = internalInitAndAllocStruct();
+    if (lc == NULL)
+    {
+        return NULL;
+    }
+    
+    param_n = list_create();
+    param_n->auto_free = 1;
+    param_v = list_create();
+    param_v->auto_free = 1;
+    
     list_clear(param_v);
     list_clear(param_n);
 
@@ -449,64 +411,125 @@ internal_config_read_logging(int file, struct log_config *lc,
         g_printf("\tNone\r\n");
     }
 
-    return LOG_STARTUP_OK;
+    list_delete(param_v);
+    list_delete(param_n);
+    return lc;
 }
 
-enum logReturns
+struct log_config*
 internalInitAndAllocStruct(void)
 {
-    enum logReturns ret = LOG_GENERAL_ERROR;
-    g_staticLogConfig = g_new0(struct log_config, 1);
+    struct log_config *ret = g_new0(struct log_config, 1);
 
-    if (g_staticLogConfig != NULL)
+    if (ret != NULL)
     {
-        g_staticLogConfig->fd = -1;
-        g_staticLogConfig->enable_syslog = 0;
-        g_staticLogConfig->per_logger_level = list_create();
-        if (g_staticLogConfig->per_logger_level != NULL)
+        ret->fd = -1;
+        ret->enable_syslog = 0;
+        ret->per_logger_level = list_create();
+        if (ret->per_logger_level != NULL)
         {
-            g_staticLogConfig->per_logger_level->auto_free = 1;
-            ret = LOG_STARTUP_OK;
+            ret->per_logger_level->auto_free = 1;
         }
         else
         {
             g_writeln("could not allocate memory for log struct");
-            g_free(g_staticLogConfig);
-            ret = LOG_ERROR_MALLOC;
+            g_free(ret);
+            ret = NULL;
         }
     }
     else
     {
         g_writeln("could not allocate memory for log struct");
-        ret = LOG_ERROR_MALLOC;
     }
 
     return ret;
 }
 
-enum logReturns
-internal_free_log_struct(void)
+void
+internal_log_config_copy(struct log_config *dest, const struct log_config *src)
 {
-    if (g_staticLogConfig != NULL)
+    dest->enable_syslog = src->enable_syslog;
+    dest->fd = src->fd;
+    dest->log_file = g_strdup(src->log_file);
+    dest->log_level = src->log_level;
+    dest->log_lock = src->log_lock;
+    dest->log_lock_attr = src->log_lock_attr;
+    dest->program_name = src->program_name;
+    dest->enable_syslog = src->enable_syslog;
+    dest->syslog_level = src->syslog_level;
+    dest->enable_console = src->enable_console;
+    dest->console_level = src->console_level;
+    dest->enable_pid = src->enable_pid;
+    for (int i = 0; i < src->per_logger_level->count; ++i)
     {
-        if (g_staticLogConfig->per_logger_level != NULL)
-        {
-            list_delete(g_staticLogConfig->per_logger_level);
-            g_staticLogConfig->per_logger_level = NULL;
-        }
-        g_free(g_staticLogConfig);
-        g_staticLogConfig = NULL;
+        struct log_logger_level *dst_logger = 
+                (struct log_logger_level*)g_malloc(sizeof(struct log_logger_level), 1);
+        
+        g_memcpy(dst_logger, 
+                 (struct log_logger_level*) list_get_item(src->per_logger_level, i), 
+                 sizeof(struct log_logger_level));
+                 
+        list_add_item(dest->per_logger_level, (tbus) dst_logger);
     }
-
-    return LOG_STARTUP_OK;
 }
 
 /*
  * Here below the public functions
  */
 
+struct log_config*
+log_config_init_from_config(const char *iniFilename, const char *applicationName)
+{
+    int fd;
+    struct log_config* config;
+
+    if (applicationName == NULL)
+    {
+        g_writeln("Programming error your application name cannot be null");
+        return NULL;
+    }
+    
+    if (iniFilename == NULL)
+    {
+        g_writeln("The inifile is null to log_config_init_from_config!");
+        return NULL;
+    }
+
+    fd = g_file_open(iniFilename);
+
+    if (-1 == fd)
+    {
+        g_writeln("We could not open the configuration file to read log parameters");
+        return NULL;
+    }
+
+    /* read logging config */
+    config = internal_config_read_logging(fd, applicationName);
+
+    /* cleanup */
+    g_file_close(fd);
+    return config;
+}
+
 enum logReturns
-log_start_from_param(const struct log_config *iniParams)
+log_config_free(struct log_config* config)
+{
+    if (config != NULL)
+    {
+        if (config->per_logger_level != NULL)
+        {
+            list_delete(config->per_logger_level);
+            config->per_logger_level = NULL;
+        }
+        g_free(config);
+        config = NULL;
+    }
+
+    return LOG_STARTUP_OK;
+}
+
+enum logReturns
+log_start_from_param(const struct log_config *src_log_config)
 {
     enum logReturns ret = LOG_GENERAL_ERROR;
 
@@ -516,37 +539,28 @@ log_start_from_param(const struct log_config *iniParams)
         return ret;
     }
 
-    if (iniParams == NULL)
+    if (src_log_config == NULL)
     {
-        g_writeln("inparam to log_start_from_param is NULL");
+        g_writeln("src_log_config to log_start_from_param is NULL");
         return ret;
     }
     else
     {
-        /*Copy the struct information*/
-        ret = internalInitAndAllocStruct();
-
-        if (ret != LOG_STARTUP_OK)
+        g_staticLogConfig = internalInitAndAllocStruct();
+        if (g_staticLogConfig == NULL)
         {
             g_writeln("internalInitAndAllocStruct failed");
-            return ret;
+            return LOG_ERROR_MALLOC;
         }
-
-        g_staticLogConfig->enable_syslog = iniParams->enable_syslog;
-        g_staticLogConfig->fd = iniParams->fd;
-        g_staticLogConfig->log_file = g_strdup(iniParams->log_file);
-        g_staticLogConfig->log_level = iniParams->log_level;
-        g_staticLogConfig->log_lock = iniParams->log_lock;
-        g_staticLogConfig->log_lock_attr = iniParams->log_lock_attr;
-        g_staticLogConfig->program_name = iniParams->program_name;
-        g_staticLogConfig->syslog_level = iniParams->syslog_level;
+        internal_log_config_copy(g_staticLogConfig, src_log_config);
+        
         ret = internal_log_start(g_staticLogConfig);
-
         if (ret != LOG_STARTUP_OK)
         {
             g_writeln("Could not start log");
 
-            internal_free_log_struct();
+            log_config_free(g_staticLogConfig);
+            g_staticLogConfig = NULL;
         }
     }
 
@@ -564,23 +578,18 @@ enum logReturns
 log_start(const char *iniFile, const char *applicationName)
 {
     enum logReturns ret = LOG_GENERAL_ERROR;
+    struct log_config *config;
 
-    if (applicationName == NULL)
+    config = log_config_init_from_config(iniFile, applicationName);
+
+    if (config != NULL)
     {
-        g_writeln("Programming error your application name cannot be null");
-        return ret;
-    }
-
-    ret = internalReadConfiguration(iniFile, applicationName);
-
-    if (ret == LOG_STARTUP_OK)
-    {
-        ret = internal_log_start(g_staticLogConfig);
+        ret = log_start_from_param(config);
+        log_config_free(config);
 
         if (ret != LOG_STARTUP_OK)
         {
             g_writeln("Could not start log");
-            internal_free_log_struct();
         }
     }
     else
@@ -601,7 +610,8 @@ log_end(void)
 {
     enum logReturns ret = LOG_GENERAL_ERROR;
     ret = internal_log_end(g_staticLogConfig);
-    internal_free_log_struct();
+    log_config_free(g_staticLogConfig);
+    g_staticLogConfig = NULL;
 
     return ret;
 }
