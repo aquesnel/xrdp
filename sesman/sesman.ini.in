@@ -111,5 +111,15 @@ FuseMountName=thinclient_drives
 ; Make this more permissive (e.g. 022) if required.
 FileUmask=077
 
+[Chansrv_Logging]
+; Note: one log file is created per display and the LogFile config value 
+; is ignored. The channel server log file names follow the naming convention: 
+; xrdp-chansrv.${DISPLAY}.log
+LogLevel=INFO
+
+[Chansrv_Logging_PerLogger]
+#chansrv.c=ERROR
+#main()=DEBUG
+
 [SessionVariables]
 PULSE_SCRIPT=@sesmansysconfdir@/pulse/default.pa

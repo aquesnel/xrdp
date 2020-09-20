@@ -190,6 +190,12 @@ struct log_config*
 internalInitAndAllocStruct(void);
 
 /**
+ * Print the contents of the logging config to stdout.
+ */
+void
+internal_log_config_dump(struct log_config *config);
+
+/**
  * the log function that all files use to log an event.
  * @param lvl, the loglevel
  * @param msg, the logtext.
@@ -228,10 +234,13 @@ log_start_from_param(const struct log_config *src_log_config);
  * log_config.
  * @param file
  * @param applicationName, the application name used in the log events.
+ * @param section_prefix, prefix for the logging sections to parse
  * @return
  */
 struct log_config*
-log_config_init_from_config(const char *iniFilename, const char *applicationName);
+log_config_init_from_config(const char *iniFilename, 
+                            const char *applicationName, 
+                            const char *section_prefix);
 
 /**
  * Free the memory for the log_config struct.

@@ -32,6 +32,7 @@ Dynamic Virtual Channel
 .SH ENVIRONMENT
 .TP
 .I CHANSRV_LOG_LEVEL
+\fBDEPRECATED\fR use the \fBChansrv_Logging\fR section in \fI@sysconfdir@/xrdp/sesman.ini\fR instead.
 Logging level for chansrv. Case-insensitive. Takes one of these string values:
 .RS 8
 .TP

@@ -164,6 +164,8 @@ internal_log_start(struct log_config *l_cfg)
         return ret;
     }
 
+    internal_log_config_dump(l_cfg);
+
     /* open file */
     l_cfg->fd = internal_log_file_open(l_cfg->log_file);
 
@@ -267,12 +269,14 @@ internal_log_text2level(const char *buf)
 
 /******************************************************************************/
 struct log_config*
-internal_config_read_logging(int file, const char *applicationName)
+internal_config_read_logging(int file, 
+                             const char *applicationName, 
+                             const char *section_prefix)
 {
     int i;
     char *buf;
     char *temp_buf;
-    char str_level[20];
+    char section_name[512];
     int len;
     struct log_logger_level* logger;
     struct log_config *lc;
@@ -304,7 +308,8 @@ internal_config_read_logging(int file, const char *applicationName)
     lc->syslog_level = LOG_LEVEL_DEBUG;
     lc->enable_pid = 0;
 
-    file_read_section(file, SESMAN_CFG_LOGGING, param_n, param_v);
+    g_snprintf(section_name, 511, "%s%s", section_prefix, SESMAN_CFG_LOGGING);
+    file_read_section(file, section_name, param_n, param_v);
 
     for (i = 0; i < param_n->count; i++)
     {
@@ -365,30 +370,16 @@ internal_config_read_logging(int file, const char *applicationName)
     /* try to create path if not exist */
     g_create_path(lc->log_file);
 
-    g_printf("logging configuration:\r\n");
-    internal_log_lvl2str(lc->log_level, str_level);
-    g_printf("\tLogFile:       %s\r\n", lc->log_file);
-    g_printf("\tLogLevel:      %s\r\n", str_level);
-    
-    internal_log_lvl2str(lc->console_level, str_level);
-    g_printf("\tEnableConsole: %s\r\n", (lc->enable_console ? "true" : "false"));
-    g_printf("\tConsoleLevel:  %s\r\n", str_level);
-    
-    internal_log_lvl2str(lc->syslog_level, str_level);
-    g_printf("\tEnableSyslog:  %s\r\n", (lc->enable_syslog ? "true" : "false"));
-    g_printf("\tSyslogLevel:   %s\r\n", str_level);
-    
-    g_printf("per logger configuration:\r\n");
     list_clear(param_v);
     list_clear(param_n);
-    file_read_section(file, SESMAN_CFG_LOGGING_LOGGER, param_n, param_v);
+    g_snprintf(section_name, 511, "%s%s", section_prefix, SESMAN_CFG_LOGGING_LOGGER);
+    file_read_section(file, section_name, param_n, param_v);
     for (i = 0; i < param_n->count; i++)
     {
         logger = (struct log_logger_level*)g_malloc(sizeof(struct log_logger_level), 1);
         list_add_item(lc->per_logger_level, (tbus) logger);
         logger->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
-        internal_log_lvl2str(logger->log_level, str_level);
-        
+
         g_strncpy(logger->logger_name, (char *)list_get_item(param_n, i), LOGGER_NAME_SIZE);
         logger->logger_name[LOGGER_NAME_SIZE] = '\0';
         len = g_strlen(logger->logger_name);
@@ -396,24 +387,50 @@ internal_config_read_logging(int file, const char *applicationName)
                 && logger->logger_name[len-2] == '(' 
                 && logger->logger_name[len-1] == ')' )
         {
-            g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
             logger->logger_type = LOG_TYPE_FUNCTION;
             logger->logger_name[len-2] = '\0';
         }
         else
         {
-            g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
             logger->logger_type = LOG_TYPE_FILE;
         }
-    }
-    if(param_n->count == 0)
-    {
-        g_printf("\tNone\r\n");
     }
 
     list_delete(param_v);
     list_delete(param_n);
     return lc;
+}
+
+void
+internal_log_config_dump(struct log_config *config)
+{
+    char str_level[20];
+    struct log_logger_level* logger;
+
+    g_printf("logging configuration:\r\n");
+    internal_log_lvl2str(config->log_level, str_level);
+    g_printf("\tLogFile:       %s\r\n", config->log_file);
+    g_printf("\tLogLevel:      %s\r\n", str_level);
+    
+    internal_log_lvl2str(config->console_level, str_level);
+    g_printf("\tEnableConsole: %s\r\n", (config->enable_console ? "true" : "false"));
+    g_printf("\tConsoleLevel:  %s\r\n", str_level);
+    
+    internal_log_lvl2str(config->syslog_level, str_level);
+    g_printf("\tEnableSyslog:  %s\r\n", (config->enable_syslog ? "true" : "false"));
+    g_printf("\tSyslogLevel:   %s\r\n", str_level);
+    
+    g_printf("per logger configuration:\r\n");
+    for (int i = 0; i < config->per_logger_level->count; i++)
+    {
+        logger = (struct log_logger_level*)list_get_item(config->per_logger_level, i);
+        internal_log_lvl2str(logger->log_level, str_level);
+        g_printf("\t%-*s: %s\r\n", LOGGER_NAME_SIZE, logger->logger_name, str_level);
+    }
+    if(config->per_logger_level->count == 0)
+    {
+        g_printf("\tNone\r\n");
+    }
 }
 
 struct log_config*
@@ -478,7 +495,9 @@ internal_log_config_copy(struct log_config *dest, const struct log_config *src)
  */
 
 struct log_config*
-log_config_init_from_config(const char *iniFilename, const char *applicationName)
+log_config_init_from_config(const char *iniFilename, 
+                            const char *applicationName, 
+                            const char *section_prefix)
 {
     int fd;
     struct log_config* config;
@@ -504,7 +523,7 @@ log_config_init_from_config(const char *iniFilename, const char *applicationName
     }
 
     /* read logging config */
-    config = internal_config_read_logging(fd, applicationName);
+    config = internal_config_read_logging(fd, applicationName, section_prefix);
 
     /* cleanup */
     g_file_close(fd);
@@ -580,7 +599,7 @@ log_start(const char *iniFile, const char *applicationName)
     enum logReturns ret = LOG_GENERAL_ERROR;
     struct log_config *config;
 
-    config = log_config_init_from_config(iniFile, applicationName);
+    config = log_config_init_from_config(iniFile, applicationName, "");
 
     if (config != NULL)
     {
