@@ -301,11 +301,11 @@ internal_config_read_logging(int file,
     lc->program_name = applicationName;
     lc->log_file = 0;
     lc->fd = -1;
-    lc->log_level = LOG_LEVEL_DEBUG;
-    lc->enable_console = 1;
-    lc->console_level = LOG_LEVEL_DEBUG;
+    lc->log_level = LOG_LEVEL_INFO;
+    lc->enable_console = 0;
+    lc->console_level = LOG_LEVEL_INFO;
     lc->enable_syslog = 0;
-    lc->syslog_level = LOG_LEVEL_DEBUG;
+    lc->syslog_level = LOG_LEVEL_INFO;
     lc->enable_pid = 0;
 
     g_snprintf(section_name, 511, "%s%s", section_prefix, SESMAN_CFG_LOGGING);

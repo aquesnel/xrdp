@@ -1692,34 +1692,6 @@ get_log_path(char *path, int bytes)
 }
 
 /*****************************************************************************/
-static void
-get_log_level(const char* level_str, enum logLevels *dest_level)
-{
-    static const char* levels[] = {
-        "LOG_LEVEL_ALWAYS",
-        "LOG_LEVEL_ERROR",
-        "LOG_LEVEL_WARNING",
-        "LOG_LEVEL_INFO",
-        "LOG_LEVEL_DEBUG",
-        "LOG_LEVEL_TRACE"
-    };
-    unsigned int i;
-
-    if (level_str == NULL || level_str[0] == 0)
-    {
-        return;
-    }
-    for (i = 0; i < ARRAYSIZE(levels); ++i)
-    {
-        if (g_strcasecmp(levels[i], level_str) == 0)
-        {
-            *dest_level = (enum logLevels) i;
-        }
-    }
-    return;
-}
-
-/*****************************************************************************/
 static int
 run_exec(void)
 {
@@ -1802,14 +1774,10 @@ main(int argc, char **argv)
         g_free(logconfig->log_file);
     }
     logconfig->log_file = log_file;
-    
-    /* Backwards compatability: 
-       read the log level from the environment (if it exists) for the log file 
-    */
-    get_log_level(g_getenv("CHANSRV_LOG_LEVEL"), &(logconfig->log_level));
     error = log_start_from_param(logconfig);
     logconfig->log_file = NULL;
     log_config_free(logconfig);
+    logconfig = NULL;
     
     if (error != LOG_STARTUP_OK)
     {

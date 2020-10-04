@@ -149,18 +149,19 @@ ls_btn_cancel_width=85
 ls_btn_cancel_height=30
 
 [Logging]
+; Note: Log levels can be any of: core, error, warning, info, debug, or trace
 LogFile=xrdp.log
-LogLevel=DEBUG
-EnableConsole=true
-ConsoleLevel=DEBUG
+LogLevel=INFO
 EnableSyslog=true
-SyslogLevel=DEBUG
-; LogLevel and SysLogLevel could by any of: core, error, warning, info or debug
+#SyslogLevel=INFO
+#EnableConsole=false
+#ConsoleLevel=INFO
 #EnableProcessId=false
 
 [Logging_PerLogger]
-#xrdp.c=DEBUG
-#xrdp_listen_process_startup_params()=DEBUG
+; Note: per logger configuration is only used in XRDP_DEBUG builds of XRDP.
+#xrdp.c=INFO
+#main()=INFO
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.
