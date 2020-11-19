@@ -55,7 +55,8 @@ xrdp_wm_create(struct xrdp_process *owner,
     pid = g_getpid();
     g_snprintf(event_name, 255, "xrdp_%8.8x_wm_login_state_event_%8.8x",
                pid, owner->session_id);
-    LOG(LOG_LEVEL_DEBUG, "%s", event_name);
+    LOG(LOG_LEVEL_DEBUG, "Creating window manager for session 0x%8.8x", 
+              owner->session_id);
     self->login_state_event = g_create_wait_obj(event_name);
     self->painter = xrdp_painter_create(self, self->session);
     self->cache = xrdp_cache_create(self, self->session, self->client_info);
@@ -597,11 +598,9 @@ xrdp_wm_init(struct xrdp_wm *self)
                         break;
                     }
                 }
-                disabled_str = (disabled) ? "disabled" : "enabled";
-                LOG(LOG_LEVEL_DEBUG, "xrdp_wm_init: "
-                    "channel %s channel id %d is %s",
-                    chan_name, chan_id, disabled_str);
 
+                LOG(LOG_LEVEL_DEBUG, "Channel %d (%s) is %s by global channel configuration", 
+                    chan_id, chan_name, (disabled ? "disabled" : "allowed"));
                 libxrdp_disable_channel(self->session, chan_id, disabled);
             }
         }
@@ -649,6 +648,8 @@ xrdp_wm_init(struct xrdp_wm *self)
             {
                 /* if autorun is configured in xrdp.ini, we enforce that module to be loaded */
                 g_strncpy(section_name, autorun_name, 255);
+                LOG(LOG_LEVEL_DEBUG, 
+                    "Session type selected from server 'autorun' configuration");
             }
             else if (self->session->client_info->domain[0] != '\0' &&
                      self->session->client_info->domain[0] != '_')
@@ -659,12 +660,16 @@ xrdp_wm_init(struct xrdp_wm *self)
                 /* we use the domain name as the module name to be loaded */
                 g_strncpy(section_name,
                           self->session->client_info->domain, 255);
+                LOG(LOG_LEVEL_DEBUG, 
+                    "Session type selected from client domain");
             }
             else
             {
                 /* if no domain is given, and autorun is not specified in xrdp.ini
                  * use default_section_name as section_name  */
                 g_strncpy(section_name, default_section_name, 255);
+                LOG(LOG_LEVEL_DEBUG, 
+                    "Session type selected by falling back to default session type");
             }
 
             list_clear(names);
@@ -673,19 +678,25 @@ xrdp_wm_init(struct xrdp_wm *self)
              * in xrdp.ini, fallback to default_section_name */
             if (file_read_section(fd, section_name, names, values) != 0)
             {
-                LOG(LOG_LEVEL_INFO,
-                    "Module \"%s\" specified by %s from %s port %s "
-                    "is not configured. Using \"%s\" instead.",
+                LOG(LOG_LEVEL_WARNING,
+                    "Session type '%s' is not configured. Using default session "
+                    "type instead: '%s' (requested by user '%s' from %s port %s)",
                     section_name,
+                    default_section_name,
                     self->session->client_info->username,
                     self->session->client_info->client_addr,
-                    self->session->client_info->client_port,
-                    default_section_name);
+                    self->session->client_info->client_port);
                 list_clear(names);
                 list_clear(values);
 
                 g_strncpy(section_name, default_section_name, 255);
             }
+            LOG(LOG_LEVEL_INFO,
+                "Using session configuration '%s' for user '%s' from %s port %s ",
+                section_name,
+                self->session->client_info->username,
+                self->session->client_info->client_addr,
+                self->session->client_info->client_port);
 
             /* look for the required module in xrdp.ini, fetch its parameters */
             if (file_read_section(fd, section_name, names, values) == 0)
@@ -704,6 +715,13 @@ xrdp_wm_init(struct xrdp_wm *self)
                         if (g_strncmp("ask", r, 3) == 0)
                         {
                             r = self->session->client_info->password;
+                            LOG(LOG_LEVEL_DEBUG, 
+                                "Session password selected from client");
+                        }
+                        else
+                        {
+                            LOG(LOG_LEVEL_DEBUG, 
+                                "Session password selected from session type configuration");
                         }
                     }
                     else if (g_strncmp("username", q, 255) == 0)
@@ -715,6 +733,13 @@ xrdp_wm_init(struct xrdp_wm *self)
                         if (g_strncmp("ask", r, 3) == 0)
                         {
                             r = self->session->client_info->username;
+                            LOG(LOG_LEVEL_DEBUG, 
+                                "Session user name selected from client");
+                        }
+                        else
+                        {
+                            LOG(LOG_LEVEL_DEBUG, 
+                                "Session user name selected from session type configuration");
                         }
                     }
                     else if (g_strncmp("ip", q, 255) == 0)
@@ -729,8 +754,20 @@ xrdp_wm_init(struct xrdp_wm *self)
                             {
                                 g_strncpy(param, &self->session->client_info->domain[1], 255);
                                 r = param;
+                                LOG(LOG_LEVEL_DEBUG, 
+                                    "Session ip selected from client domain (excluding leading '_')");
                             }
-
+                            else
+                            {
+                                LOG(LOG_LEVEL_DEBUG, 
+                                    "Session ip selected from session type configuration "
+                                    "because client supplied domain is missing the leading '_'");
+                            }
+                        }
+                        else
+                        {
+                            LOG(LOG_LEVEL_DEBUG, 
+                                "Session ip selected from session type configuration");
                         }
                     }
                     else if (g_strncmp("port", q, 255) == 0)
@@ -739,6 +776,8 @@ xrdp_wm_init(struct xrdp_wm *self)
                         {
                             r = "3389"; /* use default */
                         }
+                        LOG(LOG_LEVEL_DEBUG, 
+                            "Session port selected from session type configuration");
                     }
 
                     list_add_item(self->mm->login_names, (long)g_strdup(q));
@@ -764,13 +803,13 @@ xrdp_wm_init(struct xrdp_wm *self)
         else
         {
             LOG(LOG_LEVEL_WARNING,
-                "xrdp_wm_init: Could not read xrdp.ini file %s",
+                "Window Manager init: Could not read configuration file %s",
                 self->session->xrdp_ini);
         }
     }
     else
     {
-        LOG(LOG_LEVEL_DEBUG, "   xrdp_wm_init: no autologin / auto run detected, draw login window");
+        LOG(LOG_LEVEL_DEBUG, "Show login window because client did not request auto login");
         xrdp_login_wnd_create(self);
         /* clear screen */
         xrdp_bitmap_invalidate(self->screen, 0);
@@ -1880,7 +1919,7 @@ callback(intptr_t id, int msg, intptr_t param1, intptr_t param2,
 
     rv = 0;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: message code %d", msg);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_wm - session callback: message code 0x%4.4x", msg);
     switch (msg)
     {
         case RDP_INPUT_SYNCHRONIZE:
@@ -2059,7 +2098,6 @@ add_string_to_logwindow(const char *msg, struct list *log)
     do
     {
         new_part_message = g_strndup(current_pointer, LOG_WINDOW_CHAR_PER_LINE);
-        LOG(LOG_LEVEL_INFO, "%s", new_part_message);
         list_add_item(log, (tintptr) new_part_message);
         len_done += g_strlen(new_part_message);
         current_pointer += g_strlen(new_part_message);
