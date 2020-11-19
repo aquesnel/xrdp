@@ -1941,7 +1941,8 @@ xrdp_wm_login_state_changed(struct xrdp_wm *self)
         return 0;
     }
 
-    LOG(LOG_LEVEL_DEBUG, "xrdp_wm_login_mode_changed: login_mode is %d", self->login_state);
+    LOG(LOG_LEVEL_DEBUG, "Handling login event. login_mode = %s (%d)", 
+        wm_login_state_to_str(self->login_state), self->login_state);
     if (self->login_state == WMLS_RESET)
     {
         /* this is the initial state of the login window */
@@ -1955,7 +1956,14 @@ xrdp_wm_login_state_changed(struct xrdp_wm *self)
     {
         if (xrdp_mm_connect(self->mm) == 0)
         {
-            xrdp_wm_set_login_state(self, WMLS_CONNECT_IN_PROGRESS);
+            /* Note: for the non-sesman login the login_mode is updated in the 
+               xrdp_mm_connect() function, and changing the login mode here is 
+               a bug. Fortunatly WMLS_CONNECT_IN_PROGRESS is a 
+               no-op terminal state if there is no callback from a sesman login 
+               response, so there a no side effects from this bug. */
+            /* TODO: move setting the WMLS_CONNECT_IN_PROGRESS to 
+               the xrdp_mm_connect() function. */
+            xrdp_wm_set_login_state(self, WMLS_CONNECT_IN_PROGRESS); /* put the wm in connected mode */
             xrdp_wm_delete_all_children(self);
             self->dragging = 0;
         }
@@ -2246,9 +2254,9 @@ wm_login_state_to_str(enum wm_login_state login_state)
 int
 xrdp_wm_set_login_state(struct xrdp_wm *self, enum wm_login_state login_state)
 {
-    LOG(LOG_LEVEL_DEBUG, "Login state change request %s -> %s",
-        wm_login_state_to_str(self->login_state),
-        wm_login_state_to_str(login_state));
+    LOG(LOG_LEVEL_DEBUG, "Window Manager Login state change: %s (%d) -> %s (%d)",
+        wm_login_state_to_str(self->login_state), self->login_state
+        wm_login_state_to_str(login_state), login_state);
 
     self->login_state = login_state;
     g_set_wait_obj(self->login_state_event);
