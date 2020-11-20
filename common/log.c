@@ -107,10 +107,10 @@ internal_log_xrdp2syslog(const enum logLevels lvl)
  * @brief Converts xrdp log levels to textual logging levels
  * @param lvl logging level
  * @param str pointer to a string, must be allocated before
- * @return The log string in str pointer.
+ * @return The number of characters written to the string (excluding terminating null)
  *
  */
-void
+int
 internal_log_lvl2str(const enum logLevels lvl, char *str)
 {
     switch (lvl)
@@ -137,6 +137,43 @@ internal_log_lvl2str(const enum logLevels lvl, char *str)
             snprintf(str, 9, "%s", "PRG ERR!");
             g_writeln("Programming error - undefined log level!!!");
     }
+    return 8;
+}
+
+/**
+ * @brief appends the new line character squence and terminating null to a string
+ * @param dest_buffer the buffer to append to
+ * @param dest_buffer_len the length of the passed in buffer
+ * @return The number of characters written to the string (excluding terminating null)
+ *
+ */
+int
+internal_log_append_newline(char *dest_buffer, int dest_buffer_len)
+{
+    int i;
+    int newline_len;
+    const char* newline;
+    
+    #ifdef _WIN32
+    newline_len = 3;
+    newline = "\r\n";
+    #else
+    newline_len = 2;
+    #ifdef _MACOS
+    newline = "\r";
+    #else
+    newline = "\n";
+    #endif
+    #endif
+    
+    if (newline_len <= dest_buffer_len)
+    {
+        for(i = 0; i <= newline_len; i++)
+        {
+            dest_buffer[i] = newline[i];
+        }
+    }
+    return newline_len - 1;
 }
 
 /******************************************************************************/
@@ -502,6 +539,7 @@ internal_log_config_copy(struct log_config *dest, const struct log_config *src)
 {
     int i;
 
+    dest->enable_file = src->enable_file;
     dest->enable_syslog = src->enable_syslog;
     dest->fd = src->fd;
     dest->log_file = g_strdup(src->log_file);
@@ -849,10 +887,10 @@ log_message_with_location(const char *function_name,
                           ...)
 {
     va_list ap;
-    enum logReturns rv;
     char buff[LOG_BUFFER_SIZE];
     enum logLevels override_log_level = LOG_LEVEL_NEVER;
     bool_t override_destination_level = 0;
+    int len;
 
     if (g_staticLogConfig == NULL)
     {
@@ -872,42 +910,202 @@ log_message_with_location(const char *function_name,
     {
         return LOG_STARTUP_OK;
     }
-
-    g_snprintf(buff, LOG_BUFFER_SIZE, "[%s(%s:%d)] %s",
-               function_name, file_name, line_number, msg);
-
+    
     va_start(ap, msg);
-    rv = internal_log_message(level, override_destination_level, override_log_level, buff, ap);
+    len = internal_log_format_message(g_staticLogConfig, buff, LOG_BUFFER_SIZE,
+            function_name, file_name, line_number, level, msg, ap);
     va_end(ap);
-    return rv;
+    
+    if (len < 0)
+    {
+        log_message(LOG_LEVEL_WARNING, "error formatting log message");
+        return LOG_GENERAL_ERROR;
+    }
+    /* checking for truncated messages */
+    if (len > LOG_BUFFER_SIZE)
+    {
+        log_message(LOG_LEVEL_WARNING, "next message will be truncated");
+        len = LOG_BUFFER_SIZE;
+    }
+    return internal_log_message(level, override_destination_level, buff);
 }
 
 enum logReturns
 log_message(const enum logLevels lvl, const char *msg, ...)
 {
     va_list ap;
-    enum logReturns rv;
-
+    char buff[LOG_BUFFER_SIZE];
+    int len;
+    
+    if (g_staticLogConfig == NULL)
+    {
+        g_writeln("The log reference is NULL - log not initialized properly ");
+        return LOG_ERROR_NO_CFG;
+    }
+    
     va_start(ap, msg);
-    rv = internal_log_message(lvl, 0, LOG_LEVEL_NEVER, msg, ap);
+    len = internal_log_format_message(g_staticLogConfig, buff, LOG_BUFFER_SIZE,
+            NULL, NULL, 0, lvl, msg, ap);
     va_end(ap);
-    return rv;
+    
+    if (len < 0)
+    {
+        log_message(LOG_LEVEL_WARNING, "error formatting log message");
+        return LOG_GENERAL_ERROR;
+    }
+    /* checking for truncated messages */
+    if (len > LOG_BUFFER_SIZE)
+    {
+        log_message(LOG_LEVEL_WARNING, "next message will be truncated");
+        len = LOG_BUFFER_SIZE;
+    }
+    return internal_log_message(lvl, 0, buff);
 }
 
-enum logReturns
-internal_log_message(const enum logLevels lvl,
-                     const bool_t override_destination_level,
-                     const enum logLevels override_log_level,
-                     const char *msg,
-                     va_list ap)
+int
+internal_log_timestamp_header(
+                        char *dest_buffer,
+                        const int dest_buffer_len)
 {
-    char buff[LOG_BUFFER_SIZE + 31]; /* 19 (datetime) 4 (space+cr+lf+\0) */
-    int len = 0;
-    enum logReturns rv = LOG_STARTUP_OK;
-    int writereply = 0;
     uint64_t now_milliseconds;
     time_t now_t;
     struct tm *now;
+    int len;
+    
+    now_milliseconds = g_time3_64();
+    now_t = now_milliseconds / 1000;
+    now = localtime(&now_t);
+
+    len = snprintf(dest_buffer, dest_buffer_len, 
+            "[%.4d%.2d%.2d-%.2d:%.2d:%.2d.%.3ld]", 
+             now->tm_year + 1900,
+             now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min,
+             now->tm_sec, now_milliseconds % 1000);
+             
+    return len;
+}
+
+enum logReturns
+internal_log_format_message(
+                        struct log_config *config,
+                        char *dest_buffer,
+                        const int dest_buffer_len,
+                        const char *function_name, 
+                          const char *file_name, 
+                          const int line_number, 
+                          const enum logLevels level, 
+                          const char *msg, 
+                          va_list ap)
+{
+    int len = 0;
+    int dest_msg_len = 0;
+    int dest_buffer_reserved;
+    int dest_buffer_remaining = dest_buffer_len;
+    uint64_t now_milliseconds;
+    time_t now_t;
+    struct tm *now;
+    
+    if (dest_buffer == NULL)
+    {
+        return -1;
+    }
+    if (dest_buffer_len < 1)
+    {
+        return -1;
+    }
+    if (config == NULL)
+    {
+        dest_buffer[0] = '\0';
+        return -1;
+    }
+    
+    /* append a new line to the buffer to find out how long a new line is so space can be resered for it */
+    dest_buffer_reserved = internal_log_append_newline(dest_buffer, dest_buffer_remaining);
+    dest_buffer_remaining -= dest_buffer_reserved;
+    /* don't update dest_msg_len since we want to overwrite the newline that was just written with the actual message. */
+    
+    if (dest_buffer_len < dest_buffer_reserved)
+    {
+        dest_buffer[0] = '\0';
+        return -1;
+    }
+    
+    if (0 < dest_buffer_remaining)
+    {
+        now_milliseconds = g_time3_64();
+        now_t = now_milliseconds / 1000;
+        now = localtime(&now_t);
+    
+        len = snprintf(dest_buffer, dest_buffer_remaining, 
+                "[%.4d%.2d%.2d-%.2d:%.2d:%.2d.%.3ld] ", 
+                 now->tm_year + 1900,
+                 now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min,
+                 now->tm_sec, now_milliseconds % 1000);
+        dest_msg_len += len;
+        dest_buffer_remaining -= len;
+    }
+    
+    if (0 < len && 0 < dest_buffer_remaining)
+    {
+        len = internal_log_lvl2str(level, dest_buffer + dest_msg_len);
+        dest_msg_len += len;
+        dest_buffer_remaining -= len;
+    }
+    
+    if (0 < len && 0 < dest_buffer_remaining)
+    {
+        if (config->enable_pid)
+        {
+            len = g_snprintf(dest_buffer + dest_msg_len, dest_buffer_remaining, "[pid:%d tid:%lld] ", 
+                       g_getpid(), (long long) tc_get_threadid());
+            dest_msg_len += len;
+            dest_buffer_remaining -= len;
+        }
+    }
+    
+    if (0 < len && 0 < dest_buffer_remaining)
+    {
+        if(function_name != NULL && file_name != NULL)
+        {
+            len = g_snprintf(dest_buffer + dest_msg_len, dest_buffer_remaining, "[%s(%s:%d)] ", 
+                   function_name, file_name, line_number);
+            dest_msg_len += len;
+            dest_buffer_remaining -= len;
+        }
+    }
+        
+    if (0 < len && 0 < dest_buffer_remaining)
+    {
+        len = vsnprintf(dest_buffer + dest_msg_len, dest_buffer_remaining, msg, ap);
+        dest_msg_len += len;
+        dest_buffer_remaining -= len;
+    }
+    
+    if(len < 0)
+    {
+        dest_buffer[0] = '\0';
+        return len;
+    }
+
+    /* forcing the end of message string */
+    if (dest_buffer_remaining < dest_msg_len + dest_buffer_reserved)
+    {
+        len = internal_log_append_newline(dest_buffer + dest_buffer_len - dest_buffer_reserved, dest_buffer_reserved);
+    }
+    else
+    {
+        len = internal_log_append_newline(dest_buffer + dest_msg_len, dest_buffer_remaining);
+    }
+    dest_msg_len += len;
+    
+    return dest_msg_len;
+}
+
+enum logReturns
+internal_log_message(const enum logLevels lvl, bool_t override_destination_level, const char *msg)
+{
+    enum logReturns rv = LOG_STARTUP_OK;
+    int writereply = 0;
 
     if (g_staticLogConfig == NULL)
     {
@@ -928,53 +1126,12 @@ internal_log_message(const enum logLevels lvl,
         return LOG_STARTUP_OK;
     }
 
-    now_milliseconds = g_time3_64();
-    now_t = now_milliseconds / 1000;
-    now = localtime(&now_t);
-
-    snprintf(buff, 25, "[%.4d%.2d%.2d-%.2d:%.2d:%.2d.%.3ld] ", now->tm_year + 1900,
-             now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min,
-             now->tm_sec, now_milliseconds % 1000);
-
-    internal_log_lvl2str(lvl, buff + 24);
-
-    if (g_staticLogConfig->enable_pid)
-    {
-        g_snprintf(buff + 32, LOG_BUFFER_SIZE, "[pid:%d tid:%lld] ",
-                   g_getpid(), (long long) tc_get_threadid());
-        len = g_strlen(buff + 32);
-    }
-    len += vsnprintf(buff + 32 + len, LOG_BUFFER_SIZE - len, msg, ap);
-
-    /* checking for truncated messages */
-    if (len > LOG_BUFFER_SIZE)
-    {
-        log_message(LOG_LEVEL_WARNING, "next message will be truncated");
-        len = LOG_BUFFER_SIZE;
-    }
-
-    /* forcing the end of message string */
-#ifdef _WIN32
-    buff[len + 32] = '\r';
-    buff[len + 33] = '\n';
-    buff[len + 34] = '\0';
-#else
-#ifdef _MACOS
-    buff[len + 32] = '\r';
-    buff[len + 33] = '\0';
-#else
-    buff[len + 32] = '\n';
-    buff[len + 33] = '\0';
-#endif
-#endif
-
-    if (g_staticLogConfig->enable_syslog
-            && ((override_destination_level && lvl <= override_log_level)
-                || (!override_destination_level && lvl <= g_staticLogConfig->syslog_level)))
+    if (g_staticLogConfig->enable_syslog && (override_destination_level || lvl <= g_staticLogConfig->syslog_level))
     {
         /* log to syslog*/
         /* %s fix compiler warning 'not a string literal' */
-        syslog(internal_log_xrdp2syslog(lvl), "%s", buff + 24);
+        /* 24 = date and time log message prefix length  since the syslog will include the timestamp it it's own log entry*/
+        syslog(internal_log_xrdp2syslog(lvl), "%s", msg + 24);
     }
 
     if (g_staticLogConfig->enable_console
@@ -982,7 +1139,7 @@ internal_log_message(const enum logLevels lvl,
                 || (!override_destination_level && lvl <= g_staticLogConfig->console_level)))
     {
         /* log to console */
-        g_printf("%s", buff);
+        g_printf("%s", msg);
     }
 
     if ((override_destination_level && lvl <= override_log_level)
@@ -995,7 +1152,9 @@ internal_log_message(const enum logLevels lvl,
             pthread_mutex_lock(&(g_staticLogConfig->log_lock));
 #endif
 
-            writereply = g_file_write(g_staticLogConfig->fd, buff, g_strlen(buff));
+        if (g_staticLogConfig->fd >= 0 && g_staticLogConfig->enable_file)
+        {
+            writereply = g_file_write(g_staticLogConfig->fd, msg, g_strlen(msg));
 
             if (writereply <= 0)
             {
