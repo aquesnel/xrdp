@@ -209,8 +209,8 @@ lib_mod_connect(struct mod *mod)
     while (1)
     {
 
-        /* mod->server_msg(mod, "connecting...", 0); */
         LOG_DEVEL(LOG_LEVEL_INFO, "lib_mod_connect: connecting to %s %s", mod->ip, con_port);
+        /* LOG_USER(mod, LOG_LEVEL_INFO, "connecting to %s %s ...", mod->ip, con_port); */
 
         error = -1;
         if (trans_connect(mod->trans, mod->ip, con_port, 3000) == 0)
@@ -235,7 +235,7 @@ lib_mod_connect(struct mod *mod)
 
         if (i >= 60)
         {
-            mod->server_msg(mod, "connection problem, giving up", 0);
+            LOG_USER(mod, LOG_LEVEL_ERROR, "connection problem, giving up");
             break;
         }
 
@@ -277,7 +277,7 @@ lib_mod_connect(struct mod *mod)
     }
     else
     {
-        mod->server_msg(mod, "connected ok", 0);
+        LOG_USER(mod, LOG_LEVEL_INFO, "connected ok");
         mod->trans->trans_data_in = lib_data_in;
         mod->trans->header_size = 8;
         mod->trans->callback_data = mod;

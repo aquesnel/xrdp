@@ -2200,13 +2200,36 @@ xrdp_wm_log_msg(struct xrdp_wm *self, enum logLevels loglevel,
                 const char *fmt, ...)
 {
     va_list ap;
-    char msg[256];
+    int rv;
 
     va_start(ap, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, ap);
+    rv = xrdp_wm_log_msg_va(self, loglevel, fmt, ap);
     va_end(ap);
 
-    LOG(loglevel, "xrdp_wm_log_msg: %s", msg);
+    return rv;
+}
+
+int
+xrdp_wm_log_msg_va(struct xrdp_wm *self, enum logLevels loglevel,
+                const char *fmt, va_list ap)
+{
+    return xrdp_wm_log_msg_with_location(self, "unknown_function", "unknown_file", 0, loglevel, fmt, ap);
+}
+
+int
+xrdp_wm_log_msg_with_location(struct xrdp_wm *self, 
+                const char *function_name, 
+                const char *file_name, 
+                const int line_number,
+                enum logLevels loglevel,
+                const char *fmt, 
+                va_list ap)
+{
+    char msg[256];
+
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+
+    LOG_WITH_LOCATION(function_name, file_name, line_number, loglevel, "xrdp_wm_log_msg: %s", msg);
     add_string_to_logwindow(msg, self->log);
     return 0;
 }
