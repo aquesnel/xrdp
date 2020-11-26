@@ -1753,7 +1753,7 @@ static int
 xrdp_wm_process_input_mouse(struct xrdp_wm *self, int device_flags,
                             int x, int y)
 {
-    LOG_DEVEL(LOG_LEVEL_TRACE, "mouse event flags %4.4x x %d y %d", device_flags, x, y);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "mouse event flags 0x%4.4x, x %d, y %d", device_flags, x, y);
 
     if (device_flags & PTRFLAGS_MOVE)
     {
@@ -2206,7 +2206,7 @@ xrdp_wm_log_msg(struct xrdp_wm *self, enum logLevels loglevel,
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 
-    LOG(loglevel, "xrdp_wm_log_msg: %s", msg);
+    LOG(loglevel, "Message to user: %s", msg);
     add_string_to_logwindow(msg, self->log);
     return 0;
 }
