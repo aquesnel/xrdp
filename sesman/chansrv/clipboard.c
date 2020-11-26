@@ -2435,6 +2435,7 @@ clipboard_xevent(void *xevent)
 
     if (!g_clip_up)
     {
+        LOG_DEVEL(LOG_LEVEL_WARNING, "clipboard is not initialised");
         return 1;
     }
 

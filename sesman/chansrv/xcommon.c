@@ -178,6 +178,8 @@ xcommon_check_wait_objs(void)
     {
         g_memset(&xevent, 0, sizeof(xevent));
         XNextEvent(g_display, &xevent);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] type 0x%8.8x, serial %lu", 
+              xevent.type, xevent.xany.serial);
         clip_rv = clipboard_xevent(&xevent);
         rail_rv = rail_xevent(&xevent);
         if ((clip_rv == 1) && (rail_rv == 1))

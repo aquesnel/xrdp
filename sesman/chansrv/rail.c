@@ -303,7 +303,7 @@ rail_send_init(void)
     size_ptr[1] = bytes >> 8;
     bytes = (int)(s->end - s->data);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPERP] TS_RAIL_ORDER_HANDSHAKE "
-              "orderType %x orderLength %d buildNumber 1", 
+              "orderType 0x%4.4x, orderLength %d, buildNumber 1", 
               TS_RAIL_ORDER_HANDSHAKE, bytes);
     
     send_channel_data(g_rail_chan_id, s->data, bytes);
@@ -1135,6 +1135,8 @@ rail_process_client_status(struct stream *s, int size)
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_CLIENTSTATUS "
             "Flags 0x%8.8x", flags);
 
+    LOG_DEVEL(LOG_LEVEL_WARNING, 
+              "Ignoring clietn status order, command not supported");
     return 0;
 }
 
@@ -1935,7 +1937,10 @@ rail_xevent(void *xevent)
 
     if (!g_rail_up)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "rail is not initialised");
+        /* This function is called on every XEvent regardless of the state of 
+        the rail module. Therefore this is an normal code path and not a bug 
+        in the code. */
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "rail is not initialised");
         return 1;
     }
 

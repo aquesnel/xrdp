@@ -362,15 +362,24 @@ process_message_channel_setup(struct stream *s)
     g_rdpdr_chan_id = -1;
     g_rail_chan_id = -1;
     in_uint16_le(s, num_chans);
-    LOG_DEVEL(LOG_LEVEL_INFO, "channel setup with num_chans %d", num_chans);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_SETUP "
+              "channel count %d", num_chans);
 
     for (index = 0; index < num_chans; index++)
     {
         ci = &(g_chan_items[g_num_chan_items]);
         g_memset(ci->name, 0, sizeof(ci->name));
         in_uint8a(s, ci->name, 8);
+        if (g_strlen(ci->name) > 8)
+        {
+            LOG_DEVEL(LOG_LEVEL_ERROR,
+                      "Received channel name string is not NULL terminated");
+            return 1;
+        }
         in_uint16_le(s, ci->id);
         in_uint16_le(s, ci->flags);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_SETUP.CHANNEL_INFO[%d] "
+              "name '%s', id %d flags %4.4x", index, ci->name, ci->id, ci->flags);
         LOG(LOG_LEVEL_INFO, "setup channel: name '%s' "
               "id %d flags %8.8x", ci->name, ci->id, ci->flags);
 
@@ -455,8 +464,11 @@ process_message_channel_data(struct stream *s)
     in_uint16_le(s, chan_flags);
     in_uint16_le(s, length);
     in_uint32_le(s, total_length);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "channel data for chan_id %d chan_flags %d", 
-            chan_id, chan_flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] CHANNEL_DATA "
+              "channel id %d, data length %d,"
+              "[MS-RDPBCGR] CHANNEL_PDU_HEADER length %d, "
+              "[MS-RDPBCGR] CHANNEL_PDU_HEADER flags 0x%8.8x", 
+              chan_id, length, total_length, chan_flags);
     rv = 0;
 
     if (chan_id == g_cliprdr_chan_id)
@@ -888,8 +900,8 @@ process_message(void)
 
     if (g_con_trans == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message: bug/error - "
-              "global connected transport is null");
+        LOG_DEVEL(LOG_LEVEL_ERROR,
+              "BUG: global connection transport is NULL");
         return 1;
     }
 
@@ -897,8 +909,7 @@ process_message(void)
 
     if (s == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message: bug/error - "
-              "transport input stream is null");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "BUG: transport input stream is NULL");
         return 1;
     }
 
@@ -911,7 +922,8 @@ process_message(void)
         in_uint32_le(s, size);
         next_msg += size;
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "process_message: processing message with id %d", id);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] MESSAGE_HEADER "
+              "message type %d, message length %d", id, size);
         switch (id)
         {
             case 3: /* channel setup */
@@ -939,7 +951,7 @@ process_message(void)
 
         if (rv != 0)
         {
-            LOG_DEVEL(LOG_LEVEL_WARNING, "error processing message id %d "
+            LOG_DEVEL(LOG_LEVEL_WARNING, "Ignoring error processing message id %d "
                     "returned error code %d ", id, rv);
             rv = 0;
         }
@@ -964,22 +976,23 @@ my_trans_data_in(struct trans *trans)
 
     if (trans == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: bug/error - "
-              "transport is null");
+        LOG_DEVEL(LOG_LEVEL_WARNING, "BUG: transport is NULL");
         return 0;
     }
 
     if (trans != g_con_trans)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "my_trans_data_in: bug/error - "
-              "transport is not the global connected transport");
+        LOG_DEVEL(LOG_LEVEL_ERROR,
+                  "BUG: transport is not the global connection transport");
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     s = trans_get_in_s(trans);
-    in_uint8s(s, 4); /* id */
+    in_uint8s(s, 4); /* version id */
     in_uint32_le(s, size);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] VERSION_HEADER "
+                      "version (ignored), message length %d", size);
+
     error = trans_force_read(trans, size - 8);
 
     if (error != 0)
