@@ -356,6 +356,10 @@ rail_init(void)
 {
     LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_init:");
     xcommon_init();
+    
+    /* When the client has requested a RAIL session, [MS-RDPERP] 1.3.2.1 states 
+    that the server must send the TS_RAIL_ORDER_HANDSHAKE PDU */
+    rail_send_init();
 
     return 0;
 }
@@ -392,7 +396,6 @@ rail_startup(void)
 
     list_delete(g_window_list);
     g_window_list = list_create();
-    rail_send_init();
     g_rail_up = 1;
     g_rwd_atom = XInternAtom(g_display, "XRDP_RAIL_WINDOW_DATA", 0);
 
