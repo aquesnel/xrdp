@@ -94,9 +94,9 @@ lib_data_in(struct trans *trans)
     struct stream *s;
     int len;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "lib_data_in:");
     if (trans == 0)
     {
+        LOG(LOG_LEVEL_ERROR, "trans is NULL");
         return 1;
     }
 
@@ -105,6 +105,7 @@ lib_data_in(struct trans *trans)
 
     if (s == 0)
     {
+        LOG(LOG_LEVEL_ERROR, "trans input stream is NULL");
         return 1;
     }
 
@@ -116,9 +117,12 @@ lib_data_in(struct trans *trans)
             in_uint32_le(s, len);
             if (len < 0 || len > 128 * 1024)
             {
-                LOG(LOG_LEVEL_ERROR, "lib_data_in: bad size");
+                LOG(LOG_LEVEL_ERROR, 
+                    "Received [xorgxrdp] invalid message length %d", len);
                 return 1;
             }
+            LOG_DEVEL(LOG_LEVEL_TRACE, 
+                        "Received header [xorgxrdp] length %d", len);
             if (len > 0)
             {
                 trans->header_size = len + 8;
@@ -184,7 +188,6 @@ lib_mod_connect(struct mod *mod)
 
     if (use_uds)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_connect: connecting via UNIX socket");
         mod->trans = trans_create(TRANS_MODE_UNIX, 8 * 8192, 8192);
         if (mod->trans == 0)
         {
@@ -194,7 +197,6 @@ lib_mod_connect(struct mod *mod)
     }
     else
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_connect: connecting via TCP socket");
         mod->trans = trans_create(TRANS_MODE_TCP, 8 * 8192, 8192);
         if (mod->trans == 0)
         {
@@ -208,15 +210,16 @@ lib_mod_connect(struct mod *mod)
 
     while (1)
     {
-
         /* mod->server_msg(mod, "connecting...", 0); */
-        LOG_DEVEL(LOG_LEVEL_INFO, "lib_mod_connect: connecting to %s %s", mod->ip, con_port);
-
+        LOG(LOG_LEVEL_INFO, 
+            "Connecting to Xserver using Xorgxrdp/X11rdp protocol via %s socket at %s %s", 
+            (use_uds ? "UNIX" : "TCP"), mod->ip, con_port);
+        
         error = -1;
         if (trans_connect(mod->trans, mod->ip, con_port, 3000) == 0)
         {
-            LOG(LOG_LEVEL_INFO, "lib_mod_connect: connected to Xserver "
-                "(Xorg or X11rdp) sck %lld",
+            LOG(LOG_LEVEL_INFO, 
+                "Connected to Xserver using Xorgxrdp/X11rdp protocol on socket %lld",
                 (long long) (mod->trans->sck));
             error = 0;
         }
@@ -375,6 +378,10 @@ process_server_fill_rect(struct mod *mod, struct stream *s)
     in_sint16_le(s, y);
     in_uint16_le(s, cx);
     in_uint16_le(s, cy);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] FILL_RECT "
+                "x %d, y %d, cx %d, cy %d", 
+                x, y, cx, cy);
+    
     rv = mod->server_fill_rect(mod, x, y, cx, cy);
     return rv;
 }
@@ -398,6 +405,10 @@ process_server_screen_blt(struct mod *mod, struct stream *s)
     in_uint16_le(s, cy);
     in_sint16_le(s, srcx);
     in_sint16_le(s, srcy);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SCREEN_BLT "
+                "x %d, y %d, cx %d, cy %d, srcx %d, srcy %d", 
+                x, y, cx, cy, srcx, srcy);
+                
     rv = mod->server_screen_blt(mod, x, y, cx, cy, srcx, srcy);
     return rv;
 }
@@ -429,6 +440,11 @@ process_server_paint_rect(struct mod *mod, struct stream *s)
     in_uint16_le(s, height);
     in_sint16_le(s, srcx);
     in_sint16_le(s, srcy);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] PAINT_RECT "
+                "x %d, y %d, cx %d, cy %d, len_bmpdata %d, bmpdata <omitted>, "
+                "width %d, height %d, srcx %d, srcy %d", 
+                x, y, cx, cy, len_bmpdata, width, height, srcx, srcy);
+                
     rv = mod->server_paint_rect(mod, x, y, cx, cy,
                                 bmpdata, width, height,
                                 srcx, srcy);
@@ -450,6 +466,10 @@ process_server_set_clip(struct mod *mod, struct stream *s)
     in_sint16_le(s, y);
     in_uint16_le(s, cx);
     in_uint16_le(s, cy);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_CLIP "
+                "x %d, y %d, cx %d, cy %d", 
+                x, y, cx, cy);
+                
     rv = mod->server_set_clip(mod, x, y, cx, cy);
     return rv;
 }
@@ -460,7 +480,8 @@ static int
 process_server_reset_clip(struct mod *mod, struct stream *s)
 {
     int rv;
-
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] RESET_CLIP");
     rv = mod->server_reset_clip(mod);
     return rv;
 }
@@ -474,6 +495,9 @@ process_server_set_fgcolor(struct mod *mod, struct stream *s)
     int fgcolor;
 
     in_uint32_le(s, fgcolor);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_FGCOLOR "
+                "fgcolor %d", fgcolor);
+                
     rv = mod->server_set_fgcolor(mod, fgcolor);
     return rv;
 }
@@ -487,6 +511,9 @@ process_server_set_bgcolor(struct mod *mod, struct stream *s)
     int bgcolor;
 
     in_uint32_le(s, bgcolor);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_BGCOLOR "
+                "bgcolor %d", bgcolor);
+                
     rv = mod->server_set_bgcolor(mod, bgcolor);
     return rv;
 }
@@ -500,6 +527,9 @@ process_server_set_opcode(struct mod *mod, struct stream *s)
     int opcode;
 
     in_uint16_le(s, opcode);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_OPCODE "
+                "opcode %d", opcode);
+                
     rv = mod->server_set_opcode(mod, opcode);
     return rv;
 }
@@ -515,6 +545,9 @@ process_server_set_pen(struct mod *mod, struct stream *s)
 
     in_uint16_le(s, style);
     in_uint16_le(s, width);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_PEN "
+                "style %d, width %d", style, width);
+                
     rv = mod->server_set_pen(mod, style, width);
     return rv;
 }
@@ -534,6 +567,9 @@ process_server_draw_line(struct mod *mod, struct stream *s)
     in_sint16_le(s, y1);
     in_sint16_le(s, x2);
     in_sint16_le(s, y2);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] DRAW_LINE "
+                "x1 %d, y1 %d, x2 %d, y2 %d", x1, y1, x2, y2);
+                
     rv = mod->server_draw_line(mod, x1, y1, x2, y2);
     return rv;
 }
@@ -553,6 +589,9 @@ process_server_set_cursor(struct mod *mod, struct stream *s)
     in_sint16_le(s, y);
     in_uint8a(s, cur_data, 32 * (32 * 3));
     in_uint8a(s, cur_mask, 32 * (32 / 8));
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_CURSOR "
+                "x %d, y %d, cur_data <omitted>, cur_mask <omitted>", x, y);
+                
     rv = mod->server_set_cursor(mod, x, y, cur_data, cur_mask);
     return rv;
 }
@@ -570,6 +609,9 @@ process_server_create_os_surface(struct mod *mod, struct stream *s)
     in_uint32_le(s, rdpid);
     in_uint16_le(s, width);
     in_uint16_le(s, height);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] CREATE_OS_SURFACE "
+                "rdpid %d, width %d, height %d", rdpid, width, height);
+                
     rv = mod->server_create_os_surface(mod, rdpid, width, height);
     return rv;
 }
@@ -583,6 +625,9 @@ process_server_switch_os_surface(struct mod *mod, struct stream *s)
     int rdpid;
 
     in_uint32_le(s, rdpid);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SWITCH_OS_SURFACE "
+                "rdpid %d", rdpid);
+                
     rv = mod->server_switch_os_surface(mod, rdpid);
     return rv;
 }
@@ -596,6 +641,9 @@ process_server_delete_os_surface(struct mod *mod, struct stream *s)
     int rdpid;
 
     in_uint32_le(s, rdpid);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] DELETE_OS_SURFACE "
+                "rdpid %d", rdpid);
+                
     rv = mod->server_delete_os_surface(mod, rdpid);
     return rv;
 }
@@ -621,6 +669,10 @@ process_server_paint_rect_os(struct mod *mod, struct stream *s)
     in_uint32_le(s, rdpid);
     in_sint16_le(s, srcx);
     in_sint16_le(s, srcy);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] PAINT_RECT_OS "
+                "x %d, y %d, cx %d, cy %d, rdpid %d, srcx %d, srcy %d", 
+                x, y, cx, cy, rdpid, srcx, srcy);
+                
     rv = mod->server_paint_rect_os(mod, x, y, cx, cy,
                                    rdpid, srcx, srcy);
     return rv;
@@ -637,6 +689,10 @@ process_server_set_hints(struct mod *mod, struct stream *s)
 
     in_uint32_le(s, hints);
     in_uint32_le(s, mask);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_HINTS "
+                "hints 0x%8.8x, mask 0x%8.8x", 
+                hints, mask);
+                
     rv = mod->server_set_hints(mod, hints, mask);
     return rv;
 }
@@ -716,6 +772,9 @@ process_server_window_new_update(struct mod *mod, struct stream *s)
     }
 
     in_uint32_le(s, flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] WINDOW_NEW_UPDATE (RAIL?) "
+                "TBD");
+                
     mod->server_window_new_update(mod, window_id, &rwso, flags);
     rv = 0;
     g_free(rwso.title_info);
@@ -733,6 +792,9 @@ process_server_window_delete(struct mod *mod, struct stream *s)
     int rv;
 
     in_uint32_le(s, window_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] WINDOW_DELETE "
+                "window_id %d", window_id);
+                
     mod->server_window_delete(mod, window_id);
     rv = 0;
     return rv;
@@ -752,6 +814,10 @@ process_server_window_show(struct mod *mod, struct stream *s)
     in_uint32_le(s, window_id);
     in_uint32_le(s, flags);
     in_uint32_le(s, rwso.show_state);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] WINDOW_SHOW "
+                "window_id %d, flags 0x%8.8x, show_state %d", 
+                window_id, flags, rwso.show_state);
+                
     mod->server_window_new_update(mod, window_id, &rwso, flags);
     rv = 0;
     return rv;
@@ -780,6 +846,11 @@ process_server_add_char(struct mod *mod, struct stream *s)
     in_uint16_le(s, cy);
     in_uint16_le(s, len_bmpdata);
     in_uint8p(s, bmpdata, len_bmpdata);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] ADD_CHAR "
+                "font %d, character %d, x %d, y %d, cx %d, cy %d, "
+                "len_bmpdata %d, bmpdata <omitted>", 
+                font, character, x, y, cx, cy, len_bmpdata);
+                
     rv = mod->server_add_char(mod, font, character, x, y, cx, cy, bmpdata);
     return rv;
 }
@@ -808,6 +879,11 @@ process_server_add_char_alpha(struct mod *mod, struct stream *s)
     in_uint16_le(s, cy);
     in_uint16_le(s, len_bmpdata);
     in_uint8p(s, bmpdata, len_bmpdata);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] ADD_CHAR_ALPHA "
+                "font %d, character %d, x %d, y %d, cx %d, cy %d, "
+                "len_bmpdata %d, bmpdata <omitted>", 
+                font, character, x, y, cx, cy, len_bmpdata);
+                
     rv = mod->server_add_char_alpha(mod, font, character, x, y, cx, cy,
                                     bmpdata);
     return rv;
@@ -850,6 +926,15 @@ process_server_draw_text(struct mod *mod, struct stream *s)
     in_sint16_le(s, y);
     in_uint16_le(s, len_bmpdata);
     in_uint8p(s, bmpdata, len_bmpdata);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] DRAW_TEXT "
+                "font %d, flags 0x%4.4x, mixmode %d, clip_left %d, clip_top %d, "
+                "clip_right %d, clip_bottom %d, box_left %d, box_top %d, "
+                "box_right %d, box_bottom %d, x %d, y %d, "
+                "len_bmpdata %d, bmpdata <omitted>", 
+                font, flags, mixmode, clip_left, clip_top,
+                clip_right, clip_bottom, box_left, box_top,
+                box_right, box_bottom, x, y, len_bmpdata);
+                
     rv = mod->server_draw_text(mod, font, flags, mixmode, clip_left, clip_top,
                                clip_right, clip_bottom, box_left, box_top,
                                box_right, box_bottom, x, y, bmpdata, len_bmpdata);
@@ -871,6 +956,10 @@ process_server_create_os_surface_bpp(struct mod *mod, struct stream *s)
     in_uint16_le(s, width);
     in_uint16_le(s, height);
     in_uint8(s, bpp);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] CREATE_OS_SURFACE "
+                "rdpid %d, width %d, height %d, bpp %d", 
+                rdpid, width, height, bpp);
+                
     rv = mod->server_create_os_surface_bpp(mod, rdpid, width, height, bpp);
     return rv;
 }
@@ -905,6 +994,11 @@ process_server_paint_rect_bpp(struct mod *mod, struct stream *s)
     in_sint16_le(s, srcx);
     in_sint16_le(s, srcy);
     in_uint8(s, bpp);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] PAINT_RECT_BPP "
+                "x %d, y %d, cx %d, cy %d, len_bmpdata %d, bmpdata <omitted>, "
+                "width %d, height %d, srcx %d, srcy %d, bpp %d", 
+                x, y, cx, cy, len_bmpdata, width, height, srcx, srcy, bpp);
+                
     rv = mod->server_paint_rect_bpp(mod, x, y, cx, cy,
                                     bmpdata, width, height,
                                     srcx, srcy, bpp);
@@ -959,6 +1053,16 @@ process_server_composite(struct mod *mod, struct stream *s)
     in_uint16_le(s, width);
     in_uint16_le(s, height);
     in_uint32_le(s, dstformat);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] COMPOSITE "
+                "srcidx %d, srcformat %d, srcwidth %d, srcrepeat %d, "
+                "transform <omitted>, mskflags %d, mskidx %d, mskformat %d, "
+                "mskwidth %d, mskrepeat %d, op %d, srcx %d, srcy %d, mskx %d, msky %d, "
+                "dstx %d, dsty %d, width %d, height %d, dstformat %d", 
+                srcidx, srcformat, srcwidth, srcrepeat,
+                mskflags, mskidx, mskformat,
+                mskwidth, mskrepeat, op, srcx, srcy, mskx, msky,
+                dstx, dsty, width, height, dstformat);
+                
     rv = mod->server_composite(mod, srcidx, srcformat, srcwidth, srcrepeat,
                                transform, mskflags, mskidx, mskformat,
                                mskwidth, mskrepeat, op, srcx, srcy, mskx, msky,
@@ -985,6 +1089,10 @@ process_server_set_pointer_ex(struct mod *mod, struct stream *s)
     Bpp = (bpp == 0) ? 3 : (bpp + 7) / 8;
     in_uint8a(s, cur_data, 32 * (32 * Bpp));
     in_uint8a(s, cur_mask, 32 * (32 / 8));
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] SET_POINTER_EX "
+                "x %d, y %d, bpp %d, cur_data <omitted>, cur_mask <omitted>", 
+                x, y, bpp);
+                
     rv = mod->server_set_cursor_ex(mod, x, y, cur_data, cur_mask, bpp);
     return rv;
 }
@@ -1012,6 +1120,9 @@ send_paint_rect_ack(struct mod *mod, int flags, int x, int y, int cx, int cy,
     len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
     out_uint32_le(s, len);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [xorgxrdp] PAINT_RECT_ACK "
+                "-- TBD");
+
     lib_send_copy(mod, s);
     free_stream(s);
     return 0;
@@ -1049,7 +1160,13 @@ process_server_paint_rect_shmem(struct mod *amod, struct stream *s)
     in_uint16_le(s, height);
     in_sint16_le(s, srcx);
     in_sint16_le(s, srcy);
-
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] PAINT_RECT_SHMEM "
+                "x %d, y %d, cx %d, cy %d, flags 0x%8.8x, frame_id %d, "
+                "shmem_id %d, shmem_offset %d, width %d, height %d, "
+                "srcx %d, srcy %d", 
+                x, y, cx, cy, flags, frame_id, shmem_id, shmem_offset, 
+                width, height, srcx, srcy);
+                                     
     bmpdata = 0;
     rv = 0;
     if (amod->screen_shmem_id_mapped == 0)
@@ -1113,6 +1230,8 @@ send_paint_rect_ex_ack(struct mod *mod, int flags, int frame_id)
     len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
     out_uint32_le(s, len);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [xorgxrdp] PAINT_RECT_EX_ACK "
+                "-- TBD");
     lib_send_copy(mod, s);
     free_stream(s);
     return 0;
@@ -1140,6 +1259,8 @@ send_suppress_output(struct mod *mod, int suppress,
     len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
     out_uint32_le(s, len);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [xorgxrdp] SUPRESS_OUTPUT "
+                "-- TBD");
     lib_send_copy(mod, s);
     free_stream(s);
     return 0;
@@ -1199,7 +1320,9 @@ process_server_paint_rect_shmem_ex(struct mod *amod, struct stream *s)
 
     in_uint16_le(s, width);
     in_uint16_le(s, height);
-
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] PAINT_RECT_SHMEM_EX "
+                "-- TBD");
+                
     bmpdata = 0;
     if (flags == 0) /* screen */
     {
@@ -1265,18 +1388,19 @@ static int
 send_server_version_message(struct mod *mod, struct stream *s)
 {
     /* send version message */
+    /* see nutrinolabs/xorgxrdp rdpClientCon.c rdpClientConProcessMsg() */
     init_stream(s, 8192);
     s_push_layer(s, iso_hdr, 4);
-    out_uint16_le(s, 103);
-    out_uint32_le(s, 301);
-    out_uint32_le(s, 0);
-    out_uint32_le(s, 0);
-    out_uint32_le(s, 0);
-    out_uint32_le(s, 1);
+    out_uint16_le(s, 103); /* msg type = client input */
+    out_uint32_le(s, 301); /* client input msg type = version */
+    out_uint32_le(s, 0);   /* version param1 */
+    out_uint32_le(s, 0);   /* version param2 */
+    out_uint32_le(s, 0);   /* version param3 */
+    out_uint32_le(s, 1);   /* version param4 */
     s_mark_end(s);
-    int len = (int)(s->end - s->data);
+    len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
-    out_uint32_le(s, len);
+    out_uint32_le(s, len); /* msg length */
     int rv = lib_send_copy(mod, s);
     return rv;
 }
@@ -1384,14 +1508,16 @@ lib_mod_process_orders(struct mod *mod, int type, struct stream *s)
 {
     int rv;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "lib_mod_process_orders: type %d", type);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [xorgxrdp] order_type %d", type);
     rv = 0;
     switch (type)
     {
         case 1: /* server_begin_update */
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] BEGIN_UPDATE");
             rv = mod->server_begin_update(mod);
             break;
         case 2: /* server_end_update */
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [xorgxrdp] END_UPDATE");
             rv = mod->server_end_update(mod);
             break;
         case 3: /* server_fill_rect */
@@ -1479,7 +1605,8 @@ lib_mod_process_orders(struct mod *mod, int type, struct stream *s)
             rv = process_server_paint_rect_shmem_ex(mod, s);
             break;
         default:
-            LOG_DEVEL(LOG_LEVEL_WARNING, "lib_mod_process_orders: unknown order type %d", type);
+            LOG_DEVEL(LOG_LEVEL_WARNING, "Received header [xorgxrdp] "
+                    "unknown order_type %d", type);
             rv = 0;
             break;
     }
@@ -1494,7 +1621,6 @@ lib_send_client_info(struct mod *mod)
     struct stream *s;
     int len;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "lib_send_client_info:");
     make_stream(s);
     init_stream(s, 8192);
     s_push_layer(s, iso_hdr, 4);
@@ -1505,6 +1631,8 @@ lib_send_client_info(struct mod *mod)
     len = (int)(s->end - s->data);
     s_pop_layer(s, iso_hdr);
     out_uint32_le(s, len);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [xorgxrdp] CLIENT_INFO -- TBD");
+    
     lib_send_copy(mod, s);
     free_stream(s);
     return 0;
@@ -1522,14 +1650,15 @@ lib_mod_process_message(struct mod *mod, struct stream *s)
     int type;
     char *phold;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_process_message:");
     rv = 0;
     if (rv == 0)
     {
-        in_uint16_le(s, type);
+        in_uint16_le(s, type);        
         in_uint16_le(s, num_orders);
         in_uint32_le(s, len);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_process_message: type %d", type);
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "Received header [xorgxrdp] msg_type %d, num_orders %d, msg_length %d",
+                  type, num_orders, len);
 
         if (type == 1) /* original order list */
         {
@@ -1546,7 +1675,6 @@ lib_mod_process_message(struct mod *mod, struct stream *s)
         }
         else if (type == 2) /* caps */
         {
-            LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_process_message: type 2 len %d", len);
             for (index = 0; index < num_orders; index++)
             {
                 phold = s->p;
@@ -1556,7 +1684,8 @@ lib_mod_process_message(struct mod *mod, struct stream *s)
                 switch (type)
                 {
                     default:
-                        LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_process_message: unknown cap type %d len %d",
+                        LOG_DEVEL(LOG_LEVEL_WARNING, 
+                                  "unknown capability type %d, len %d",
                                   type, len);
                         break;
                 }
@@ -1597,7 +1726,7 @@ lib_mod_process_message(struct mod *mod, struct stream *s)
 int
 lib_mod_signal(struct mod *mod)
 {
-    // no-op
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] MOD_SIGNAL -- not used");
     return 0;
 }
 
@@ -1606,6 +1735,7 @@ lib_mod_signal(struct mod *mod)
 int
 lib_mod_end(struct mod *mod)
 {
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] MOD_END");
     if (mod->screen_shmem_pixels != 0)
     {
         g_shmdt(mod->screen_shmem_pixels);
@@ -1621,30 +1751,37 @@ lib_mod_set_param(struct mod *mod, const char *name, const char *value)
 {
     if (g_strcasecmp(name, "username") == 0)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->username, value, INFO_CLIENT_MAX_CB_LEN - 1);
     }
     else if (g_strcasecmp(name, "password") == 0)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to password = <omitted from the log>");
         g_strncpy(mod->password, value, INFO_CLIENT_MAX_CB_LEN - 1);
+        value = "<omitted from the log>";
     }
     else if (g_strcasecmp(name, "ip") == 0)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->ip, value, 255);
     }
     else if (g_strcasecmp(name, "port") == 0)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, value);
         g_strncpy(mod->port, value, 255);
     }
     else if (g_strcasecmp(name, "client_info") == 0)
     {
-        LOG(LOG_LEVEL_INFO, "lib_mod_set_param: setting to %s = %s", name, "<struct client_info>");
         g_memcpy(&(mod->client_info), value, sizeof(mod->client_info));
+        value = "<struct client_info>";
     }
-
+    else
+    {
+        LOG(LOG_LEVEL_WARNING, "xorgxrdp module ignoring %s = %s", name, value);
+        value = NULL;
+    }
+    
+    if (value != NULL)
+    {
+        LOG(LOG_LEVEL_INFO, "xorgxrdp module setting %s = %s", name, value);
+    }
+        
     return 0;
 }
 
@@ -1689,7 +1826,10 @@ lib_mod_check_wait_objs(struct mod *mod)
 int
 lib_mod_frame_ack(struct mod *amod, int flags, int frame_id)
 {
-    LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_frame_ack: flags 0x%8.8x frame_id %d", flags, frame_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] FRAME_ACK "
+              "flags 0x%8.8x, frame_id %d", 
+              flags, frame_id);
+            
     send_paint_rect_ex_ack(amod, flags, frame_id);
     return 0;
 }
@@ -1700,8 +1840,10 @@ int
 lib_mod_suppress_output(struct mod *amod, int suppress,
                         int left, int top, int right, int bottom)
 {
-    LOG_DEVEL(LOG_LEVEL_TRACE, "lib_mod_suppress_output: suppress 0x%8.8x left %d top %d "
-              "right %d bottom %d", suppress, left, top, right, bottom);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] SUPRESS_OUTPUT "
+              "suppress 0x%8.8x, left %d, top %d, "
+              "right %d, bottom %d", suppress, left, top, right, bottom);
+
     send_suppress_output(amod, suppress, left, top, right, bottom);
     return 0;
 }
@@ -1712,6 +1854,8 @@ mod_init(void)
 {
     struct mod *mod;
 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] MOD_INIT");
+    
     mod = (struct mod *)g_malloc(sizeof(struct mod), 1);
     mod->size = sizeof(struct mod);
     mod->version = CURRENT_MOD_VER;
@@ -1742,6 +1886,8 @@ mod_exit(tintptr handle)
     {
         return 0;
     }
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "XRDP module callback [xorgxrdp] MOD_EXIT");
     trans_delete(mod->trans);
     g_free(mod);
     return 0;
