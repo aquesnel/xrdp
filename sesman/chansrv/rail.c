@@ -298,10 +298,9 @@ rail_send_init(void)
     out_uint16_le(s, 0);        /* size, set later */
     out_uint32_le(s, 1);        /* build number */
     s_mark_end(s);
-    bytes = (int)((s->end - s->data) - 4);
+    bytes = (int)(s->end - s->data);
     size_ptr[0] = bytes;
     size_ptr[1] = bytes >> 8;
-    bytes = (int)(s->end - s->data);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPERP] TS_RAIL_ORDER_HANDSHAKE "
               "orderType 0x%4.4x, orderLength %d, buildNumber 1", 
               TS_RAIL_ORDER_HANDSHAKE, bytes);
