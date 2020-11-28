@@ -56,8 +56,8 @@ xrdp_mm_create(struct xrdp_wm *owner)
     self->login_values = list_create();
     self->login_values->auto_free = 1;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "xrdp_mm_create: bpp %d mcs_connection_type %d "
-              "jpeg_codec_id %d v3_codec_id %d rfx_codec_id %d "
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_create: bpp %d, mcs_connection_type %d, "
+              "jpeg_codec_id %d, v3_codec_id %d, rfx_codec_id %d, "
               "h264_codec_id %d",
               self->wm->client_info->bpp,
               self->wm->client_info->mcs_connection_type,
@@ -96,7 +96,7 @@ xrdp_mm_sync_load(long param1, long param2)
 static void
 xrdp_mm_module_cleanup(struct xrdp_mm *self)
 {
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_module_cleanup");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "cleaning up the module");
 
     if (self->mod != 0)
     {
@@ -164,6 +164,12 @@ xrdp_mm_send_login(struct xrdp_mm *self)
     struct stream *s;
     int rv;
     int index;
+    int username_length;
+    int password_length;
+    int domain_length = 0;
+    int program_length = 0;
+    int directory_length = 0;
+    int client_ip_length = 0;
     int count;
     int xserverbpp;
     char *username;
@@ -214,13 +220,13 @@ xrdp_mm_send_login(struct xrdp_mm *self)
     s_push_layer(s, channel_hdr, 8);
     /* this code is either 0 for Xvnc, 10 for X11rdp or 20 for Xorg */
     out_uint16_be(s, self->code);
-    index = g_strlen(username);
-    out_uint16_be(s, index);
-    out_uint8a(s, username, index);
-    index = g_strlen(password);
+    username_length = g_strlen(username);
+    out_uint16_be(s, username_length);
+    out_uint8a(s, username, username_length);
 
-    out_uint16_be(s, index);
-    out_uint8a(s, password, index);
+    password_length = g_strlen(password);
+    out_uint16_be(s, password_length);
+    out_uint8a(s, password, password_length);
     out_uint16_be(s, self->wm->screen->width);
     out_uint16_be(s, self->wm->screen->height);
 
@@ -241,9 +247,9 @@ xrdp_mm_send_login(struct xrdp_mm *self)
     /* send domain */
     if (self->wm->client_info->domain[0] != '_')
     {
-        index = g_strlen(self->wm->client_info->domain);
-        out_uint16_be(s, index);
-        out_uint8a(s, self->wm->client_info->domain, index);
+        domain_length = g_strlen(self->wm->client_info->domain);
+        out_uint16_be(s, domain_length);
+        out_uint8a(s, self->wm->client_info->domain, domain_length);
     }
     else
     {
@@ -252,34 +258,46 @@ xrdp_mm_send_login(struct xrdp_mm *self)
     }
 
     /* send program / shell */
-    index = g_strlen(self->wm->client_info->program);
-    out_uint16_be(s, index);
-    out_uint8a(s, self->wm->client_info->program, index);
+    program_length = g_strlen(self->wm->client_info->program);
+    out_uint16_be(s, program_length);
+    out_uint8a(s, self->wm->client_info->program, program_length);
 
     /* send directory */
-    index = g_strlen(self->wm->client_info->directory);
-    out_uint16_be(s, index);
-    out_uint8a(s, self->wm->client_info->directory, index);
+    directory_length = g_strlen(self->wm->client_info->directory);
+    out_uint16_be(s, directory_length);
+    out_uint8a(s, self->wm->client_info->directory, directory_length);
 
     /* send client ip */
-    index = g_strlen(self->wm->client_info->client_ip);
-    out_uint16_be(s, index);
-    out_uint8a(s, self->wm->client_info->client_ip, index);
+    client_ip_length = g_strlen(self->wm->client_info->client_ip);
+    out_uint16_be(s, client_ip_length);
+    out_uint8a(s, self->wm->client_info->client_ip, client_ip_length);
 
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Sesman] LOGIN "
+              "code %d, username_length %d, username '%s', password_length %d, "
+              "password <omitted from the log>, screen_width %d, screen_height %d, "
+              "xserverbpp %d, domain_length %d, domain %s, program_length %d, program '%s', "
+              "directory_length %d, directory '%s', client_ip_length %d, client_ip %s",
+              self->code, username_length, username, password_length,
+              self->wm->screen->width, self->wm->screen-> height, xserverbpp,
+              domain_length, (domain_length > 0 ? self->wm->client_info->domain : "<none>"),
+              program_length, self->wm->client_info->program,
+              directory_length, self->wm->client_info->directory,
+              client_ip_length, self->wm->client_info->client_ip);
 
     s_pop_layer(s, channel_hdr);
     /* Version 0 of the protocol to sesman is currently used by XRDP */
     out_uint32_be(s, 0); /* version */
     index = (int)(s->end - s->data);
     out_uint32_be(s, index); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Sesman] VERSION_HEADER "
+              "version 0, message_length %d", index);
 
     rv = trans_force_write(self->sesman_trans);
 
     if (rv != 0)
     {
-        xrdp_wm_log_msg(self->wm, LOG_LEVEL_WARNING,
-                        "xrdp_mm_send_login: xrdp_mm_send_login failed");
+        xrdp_wm_log_msg(self->wm, LOG_LEVEL_WARNING, "send login failed");
     }
 
     return rv;
@@ -475,7 +493,7 @@ xrdp_mm_setup_mod1(struct xrdp_mm *self)
     /* id self->mod is null, there must be a problem */
     if (self->mod == 0)
     {
-        LOG(LOG_LEVEL_ERROR, "problem loading lib in xrdp_mm_setup_mod1");
+        LOG(LOG_LEVEL_ERROR, "failed to load lib %s", lib);
         return 1;
     }
 
@@ -664,6 +682,9 @@ xrdp_mm_trans_send_channel_setup(struct xrdp_mm *self, struct trans *trans)
             out_uint8a(s, chan_name, 8);
             out_uint16_le(s, chan_id);
             out_uint16_le(s, chan_flags);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding data [Xrdp-Chansrv] CHANNEL_SETUP.CHANNEL_INFO[%d] "
+                      "name '%s', channel_id %d, flags 0x%4.4x",
+                      output_chan_count, chan_name, chan_id, chan_flags);
             ++output_chan_count;
         }
     }
@@ -671,14 +692,22 @@ xrdp_mm_trans_send_channel_setup(struct xrdp_mm *self, struct trans *trans)
     s_mark_end(s);
     s_pop_layer(s, sec_hdr);
     out_uint16_le(s, output_chan_count);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] CHANNEL_SETUP "
+              "channel_count %d", output_chan_count);
+
     s_pop_layer(s, mcs_hdr);
     size = (int)(s->end - s->p);
     out_uint32_le(s, 3); /* msg id */
     out_uint32_le(s, size); /* msg size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+              "message_type 3, message_length %d", size);
+
     s_pop_layer(s, iso_hdr);
     size = (int)(s->end - s->p);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, size); /* block size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+              "version 0, message_length %d", size);
     return trans_force_write(trans);
 }
 
@@ -698,6 +727,10 @@ xrdp_mm_trans_process_channel_data(struct xrdp_mm *self, struct stream *s)
     in_uint16_le(s, chan_flags);
     in_uint16_le(s, size);
     in_uint32_le(s, total_size);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_DATA "
+              "chansrv_chan_id %d, flags 0x%4.4x, data_length %d, "
+              "total_data_length %d, data <omitted from log>",
+              chan_id, chan_flags, size, total_size);
     rv = 0;
 
     if (rv == 0)
@@ -725,8 +758,6 @@ xrdp_mm_process_rail_create_window(struct xrdp_mm *self, struct stream *s)
 
     g_memset(&rwso, 0, sizeof(rwso));
     in_uint32_le(s, window_id);
-
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_process_rail_create_window: 0x%8.8x", window_id);
 
     in_uint32_le(s, rwso.owner_window_id);
     in_uint32_le(s, rwso.style);
@@ -780,6 +811,9 @@ xrdp_mm_process_rail_create_window(struct xrdp_mm *self, struct stream *s)
         }
     }
     in_uint32_le(s, flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_CREATE_WINDOW "
+              "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
+
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -811,8 +845,6 @@ xrdp_mm_process_rail_configure_window(struct xrdp_mm *self, struct stream *s)
 
     g_memset(&rwso, 0, sizeof(rwso));
     in_uint32_le(s, window_id);
-
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_process_rail_configure_window: 0x%8.8x", window_id);
 
     in_uint32_le(s, rwso.client_offset_x);
     in_uint32_le(s, rwso.client_offset_y);
@@ -855,6 +887,9 @@ xrdp_mm_process_rail_configure_window(struct xrdp_mm *self, struct stream *s)
         }
     }
     in_uint32_le(s, flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_CONFIGURE_WINDOW "
+              "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
+
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -880,7 +915,9 @@ xrdp_mm_process_rail_destroy_window(struct xrdp_mm *self, struct stream *s)
     int rv;
 
     in_uint32_le(s, window_id);
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_process_rail_destroy_window 0x%8.8x", window_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_DESTROY_WINDOW "
+              "window_id 0x%8.8x", window_id);
+
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -908,8 +945,10 @@ xrdp_mm_process_rail_show_window(struct xrdp_mm *self, struct stream *s)
     in_uint32_le(s, window_id);
     in_uint32_le(s, flags);
     in_uint32_le(s, rwso.show_state);
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_process_rail_show_window 0x%8.8x %x", window_id,
-        rwso.show_state);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_SHOW_WINDOW "
+              "window_id 0x%8.8x, flags 0x%8.8x, show_state %d",
+              window_id, flags, rwso.show_state);
+
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -934,17 +973,18 @@ xrdp_mm_process_rail_update_window_text(struct xrdp_mm *self, struct stream *s)
     int window_id;
     struct rail_window_state_order rwso;
 
-    LOG(LOG_LEVEL_DEBUG, "xrdp_mm_process_rail_update_window_text:");
     in_uint32_le(s, window_id);
     in_uint32_le(s, flags);
-    LOG(LOG_LEVEL_DEBUG, "  update window title info: 0x%8.8x", window_id);
 
     g_memset(&rwso, 0, sizeof(rwso));
     in_uint32_le(s, size); /* title size */
     rwso.title_info = g_new(char, size + 1);
     in_uint8a(s, rwso.title_info, size);
     rwso.title_info[size] = 0;
-    LOG(LOG_LEVEL_DEBUG, "  set window title %s size %d 0x%8.8x", rwso.title_info, size, flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_UPDATE_WINDOW_TITLE "
+              "window_id 0x%8.8x, flags 0x%8.8x, title_length %d, title '%s'",
+              window_id, flags, size, rwso.title_info);
+
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -954,7 +994,6 @@ xrdp_mm_process_rail_update_window_text(struct xrdp_mm *self, struct stream *s)
     {
         rv = libxrdp_orders_send(self->wm->session);
     }
-    LOG(LOG_LEVEL_DEBUG, "  set window title %s %d", rwso.title_info, rv);
 
     g_free(rwso.title_info);
 
@@ -972,6 +1011,9 @@ xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
 
     rv = 0;
     in_uint32_le(s, order_type);
+    LOG_DEVEL(LOG_LEVEL_TRACE,
+              "Received header [Xrdp-ChanServ] RAIL_DRAWING_ORDERS_HEADER "
+              "order_type %d", order_type);
 
     switch (order_type)
     {
@@ -988,6 +1030,8 @@ xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
             rv = xrdp_mm_process_rail_update_window_text(self, s);
             break;
         default:
+            LOG_DEVEL(LOG_LEVEL_WARNING,
+                      "Ignoring [Xrdp-ChanServ] unknown order_type %d", order_type);
             break;
     }
 
@@ -1203,16 +1247,18 @@ int
 xrdp_mm_suppress_output(struct xrdp_mm *self, int suppress,
                         int left, int top, int right, int bottom)
 {
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_suppress_output: suppress %d "
-              "left %d top %d right %d bottom %d",
-              suppress, left, top, right, bottom);
-    if (self->mod != NULL)
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "Processing SUPPRESS_OUTPUT: "
+              "is_suppressed %s, left %d, top %d, right %d, bottom %d",
+              (suppress ? "TRUE" : "FALSE"), left, top, right, bottom);
+    if (self->mod != NULL && self->mod->mod_suppress_output != NULL)
     {
-        if (self->mod->mod_suppress_output != NULL)
-        {
-            self->mod->mod_suppress_output(self->mod, suppress,
-                                           left, top, right, bottom);
-        }
+        self->mod->mod_suppress_output(self->mod, suppress,
+                                       left, top, right, bottom);
+    }
+    else
+    {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "Processing SUPPRESS_OUTPUT: "
+                  "no-op since mod or mod_suppress_output is NULL");
     }
     return 0;
 }
@@ -1228,24 +1274,30 @@ xrdp_mm_drdynvc_open_response(intptr_t id, int chan_id, int creation_status)
     struct xrdp_process *pro;
     int chansrv_chan_id;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_drdynvc_open_response: chan_id %d creation_status %d",
-              chan_id, creation_status);
     pro = (struct xrdp_process *) id;
     wm = pro->wm;
     trans = wm->mm->chan_trans;
     s = trans_get_out_s(trans, 8192);
     if (s == NULL)
     {
+        LOG(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 24); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+              "version 0, message length 24");
     out_uint32_le(s, 13); /* msg id */
     out_uint32_le(s, 16); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+              "message type 13, message length 16");
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     out_uint32_le(s, creation_status); /* status */
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_OPEN "
+              "chansrv_chan_id %d (rdp_channel_id %d), creation_status %d",
+              chansrv_chan_id, chan_id, creation_status);
     return trans_write_copy(trans);
 }
 
@@ -1266,15 +1318,24 @@ xrdp_mm_drdynvc_close_response(intptr_t id, int chan_id)
     s = trans_get_out_s(trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 20); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+              "version 0, message length 20");
     out_uint32_le(s, 15); /* msg id */
     out_uint32_le(s, 12); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+              "message type 15, message length 12");
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_CLOSE "
+              "chansrv_chan_id %d (rdp_channel_id %d)",
+              chansrv_chan_id, chan_id);
+
     return trans_write_copy(trans);
 }
 
@@ -1296,18 +1357,28 @@ xrdp_mm_drdynvc_data_first(intptr_t id, int chan_id, char *data,
     s = trans_get_out_s(trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + 4 + 4 + bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+              "version 0, message length %d", (8 + 8 + 4 + 4 + 4 + bytes));
     out_uint32_le(s, 17); /* msg id */
     out_uint32_le(s, 8 + 4 + 4 + 4 + bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+              "message type 17, message length %d", (8 + 4 + 4 + 4 + bytes));
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     out_uint32_le(s, bytes);
     out_uint32_le(s, total_bytes);
     out_uint8a(s, data, bytes);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_DATA_FIRST "
+              "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
+              "total_data_length %d, data <omitted from log>",
+              chansrv_chan_id, chan_id, bytes, total_bytes);
+
     return trans_write_copy(trans);
 }
 
@@ -1328,17 +1399,27 @@ xrdp_mm_drdynvc_data(intptr_t id, int chan_id, char *data, int bytes)
     s = trans_get_out_s(trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + 4 + bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+              "version 0, message_length %d", (8 + 8 + 4 + 4 + bytes));
     out_uint32_le(s, 19); /* msg id */
     out_uint32_le(s, 8 + 4 + 4 + bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+              "message_type 19, message_length %d", (8 + 4 + 4 + bytes));
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     out_uint32_le(s, bytes);
     out_uint8a(s, data, bytes);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_DATA "
+              "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
+              "data <omitted from log>",
+              chansrv_chan_id, chan_id, bytes);
+
     return trans_write_copy(trans);
 }
 
@@ -1358,20 +1439,27 @@ xrdp_mm_trans_process_drdynvc_channel_open(struct xrdp_mm *self,
 
     if (!s_check_rem(s, 2))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected 2, remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, name_bytes);
     if ((name_bytes < 1) || (name_bytes > 1024))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "invalid name_length. "
+                  "Expected 1 <= name_length <= 1024, acctual %d", name_bytes);
         return 1;
     }
     name = g_new(char, name_bytes + 1);
     if (name == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "error allocating memory");
         return 1;
     }
     if (!s_check_rem(s, name_bytes))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected %d, remaining %d", name_bytes, s_rem(s));
         g_free(name);
         return 1;
     }
@@ -1379,14 +1467,22 @@ xrdp_mm_trans_process_drdynvc_channel_open(struct xrdp_mm *self,
     name[name_bytes] = 0;
     if (!s_check_rem(s, 8))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected 8, remaining %d", s_rem(s));
         g_free(name);
         return 1;
     }
     in_uint32_le(s, flags);
     in_uint32_le(s, chansrv_chan_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE,
+              "Received [Xrdp-ChanServ] DRDYNVC_CHANNEL_OPEN "
+              "name_length %d, name '%s', flags 0x%8.8x, chansrv_chan_id %d",
+              name_bytes, name, flags, chansrv_chan_id);
+
     if (flags == 0)
     {
         /* open static channel, not supported */
+        LOG_DEVEL(LOG_LEVEL_ERROR, "Opening static channels is not supported");
         g_free(name);
         return 1;
     }
@@ -1403,11 +1499,15 @@ xrdp_mm_trans_process_drdynvc_channel_open(struct xrdp_mm *self,
                                      &chan_id);
         if (error != 0)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "libxrdp_drdynvc_open failed");
             g_free(name);
             return 1;
         }
         self->xr2cr_cid_map[chan_id] = chansrv_chan_id;
         self->cs2xr_cid_map[chansrv_chan_id] = chan_id;
+        LOG_DEVEL(LOG_LEVEL_DEBUG,
+                  "Mapping chansrv_chan_id %d to rdp_channel_id %d",
+                  chansrv_chan_id, chan_id);
     }
     g_free(name);
     return 0;
@@ -1425,14 +1525,21 @@ xrdp_mm_trans_process_drdynvc_channel_close(struct xrdp_mm *self,
 
     if (!s_check_rem(s, 4))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected 4, remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chansrv_chan_id);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_CHANNEL_CLOSE "
+              "chansrv_chan_id %d (rdp_channel_id %d)",
+              chansrv_chan_id, chan_id);
+
     /* close dynamic channel */
     error = libxrdp_drdynvc_close(self->wm->session, chan_id);
     if (error != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "libxrdp_drdynvc_close failed");
         return 1;
     }
     return 0;
@@ -1453,6 +1560,8 @@ xrdp_mm_trans_process_drdynvc_data_first(struct xrdp_mm *self,
 
     if (!s_check_rem(s, 12))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected 12, remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chansrv_chan_id);
@@ -1460,14 +1569,22 @@ xrdp_mm_trans_process_drdynvc_data_first(struct xrdp_mm *self,
     in_uint32_le(s, total_bytes);
     if ((!s_check_rem(s, data_bytes)))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected %d, remaining %d", data_bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, data_bytes);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_DATA_FIRST "
+              "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
+              "total_data_length %d, data <omitted from the log>",
+              chansrv_chan_id, chan_id, data_bytes, total_bytes);
+
     error = libxrdp_drdynvc_data_first(self->wm->session, chan_id, data,
                                        data_bytes, total_bytes);
     if (error != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "libxrdp_drdynvc_data_first failed");
         return 1;
     }
     return 0;
@@ -1487,19 +1604,29 @@ xrdp_mm_trans_process_drdynvc_data(struct xrdp_mm *self,
 
     if (!s_check_rem(s, 8))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected 8, remaining %d", s_rem(s));
         return 1;
     }
     in_uint32_le(s, chansrv_chan_id);
     in_uint32_le(s, data_bytes);
     if ((!s_check_rem(s, data_bytes)))
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                  "Expected %d, remaining %d", data_bytes, s_rem(s));
         return 1;
     }
     in_uint8p(s, data, data_bytes);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_DATA "
+              "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
+              "data <omitted from the log>",
+              chansrv_chan_id, chan_id, data_bytes);
+
     error = libxrdp_drdynvc_data(self->wm->session, chan_id, data, data_bytes);
     if (error != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "libxrdp_drdynvc_data failed");
         return 1;
     }
     return 0;
@@ -1525,18 +1652,23 @@ xrdp_mm_chan_process_msg(struct xrdp_mm *self, struct trans *trans,
         next_msg = s->p;
         in_uint32_le(s, id);
         in_uint32_le(s, size);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] MESSAGE_HEADER "
+                  "message_type %d, message_length %d", id, size);
         if (size < 8)
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "message length too small. "
+                      "Expected >= 8, message_length %d", size);
             return 1;
         }
         if (!s_check_rem(s, size - 8))
         {
+            LOG_DEVEL(LOG_LEVEL_ERROR, "not enough bytes in the stream. "
+                      "Expected %d, remaining %d", (size - 8), s_rem(s));
             return 1;
         }
         next_msg += size;
         s_end = s->end;
         s->end = next_msg;
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_chan_process_msg: got msg id %d", id);
         switch (id)
         {
             case 8: /* channel data */
@@ -1558,13 +1690,15 @@ xrdp_mm_chan_process_msg(struct xrdp_mm *self, struct trans *trans,
                 rv = xrdp_mm_trans_process_drdynvc_data(self, s);
                 break;
             default:
-                LOG(LOG_LEVEL_ERROR, "xrdp_mm_chan_process_msg: unknown id %d", id);
+                LOG(LOG_LEVEL_WARNING,
+                    "Received [Xrdp-ChanServ] unknown message_type %d", id);
                 break;
         }
         s->end = s_end;
         if (rv != 0)
         {
-            LOG(LOG_LEVEL_ERROR, "xrdp_mm_chan_process_msg: error rv %d id %d", rv, id);
+            LOG(LOG_LEVEL_WARNING, "Ignoring return value of %d while "
+                "processing [Xrdp-ChanServ] message_type %d", rv, id);
             rv = 0;
         }
 
@@ -1587,6 +1721,7 @@ xrdp_mm_chan_data_in(struct trans *trans)
 
     if (trans == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
 
@@ -1595,6 +1730,7 @@ xrdp_mm_chan_data_in(struct trans *trans)
 
     if (s == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport input stream is NULL");
         return 1;
     }
 
@@ -1602,7 +1738,8 @@ xrdp_mm_chan_data_in(struct trans *trans)
     {
         in_uint8s(s, 4); /* id */
         in_uint32_le(s, size);
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_chan_data_in: got header, size %d", size);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] VERSION_HEADER "
+                  "version (ignored), message_length %d", size);
         if (size > 8)
         {
             self->chan_trans->header_size = size;
@@ -1615,8 +1752,6 @@ xrdp_mm_chan_data_in(struct trans *trans)
     self->chan_trans->header_size = 8;
     trans->extra_flags = 0;
     init_stream(s, 0);
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_chan_data_in: got whole message, reset for "
-              "next header");
     return error;
 }
 
@@ -1631,9 +1766,8 @@ xrdp_mm_connect_chansrv(struct xrdp_mm *self, const char *ip, const char *port)
 
     if (self->wm->client_info->channels_allowed == 0)
     {
-        LOG(LOG_LEVEL_DEBUG, "%s: "
-            "skip connecting to chansrv because all channels are disabled",
-            __func__);
+        LOG(LOG_LEVEL_DEBUG,
+            "skip connecting to channel server because all channels are disabled");
         return 0;
     }
 
@@ -1658,6 +1792,8 @@ xrdp_mm_connect_chansrv(struct xrdp_mm *self, const char *ip, const char *port)
     self->chan_trans->no_stream_init_on_data_in = 1;
     self->chan_trans->extra_flags = 0;
 
+    LOG(LOG_LEVEL_DEBUG, "connecting to channel server at %s port %s",
+        ip, port);
     /* try to connect up to 4 times */
     for (index = 0; index < 4; index++)
     {
@@ -1671,27 +1807,27 @@ xrdp_mm_connect_chansrv(struct xrdp_mm *self, const char *ip, const char *port)
             break;
         }
         g_sleep(1000);
-        LOG(LOG_LEVEL_WARNING, "xrdp_mm_connect_chansrv: connect failed "
-            "trying again...");
+        LOG(LOG_LEVEL_WARNING, "connecting to channel server failed trying again...");
     }
 
     if (!(self->chan_trans_up))
     {
-        LOG(LOG_LEVEL_ERROR, "xrdp_mm_connect_chansrv: error in "
-            "trans_connect chan");
+        LOG(LOG_LEVEL_WARNING, "Failed to connect to channel server at %s port %s",
+            ip, port);
     }
-
-    if (self->chan_trans_up)
+    else
     {
         if (xrdp_mm_trans_send_channel_setup(self, self->chan_trans) != 0)
         {
-            LOG(LOG_LEVEL_ERROR, "xrdp_mm_connect_chansrv: error in "
-                "xrdp_mm_trans_send_channel_setup");
+            LOG(LOG_LEVEL_WARNING,
+                "Failed to setup channels with channel server at %s port %s",
+                ip, port);
         }
         else
         {
-            LOG(LOG_LEVEL_DEBUG, "xrdp_mm_connect_chansrv: chansrv "
-                "connect successful");
+            LOG(LOG_LEVEL_INFO,
+                "successfully connected to the channel server at %s port %s",
+                ip, port);
         }
     }
 
@@ -1736,16 +1872,8 @@ xrdp_mm_update_allowed_channels(struct xrdp_mm *self)
             chan_id = libxrdp_get_channel_id(session, chan_name);
             disabled = !g_text2bool(value);
             libxrdp_disable_channel(session, chan_id, disabled);
-            if (disabled)
-            {
-                LOG(LOG_LEVEL_INFO, "xrdp_mm_update_allowed_channels: channel %s "
-                    "channel id %d is disabled", chan_name, chan_id);
-            }
-            else
-            {
-                LOG(LOG_LEVEL_INFO, "xrdp_mm_update_allowed_channels: channel %s "
-                    "channel id %d is allowed", chan_name, chan_id);
-            }
+            LOG(LOG_LEVEL_INFO, "channel %s channel id %d is %s",
+                chan_name, chan_id, (disabled ? "disabled" : "allowed"));
         }
     }
     return 0;
@@ -1774,6 +1902,11 @@ xrdp_mm_process_login_response(struct xrdp_mm *self, struct stream *s)
         in_uint8a(s, guid, 16);
         pguid = guid;
     }
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] LOGIN_RESPONSE "
+              "login_allowed %d, display %d, session id %s",
+              ok, display, (pguid == NULL ? "<not present>" : "<see hexdump>"));
+    LOG_DEVEL_HEXDUMP(LOG_LEVEL_TRACE, "session id", (char *) guid, 16);
+
     if (ok)
     {
         self->display = display;
@@ -1887,7 +2020,7 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
     int length;
     int total_length;
     int flags;
-    int id;
+    int chan_id;
     char *data;
 
     rv = 0;
@@ -1896,9 +2029,13 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
     {
         s = trans_get_out_s(self->chan_trans, 8192);
 
-        if (s != 0)
+        if (s == NULL)
         {
-            id = LOWORD(param1);
+            LOG_DEVEL(LOG_LEVEL_WARNING, "transport output stream is NULL");
+        }
+        else
+        {
+            chan_id = LOWORD(param1);
             flags = HIWORD(param1);
             length = param2;
             data = (char *)param3;
@@ -1906,20 +2043,32 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
 
             if (total_length < length)
             {
-                LOG(LOG_LEVEL_WARNING, "WARNING in xrdp_mm_process_channel_data(): total_len < length");
+                LOG(LOG_LEVEL_WARNING,
+                    "Processing channel data: found total_length < length, setting total_length = length");
                 total_length = length;
             }
 
             out_uint32_le(s, 0); /* version */
             out_uint32_le(s, 8 + 8 + 2 + 2 + 2 + 4 + length);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+                      "version 0, message_length %d", (8 + 8 + 2 + 2 + 2 + 4 + length));
+
             out_uint32_le(s, 5); /* msg id */
             out_uint32_le(s, 8 + 2 + 2 + 2 + 4 + length);
-            out_uint16_le(s, id);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+                      "message_type 5, message_length %d", (8 + 2 + 2 + 2 + 4 + length));
+
+            out_uint16_le(s, chan_id);
             out_uint16_le(s, flags);
             out_uint16_le(s, length);
             out_uint32_le(s, total_length);
             out_uint8a(s, data, length);
             s_mark_end(s);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] CHANNEL_DATA "
+                      "channel_id %d, flags 0x%4.4x, data_length %d, "
+                      "total_data_length %d, data <omitted from the log>",
+                      chan_id, flags, length, total_length);
+
             rv = trans_force_write(self->chan_trans);
         }
     }
@@ -1941,6 +2090,7 @@ xrdp_mm_sesman_data_in(struct trans *trans)
 
     if (trans == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
 
@@ -1949,16 +2099,21 @@ xrdp_mm_sesman_data_in(struct trans *trans)
 
     if (s == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport input stream is NULL");
         return 1;
     }
 
     in_uint32_be(s, version);
     in_uint32_be(s, size);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Sesman] VERSION_HEADER "
+              "version %d, message_length %d", version, size);
     error = trans_force_read(trans, size - 8);
 
     if (error == 0)
     {
         in_uint16_be(s, code);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Sesman] MESSAGE_HEADER "
+                  "message_type %d", code);
 
         switch (code)
         {
@@ -1994,6 +2149,7 @@ access_control(char *username, char *password, char *srv)
     unsigned short int code;
     unsigned long size;
     int index;
+    int username_length;
     int socket = g_tcp_socket();
     char port[8];
 
@@ -2010,20 +2166,31 @@ access_control(char *username, char *password, char *srv)
             make_stream(out_s);
             init_stream(out_s, 500);
             s_push_layer(out_s, channel_hdr, 8);
+
             out_uint16_be(out_s, 4); /*0x04 means SCP_GW_AUTHENTICATION*/
-            index = g_strlen(username);
-            out_uint16_be(out_s, index);
-            out_uint8a(out_s, username, index);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Sesman] MESSAGE_HEADER "
+                      "message_type 4 (SCP_GW_AUTHENTICATION)");
+
+            username_length = g_strlen(username);
+            out_uint16_be(out_s, username_length);
+            out_uint8a(out_s, username, username_length);
 
             index = g_strlen(password);
             out_uint16_be(out_s, index);
             out_uint8a(out_s, password, index);
             s_mark_end(out_s);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Sesman] SCP_GW_AUTHENTICATION "
+                      "username_length %d, username '%s', password_length %d, "
+                      "password <omitted from the log>",
+                      username_length, username, index);
+
             s_pop_layer(out_s, channel_hdr);
             out_uint32_be(out_s, 0); /* version */
             index = (int)(out_s->end - out_s->data);
             out_uint32_be(out_s, index); /* size */
-            LOG(LOG_LEVEL_DEBUG, "Number of data to send : %d", index);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Sesman] VERSION_HEADER "
+                      "version 0, message_length %d", index);
+
             reply = g_tcp_send(socket, out_s->data, index, 0);
             free_stream(out_s);
 
@@ -2038,14 +2205,20 @@ access_control(char *username, char *password, char *srv)
                     {
                         in_s->end =  in_s->end + reply;
                         in_uint32_be(in_s, version);
-                        LOG(LOG_LEVEL_INFO, "Version number in reply from sesman: %lu", version);
                         in_uint32_be(in_s, size);
+                        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] VERSION_HEADER "
+                                  "version %lu, message_length %lu", version, size);
 
                         if ((size == 14) && (version == 0))
                         {
                             in_uint16_be(in_s, code);
+                            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] MESSAGE_HEADER "
+                                      "message_type %d", code)
                             in_uint16_be(in_s, pAM_errorcode); /* this variable holds the PAM error code if the variable is >32 it is a "invented" code */
                             in_uint16_be(in_s, dummy);
+                            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] SCP_GW_AUTHENTICATION "
+                                      "pam_errorcode %d, dummy (ignored)",
+                                      pAM_errorcode);
 
                             if (code != 4) /*0x04 means SCP_GW_AUTHENTICATION*/
                             {
@@ -2447,7 +2620,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
     {
         name = (char *)list_get_item(names, index);
         value = (char *)list_get_item(values, index);
-        DEBUG(("xrdp_mm_connect - login values: %s = %s", name, value));
+        LOG_DEVEL(LOG_LEVEL_TRACE, "login values: %s = %s", name, value);
 
         if (g_strcasecmp(name, "ip") == 0)
         {
@@ -2502,7 +2675,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
         xrdp_wm_log_msg(self->wm, LOG_LEVEL_DEBUG,
                         "Please wait, we now perform access control...");
 
-        LOG(LOG_LEVEL_DEBUG, "we use pam modules to check if we can approve this user");
+        LOG(LOG_LEVEL_DEBUG, "Using pam modules to authenticate user");
         if (!g_strncmp(pam_auth_username, "same", 255))
         {
             LOG(LOG_LEVEL_DEBUG, "pamusername copied from username - same: %s", username);
@@ -2511,7 +2684,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
 
         if (!g_strncmp(pam_auth_password, "same", 255))
         {
-            LOG(LOG_LEVEL_DEBUG, "pam_auth_password copied from username - same: %s", password);
+            LOG(LOG_LEVEL_DEBUG, "pam_auth_password copied from password - same: <omitted from the log>");
             g_strncpy(pam_auth_password, password, 255);
         }
 
@@ -2543,8 +2716,9 @@ xrdp_mm_connect(struct xrdp_mm *self)
         self->sesman_trans = trans_create(TRANS_MODE_TCP, 8192, 8192);
         self->sesman_trans->is_term = g_is_term;
         xrdp_mm_get_sesman_port(port, sizeof(port));
-        xrdp_wm_log_msg(self->wm, LOG_LEVEL_DEBUG,
-                        "connecting to sesman ip %s port %s", ip, port);
+        xrdp_wm_log_msg(self->wm, LOG_LEVEL_INFO,
+                        "Connecting to session manager at %s port %s",
+                        ip, port);
         /* xrdp_mm_sesman_data_in is the callback that is called when data arrives */
         self->sesman_trans->trans_data_in = xrdp_mm_sesman_data_in;
         self->sesman_trans->header_size = 8;
@@ -2564,21 +2738,22 @@ xrdp_mm_connect(struct xrdp_mm *self)
                 break;
             }
             g_sleep(1000);
-            LOG(LOG_LEVEL_INFO, "xrdp_mm_connect: connect failed "
-                "trying again...");
+            LOG(LOG_LEVEL_WARNING, "Connecting to session manager failed trying again...");
         }
 
         if (ok)
         {
             /* fully connect */
-            xrdp_wm_log_msg(self->wm, LOG_LEVEL_INFO, "sesman connect ok");
+            xrdp_wm_log_msg(self->wm, LOG_LEVEL_INFO,
+                            "Successfully connected to the session manager at %s port %s",
+                            ip, port);
             self->connected_state = 1;
             rv = xrdp_mm_send_login(self);
         }
         else
         {
             xrdp_wm_log_msg(self->wm, LOG_LEVEL_ERROR,
-                            "Error connecting to sesman: %s port: %s",
+                            "Failed to connect to session manager at %s port %s",
                             ip, port);
             trans_delete(self->sesman_trans);
             self->sesman_trans = 0;
@@ -2599,7 +2774,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
             {
                 /* connect error */
                 xrdp_wm_log_msg(self->wm, LOG_LEVEL_ERROR,
-                                "Error connecting to: %s", ip);
+                                "Error connecting to module at %s", ip);
                 rv = 1; /* failure */
             }
         }
@@ -2623,7 +2798,7 @@ xrdp_mm_connect(struct xrdp_mm *self)
         xrdp_mm_connect_chansrv(self, "", chansrvport);
     }
 
-    LOG(LOG_LEVEL_DEBUG, "return value from xrdp_mm_connect %d", rv);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "return value from xrdp_mm_connect %d", rv);
 
     return rv;
 }
@@ -2730,7 +2905,6 @@ xrdp_mm_dump_jpeg(struct xrdp_mm *self, XRDP_ENC_DATA_DONE *enc_done)
 int
 xrdp_mm_check_chan(struct xrdp_mm *self)
 {
-    LOG(LOG_LEVEL_TRACE, "xrdp_mm_check_chan:");
     if ((self->chan_trans != 0) && self->chan_trans_up)
     {
         if (trans_check_wait_objs(self->chan_trans) != 0)
@@ -2740,6 +2914,7 @@ xrdp_mm_check_chan(struct xrdp_mm *self)
     }
     if (self->delete_chan_trans)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "deleting chansrv transport");
         trans_delete(self->chan_trans);
         self->chan_trans = 0;
         self->chan_trans_up = 0;
@@ -2761,8 +2936,8 @@ xrdp_mm_update_module_frame_ack(struct xrdp_mm *self)
     {
         if (encoder->frame_id_server > encoder->frame_id_server_sent)
         {
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_update_module_ack: frame_id_server %d",
-                      encoder->frame_id_server);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [Xrdp-Module] FRAME_ACK "
+                      "flags 0x00000000, frame_id %d", encoder->frame_id_server);
             encoder->frame_id_server_sent = encoder->frame_id_server;
             self->mod->mod_frame_ack(self->mod, 0, encoder->frame_id_server);
         }
@@ -2817,6 +2992,9 @@ xrdp_mm_process_enc_done(struct xrdp_mm *self)
             LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_process_enc_done: last set");
             if (self->wm->client_info->use_frame_acks == 0)
             {
+                LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [Xrdp-Module] FRAME_ACK "
+                          "flags 0x%8.8x, frame_id %d",
+                          enc_done->enc->flags, enc_done->enc->frame_id);
                 self->mod->mod_frame_ack(self->mod,
                                          enc_done->enc->flags,
                                          enc_done->enc->frame_id);
@@ -2880,6 +3058,7 @@ xrdp_mm_check_wait_objs(struct xrdp_mm *self)
 
     if (self->delete_sesman_trans)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "deleting sesman transport");
         trans_delete(self->sesman_trans);
         self->sesman_trans = NULL;
         self->sesman_trans_up = 0;
@@ -2888,6 +3067,7 @@ xrdp_mm_check_wait_objs(struct xrdp_mm *self)
 
     if (self->delete_chan_trans)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "deleting chansrv transport");
         trans_delete(self->chan_trans);
         self->chan_trans = NULL;
         self->chan_trans_up = 0;
@@ -2912,13 +3092,13 @@ xrdp_mm_frame_ack(struct xrdp_mm *self, int frame_id)
 {
     struct xrdp_encoder *encoder;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_frame_ack:");
     if (self->wm->client_info->use_frame_acks == 0)
     {
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "frame acks are disabled for the module");
         return 1;
     }
     encoder = self->encoder;
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "xrdp_mm_frame_ack: incoming %d, client %d, server %d",
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "frame ids: incoming %d, client %d, server %d",
               frame_id, encoder->frame_id_client, encoder->frame_id_server);
     if ((frame_id < 0) || (frame_id > encoder->frame_id_server))
     {
