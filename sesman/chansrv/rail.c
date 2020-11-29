@@ -590,7 +590,7 @@ rail_close_window(int window_id)
     ce.xclient.data.l[0] = g_wm_delete_window_atom;
     ce.xclient.data.l[1] = CurrentTime;
     
-    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XSendEvent NoEventMask "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [XServer] XSendEvent NoEventMask "
               "WM_DELETE_WINDOW CurrentTime window_id 0x%8.8x ", window_id);
     XSendEvent(g_display, window_id, False, NoEventMask, &ce);
 
@@ -911,7 +911,7 @@ rail_minmax_window(int window_id, int max)
         LOG_DEVEL(LOG_LEVEL_INFO, "Minimizing window_id 0x%8.8x", window_id);
         
         LOG_DEVEL(LOG_LEVEL_TRACE, 
-                  "calling XUnmapWindow window_id 0x%8.8x", window_id);
+                  "Calling [XServer] XUnmapWindow window_id 0x%8.8x", window_id);
         XUnmapWindow(g_display, window_id);
         /* change window state to IconicState (3) */
         rail_win_set_state(window_id, 0x3);
@@ -933,15 +933,15 @@ rail_restore_window(int window_id)
     if (window_attributes.map_state != IsViewable)
     {
         LOG_DEVEL(LOG_LEVEL_TRACE, 
-                  "calling XMapWindow window_id 0x%8.8x", window_id);
+                  "Calling [XServer] XMapWindow window_id 0x%8.8x", window_id);
         XMapWindow(g_display, window_id);
     }
     LOG_DEVEL(LOG_LEVEL_TRACE, 
-                  "calling XRaiseWindow window_id 0x%8.8x", window_id);
+                  "Calling [XServer] XRaiseWindow window_id 0x%8.8x", window_id);
     XRaiseWindow(g_display, window_id);
     
     LOG_DEVEL(LOG_LEVEL_TRACE, 
-              "calling XSetInputFocus window_id 0x%8.8x, RevertToParent, CurrentTime", 
+              "Calling [XServer] XSetInputFocus window_id 0x%8.8x, RevertToParent, CurrentTime", 
               window_id);
     XSetInputFocus(g_display, window_id, RevertToParent, CurrentTime);
 
@@ -959,7 +959,7 @@ rail_process_system_command(struct stream *s, int size)
     in_uint32_le(s, window_id);
     in_uint16_le(s, command);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_SYSCOMMAND"
-              "WindowId 0x%8.8x Command 0x%4.4x", window_id, command);
+              "WindowId 0x%8.8x, Command 0x%4.4x", window_id, command);
 
     index = list_index_of(g_window_list, window_id);
     if (index < 0)
@@ -1069,7 +1069,7 @@ rail_process_window_move(struct stream *s, int size)
               "WindowId  0x%8.8x Left %d Top %d Right %d Bottom %d width %d height %d",
               window_id, left, top, right, bottom, right - left, bottom - top);
     
-    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XMoveResizeWindow "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [XServer] XMoveResizeWindow "
               "WindowId  0x%8.8x Left %d Top %d width %d height %d",
               window_id, left, top, right - left, bottom - top);
     XMoveResizeWindow(g_display, window_id, left, top, right - left, bottom - top);
@@ -1231,8 +1231,8 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
     in_uint8s(s, 1);
     in_uint16_le(s, size);
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_PDU_HEADER "
-              "orderType %d orderLength %d", code, size);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [MS-RDPERP] TS_RAIL_PDU_HEADER "
+              "orderType %d, orderLength %d", code, size);
     switch (code)
     {
         case TS_RAIL_ORDER_EXEC: /* 1 */
@@ -1286,7 +1286,7 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
             break;
     }
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XFlush");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [XServer] XFlush");
     XFlush(g_display);
     return  0;
 }
@@ -1402,17 +1402,24 @@ rail_win_send_text(Window win)
     }
     if (data && len > 0)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: 0x%8.8lx text %s length %d",
-                  win, data, len);
+
         make_stream(s);
         init_stream(s, len + 1024);
         flags = WINDOW_ORDER_TYPE_WINDOW | WINDOW_ORDER_FIELD_TITLE;
         out_uint32_le(s, 8); /* update title info */
+        LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 8");
+        
         out_uint32_le(s, win); /* window id */
         out_uint32_le(s, flags); /* flags */
         out_uint32_le(s, len); /* title size */
         out_uint8a(s, data, len); /* title */
         s_mark_end(s);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_UPDATE_WINDOW_TITLE "
+                "window_id 0x%8.8lx, flags 0x%8.8x, title_length %d, title '%s'", 
+                win, flags, len, data);
+    
         send_rail_drawing_orders(s->data, (int)(s->end - s->data));
         free_stream(s);
         /* update rail window data */
@@ -1432,13 +1439,18 @@ rail_destroy_window(Window window_id)
 {
     struct stream *s;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_destroy_window 0x%8.8lx", window_id);
     make_stream(s);
     init_stream(s, 1024);
 
     out_uint32_le(s, 4); /* destroy_window */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 4");
     out_uint32_le(s, window_id);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_DESTROY_WINDOW "
+                "window_id 0x%8.8lx", window_id);
+                
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
 
@@ -1452,16 +1464,23 @@ rail_show_window(Window window_id, int show_state)
     int flags;
     struct stream *s;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_show_window 0x%8.8lx 0x%x", window_id, show_state);
     make_stream(s);
     init_stream(s, 1024);
 
     flags = WINDOW_ORDER_TYPE_WINDOW | WINDOW_ORDER_FIELD_SHOW;
     out_uint32_le(s, 6); /* show_window */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 6");
+    
     out_uint32_le(s, window_id); /* window_id */
     out_uint32_le(s, flags); /* flags */
     out_uint32_le(s, show_state); /* show_state */
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_SHOW_WINDOW "
+                "window_id 0x%8.8lx, flags 0x%8.8x, show_state %d", 
+                window_id, flags, show_state);
+    
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
     return 0;
@@ -1551,6 +1570,10 @@ rail_create_window(Window window_id, Window owner_id)
     init_stream(s, title_size + 1024 + num_window_rects * 8 + num_visibility_rects * 8);
 
     out_uint32_le(s, 2); /* create_window */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 2");
+                
     out_uint32_le(s, window_id); /* window_id */
     out_uint32_le(s, owner_id); /* owner_window_id */
     flags |= WINDOW_ORDER_FIELD_OWNER;
@@ -1619,6 +1642,9 @@ rail_create_window(Window window_id, Window owner_id)
     out_uint32_le(s, flags); /*flags*/
 
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_CREATE_WINDOW "
+                "window_id 0x%8.8lx, TODO:add remaining fields...", window_id);
+                
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
     g_free(title_bytes);
@@ -1783,6 +1809,11 @@ rail_configure_request_window(XConfigureRequestEvent *config)
     init_stream(s, 1024 + num_window_rects * 8 + num_visibility_rects * 8);
 
     out_uint32_le(s, 10); /* configure_window */
+    /* TODO: xrdp_mm_process_rail_drawing_orders() dosen't support order_type = 10 */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 10");
+                
     out_uint32_le(s, window_id); /* window_id */
 
     out_uint32_le(s, 0); /* client_offset_x */
@@ -1827,6 +1858,9 @@ rail_configure_request_window(XConfigureRequestEvent *config)
     out_uint32_le(s, flags); /*flags*/
 
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_REQUEST_CONFIGURE_WINDOW "
+                "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
+    
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
     return 0;
@@ -1867,6 +1901,12 @@ rail_configure_window(XConfigureEvent *config)
     init_stream(s, 1024 + num_window_rects * 8 + num_visibility_rects * 8);
 
     out_uint32_le(s, 10); /* configure_window */
+    /* TODO: xrdp_mm_process_rail_drawing_orders() dosen't support order_type = 10 */
+    /* TODO: duplicate meaning for order_type = 10 : RAIL_CONFIGURE_WINDOW and RAIL_REQUEST_CONFIGURE_WINDOW */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type 10");
+                
     out_uint32_le(s, window_id); /* window_id */
 
     out_uint32_le(s, 0); /* client_offset_x */
@@ -1911,6 +1951,9 @@ rail_configure_window(XConfigureEvent *config)
     out_uint32_le(s, flags); /*flags*/
 
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_CONFIGURE_WINDOW "
+                "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
+                
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
     return 0;
@@ -1920,7 +1963,7 @@ rail_configure_window(XConfigureEvent *config)
 static int
 rail_desktop_resize(XEvent *lxevent)
 {
-    LOG_DEVEL(LOG_LEVEL_INFO, "rail_desktop_resize:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "rail_desktop_resize: no-op");
     return 0;
 }
 
@@ -1948,22 +1991,22 @@ rail_xevent(void *xevent)
 
     rv = 1;
     lxevent = (XEvent *)xevent;
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] type 0x%8.8x serial %lu", 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent type 0x%8.8x serial %lu", 
               lxevent->type, lxevent->xany.serial);
 
     switch (lxevent->type)
     {
         case PropertyNotify:
             prop_name = XGetAtomName(g_display, lxevent->xproperty.atom);
-            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] PropertyNotify "
-                      "window_id 0x%8.8lx, prop_name %s, state %d",
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.PropertyNotify "
+                      "window_id 0x%8.8lx, name '%s', state %d",
                      lxevent->xproperty.window, prop_name,
                      lxevent->xproperty.state);
 
             if (list_index_of(g_window_list, lxevent->xproperty.window) < 0)
             {
                 LOG_DEVEL(LOG_LEVEL_WARNING, 
-                          "Ignorning [XEvent] PropertyNotify, window 0x%8.8lx "
+                          "Ignorning [XServer] XEvent.PropertyNotify, window 0x%8.8lx "
                           "not in the list of valid RAIL windows", 
                           lxevent->xproperty.window);
                 break;
@@ -1982,14 +2025,13 @@ rail_xevent(void *xevent)
             else
             {
                 LOG_DEVEL(LOG_LEVEL_DEBUG, 
-                          "Ignorning [XEvent] PropertyNotify, unknown property [%s]", 
+                          "Ignorning [XServer] XEvent.PropertyNotify, unknown property [%s]", 
                           prop_name);
             }
             XFree(prop_name);
             break;
 
         case ConfigureRequest:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ConfigureRequest window_id 0x%8.8lx", lxevent->xconfigurerequest.window);
             g_memset(&xwc, 0, sizeof(xwc));
             xwc.x = lxevent->xconfigurerequest.x;
             xwc.y = lxevent->xconfigurerequest.y;
@@ -1998,6 +2040,19 @@ rail_xevent(void *xevent)
             xwc.border_width = lxevent->xconfigurerequest.border_width;
             xwc.sibling = lxevent->xconfigurerequest.above;
             xwc.stack_mode = lxevent->xconfigurerequest.detail;
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.ConfigureRequest "
+                      "window_id 0x%8.8lx, x %d, y %d, width %d, height %d, "
+                      "border_width %d, above 0x%8.8lx, detail %d, value_mask 0x%8.8lx",
+                     lxevent->xconfigurerequest.window, 
+                     lxevent->xconfigurerequest.x,
+                     lxevent->xconfigurerequest.y,
+                     lxevent->xconfigurerequest.width,
+                     lxevent->xconfigurerequest.height,
+                     lxevent->xconfigurerequest.border_width,
+                     lxevent->xconfigurerequest.above,
+                     lxevent->xconfigurerequest.detail,
+                     lxevent->xconfigurerequest.value_mask);
+                     
             XConfigureWindow(g_display,
                              lxevent->xconfigurerequest.window,
                              lxevent->xconfigurerequest.value_mask,
@@ -2007,14 +2062,20 @@ rail_xevent(void *xevent)
             break;
 
         case CreateNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, " got CreateNotify window 0x%8.8lx parent 0x%8.8lx",
-                      lxevent->xcreatewindow.window, lxevent->xcreatewindow.parent);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.CreateNotify "
+                      "window_id 0x%8.8lx, parent 0x%8.8lx",
+                     lxevent->xcreatewindow.window, 
+                     lxevent->xcreatewindow.parent);
+            
             rail_select_input(lxevent->xcreatewindow.window);
             break;
 
         case DestroyNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got DestroyNotify window 0x%8.8lx event 0x%8.8lx",
-                      lxevent->xdestroywindow.window, lxevent->xdestroywindow.event);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.DestroyNotify "
+                      "window_id 0x%8.8lx, event 0x%8.8lx",
+                     lxevent->xdestroywindow.window, 
+                     lxevent->xdestroywindow.event);
+
             if (lxevent->xdestroywindow.window != lxevent->xdestroywindow.event)
             {
                 break;
@@ -2029,13 +2090,19 @@ rail_xevent(void *xevent)
             break;
 
         case MapRequest:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got MapRequest window 0x%8.8lx", lxevent->xmaprequest.window);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.MapRequest "
+                      "window_id 0x%8.8lx",
+                     lxevent->xmaprequest.window);
+            
             XMapWindow(g_display, lxevent->xmaprequest.window);
             break;
 
         case MapNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got MapNotify window 0x%8.8lx event 0x%8.8lx",
-                      lxevent->xmap.window, lxevent->xmap.event);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.MapNotify "
+                      "window_id 0x%8.8lx, event 0x%8.8lx",
+                     lxevent->xmap.window, 
+                     lxevent->xmap.event);
+            
             if (lxevent->xmap.window != lxevent->xmap.event)
             {
                 break;
@@ -2060,7 +2127,11 @@ rail_xevent(void *xevent)
             break;
 
         case UnmapNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got UnmapNotify 0x%8.8lx", lxevent->xunmap.event);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.UnmapNotify "
+                      "window_id 0x%8.8lx, event 0x%8.8lx",
+                     lxevent->xunmap.window, 
+                     lxevent->xunmap.event);
+                     
             if (lxevent->xunmap.window != lxevent->xunmap.event)
             {
                 break;
@@ -2089,8 +2160,12 @@ rail_xevent(void *xevent)
             break;
 
         case ConfigureNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ConfigureNotify 0x%8.8lx event 0x%8.8lx", lxevent->xconfigure.window,
-                      lxevent->xconfigure.event);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.ConfigureNotify "
+                      "window_id 0x%8.8lx, event 0x%8.8lx, override_redirect %d",
+                     lxevent->xconfigure.window, 
+                     lxevent->xconfigure.event,
+                     lxevent->xconfigure.override_redirect);
+                     
             rv = 0;
             if (lxevent->xconfigure.event != lxevent->xconfigure.window ||
                     lxevent->xconfigure.override_redirect)
@@ -2114,32 +2189,43 @@ rail_xevent(void *xevent)
             break;
 
         case FocusIn:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got FocusIn");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.FocusIn "
+                      "window_id 0x%8.8lx",
+                     lxevent->xfocus.window);
             g_focus_win = lxevent->xfocus.window;
             break;
 
         case FocusOut:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got FocusOut");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.FocusOut "
+                      "window_id 0x%8.8lx",
+                     lxevent->xfocus.window);
             break;
 
         case ButtonPress:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ButtonPress");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.ButtonPress "
+                      "window_id 0x%8.8lx",
+                     lxevent->xbutton.window);
             break;
 
         case EnterNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got EnterNotify");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.EnterNotify "
+                      "window_id 0x%8.8lx",
+                     lxevent->xcrossing.window);
             break;
 
         case LeaveNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got LeaveNotify");
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.LeaveNotify "
+                      "window_id 0x%8.8lx",
+                     lxevent->xcrossing.window);
             break;
 
         case ReparentNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "  got ReparentNotify window 0x%8.8lx parent 0x%8.8lx "
-                      "event 0x%8.8lx x %d y %d override redirect %d",
-                      lxevent->xreparent.window, lxevent->xreparent.parent,
-                      lxevent->xreparent.event, lxevent->xreparent.x,
-                      lxevent->xreparent.y, lxevent->xreparent.override_redirect);
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.ReparentNotify "
+                    "window 0x%8.8lx, parent 0x%8.8lx, "
+                     "event 0x%8.8lx, x %d, y %d, override_redirect %d",
+                     lxevent->xreparent.window, lxevent->xreparent.parent,
+                     lxevent->xreparent.event, lxevent->xreparent.x,
+                     lxevent->xreparent.y, lxevent->xreparent.override_redirect);
 
             if (lxevent->xreparent.window != lxevent->xreparent.event)
             {
@@ -2162,13 +2248,19 @@ rail_xevent(void *xevent)
             {
                 if (lxevent->type == g_xrr_event_base + RRScreenChangeNotify)
                 {
-                    LOG_DEVEL(LOG_LEVEL_DEBUG, "  got RRScreenChangeNotify window");
+                    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.RRScreenChangeNotify");
                     rail_desktop_resize(lxevent);
                     rv = 0;
                     break;
                 }
             }
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "Received [XEvent] with unknown type");
+            /* the return value is not an error code, it is a boolean for 
+            handeled/unhandled. It is ok to not handle an event since all 
+            enabled modules are blindly sent the XEvent, it is only a problem 
+            if no module handles the event. */
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring [XServer] XEvent with "
+                    "unknown type 0x%8.8x, serial %lu", 
+                    lxevent->type, lxevent->xany.serial);
     }
 
     return rv;

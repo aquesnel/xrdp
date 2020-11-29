@@ -264,7 +264,6 @@ send_channel_data(int chan_id, const char *data, int size)
     int total_size;
     struct stream *s;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if ((chan_id < 0) || (chan_id > 31) ||
             (data == NULL) ||
             (size < 1) || (size > MAX_CHANNEL_BYTES))
@@ -292,6 +291,10 @@ send_channel_data(int chan_id, const char *data, int size)
         out_uint32_le(s, 0); /* version */
         out_uint32_le(s, 26 + sending_bytes);
         out_uint32_le(s, 8); /* msg id */
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length %d",
+                (26 + sending_bytes));
+                
         out_uint32_le(s, 18 + sending_bytes);
         out_uint16_le(s, chan_id);
         out_uint16_le(s, chan_flags);
@@ -299,6 +302,11 @@ send_channel_data(int chan_id, const char *data, int size)
         out_uint32_le(s, total_size);
         out_uint8a(s, data, sending_bytes);
         s_mark_end(s);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] CHANNEL_DATA "
+                "channel_id %d, flags 0x%4.4x, data_length %d, "
+                "total_data_length %d, data <omitted from log>",
+                chan_id, chan_flags, sending_bytes, total_size);
+        
         size -= sending_bytes;
         data += sending_bytes;
         error = trans_write_copy(g_con_trans);
@@ -321,11 +329,14 @@ send_rail_drawing_orders(char *data, int size)
     struct stream* s;
     int error;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "data size %d", size);
     s = trans_get_out_s(g_con_trans, 8192);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + size); /* size */
     out_uint32_le(s, 10); /* msg id */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length %d",
+                (8 + 8 + size));
+    
     out_uint32_le(s, 8 + size); /* size */
     out_uint8a(s, data, size);
     s_mark_end(s);
@@ -362,7 +373,7 @@ process_message_channel_setup(struct stream *s)
     g_rdpdr_chan_id = -1;
     g_rail_chan_id = -1;
     in_uint16_le(s, num_chans);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_SETUP "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] CHANNEL_SETUP "
               "channel count %d", num_chans);
 
     for (index = 0; index < num_chans; index++)
@@ -378,7 +389,7 @@ process_message_channel_setup(struct stream *s)
         }
         in_uint16_le(s, ci->id);
         in_uint16_le(s, ci->flags);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_SETUP.CHANNEL_INFO[%d] "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] CHANNEL_SETUP.CHANNEL_INFO[%d] "
               "name '%s', id %d flags %4.4x", index, ci->name, ci->id, ci->flags);
         LOG(LOG_LEVEL_INFO, "setup channel: name '%s' "
               "id %d flags %8.8x", ci->name, ci->id, ci->flags);
@@ -464,11 +475,9 @@ process_message_channel_data(struct stream *s)
     in_uint16_le(s, chan_flags);
     in_uint16_le(s, length);
     in_uint32_le(s, total_length);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] CHANNEL_DATA "
-              "channel id %d, data length %d,"
-              "[MS-RDPBCGR] CHANNEL_PDU_HEADER length %d, "
-              "[MS-RDPBCGR] CHANNEL_PDU_HEADER flags 0x%8.8x", 
-              chan_id, length, total_length, chan_flags);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] CHANNEL_DATA "
+              "channel id %d, flags 0x%8.8x, data_length %d, total_data_length %d",
+              chan_id, chan_flags, length, total_length);
     rv = 0;
 
     if (chan_id == g_cliprdr_chan_id)
@@ -539,7 +548,6 @@ process_message_drdynvc_open_response(struct stream *s)
     int chan_id;
     int creation_status;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
@@ -550,12 +558,12 @@ process_message_drdynvc_open_response(struct stream *s)
     in_uint32_le(s, creation_status);
     if ((chan_id < 0) || (chan_id > 255))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_open_response: "
+        LOG_DEVEL(LOG_LEVEL_ERROR,
               "invalid channel id %d", chan_id);
         return 1;
     }
-    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_open_response: "
-          "chan_id %d creation_status %d", chan_id, creation_status);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_OPEN_RESPONSE "
+          "chan_id %d, creation_status %d", chan_id, creation_status);
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_OPEN_SENT)
     {
@@ -603,11 +611,11 @@ process_message_drdynvc_close_response(struct stream *s)
     in_uint32_le(s, chan_id);
     if ((chan_id < 0) || (chan_id > 255))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_close_response: "
+        LOG_DEVEL(LOG_LEVEL_ERROR,
               "invalid channel id %d", chan_id);
         return 1;
     }
-    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_close_response:"
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_CLOSE_RESPONSE "
           "chan_id %d", chan_id);
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_CLOSE_SENT)
@@ -642,7 +650,6 @@ process_message_drdynvc_data_first(struct stream *s)
     int total_bytes;
     char *data;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 12))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
@@ -652,8 +659,6 @@ process_message_drdynvc_data_first(struct stream *s)
     in_uint32_le(s, chan_id);
     in_uint32_le(s, bytes);
     in_uint32_le(s, total_bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_data_first:"
-          "chan_id %d bytes %d", chan_id, bytes);
     if (!s_check_rem(s, bytes))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
@@ -661,10 +666,12 @@ process_message_drdynvc_data_first(struct stream *s)
         return 1;
     }
     in_uint8p(s, data, bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
+          "chan_id %d, data_length %d, total_data_length %d, data <omitted from log>", 
+          chan_id, bytes, total_bytes);
     if ((chan_id < 0) || (chan_id > 255))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "process_message_drdynvc_data_first: "
-              "invalid channel id %d", chan_id);
+        LOG_DEVEL(LOG_LEVEL_ERROR, "invalid channel id %d", chan_id);
         return 1;
     }
     drdynvc = g_drdynvcs + chan_id;
@@ -693,7 +700,6 @@ process_message_drdynvc_data(struct stream *s)
     int bytes;
     char *data;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     if (!s_check_rem(s, 8))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
@@ -702,8 +708,6 @@ process_message_drdynvc_data(struct stream *s)
     }
     in_uint32_le(s, chan_id);
     in_uint32_le(s, bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "process_message_drdynvc_data:"
-          "chan_id %d bytes %d", chan_id, bytes);
     if (!s_check_rem(s, bytes))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "parse error: "
@@ -711,6 +715,10 @@ process_message_drdynvc_data(struct stream *s)
         return 1;
     }
     in_uint8p(s, data, bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA "
+          "chan_id %d, data_length %d, data <omitted from log>", 
+          chan_id, bytes);
+    
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->data != NULL)
     {
@@ -734,31 +742,42 @@ chansrv_drdynvc_open(const char *name, int flags,
     int lchan_id;
     int error;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     lchan_id = 1;
     while (g_drdynvcs[lchan_id].status != CHANSRV_DRDYNVC_STATUS_CLOSED)
     {
         lchan_id++;
         if (lchan_id > 255)
         {
+            LOG(LOG_LEVEL_ERROR, 
+                "Error opening channel '%s': open channel limit exceeded", name);
             return 1;
         }
     }
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
+    
     name_bytes = g_strlen(name);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + name_bytes + 4 + 4);
     out_uint32_le(s, 12); /* msg id */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length %d",
+                (8 + 8 + 4 + name_bytes + 4 + 4));
+                
     out_uint32_le(s, 8 + 4 + name_bytes + 4 + 4);
     out_uint32_le(s, name_bytes);
     out_uint8a(s, name, name_bytes);
     out_uint32_le(s, flags);
     out_uint32_le(s, lchan_id);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_OPEN_REQUEST "
+                "name_length %d, name '%s', flags 0x%8.8x, channel_id %d",
+                name_bytes, name, flags, lchan_id);
+    
     error = trans_write_copy(g_con_trans);
     if (error == 0)
     {
@@ -784,10 +803,10 @@ chansrv_drdynvc_close(int chan_id)
     struct stream *s;
     int error;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "enter");
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
@@ -795,7 +814,13 @@ chansrv_drdynvc_close(int chan_id)
     out_uint32_le(s, 14); /* msg id */
     out_uint32_le(s, 12);
     out_uint32_le(s, chan_id);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length 20");
+                
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_CLOSE_REQUEST "
+                "channel_id %d", chan_id);
+    
     error = trans_write_copy(g_con_trans);
     g_drdynvcs[chan_id].status = CHANSRV_DRDYNVC_STATUS_CLOSE_SENT;
     return error;
@@ -814,17 +839,26 @@ chansrv_drdynvc_data_first(int chan_id, const char *data, int data_bytes,
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 28 + data_bytes);
     out_uint32_le(s, 16); /* msg id */
     out_uint32_le(s, 20 + data_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length %d", (28 + data_bytes));
+    
     out_uint32_le(s, chan_id);
     out_uint32_le(s, data_bytes);
     out_uint32_le(s, total_data_bytes);
     out_uint8a(s, data, data_bytes);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
+                "channel_id %d, data_length %d, total_data_length %d, "
+                "data <omitted from log>", 
+                chan_id, data_bytes, total_data_bytes);
+    
     error = trans_write_copy(g_con_trans);
     return error;
 }
@@ -840,16 +874,25 @@ chansrv_drdynvc_data(int chan_id, const char *data, int data_bytes)
     s = trans_get_out_s(g_con_trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "output stream is NULL");
         return 1;
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 24 + data_bytes);
     out_uint32_le(s, 18); /* msg id */
     out_uint32_le(s, 16 + data_bytes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
+                "version 0, message_length %d", (24 + data_bytes));
+                
     out_uint32_le(s, chan_id);
     out_uint32_le(s, data_bytes);
     out_uint8a(s, data, data_bytes);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA "
+                "channel_id %d, data_length %d, "
+                "data <omitted from log>", 
+                chan_id, data_bytes);
+    
     error = trans_write_copy(g_con_trans);
     return error;
 }
@@ -860,7 +903,6 @@ chansrv_drdynvc_send_data(int chan_id, const char *data, int data_bytes)
 {
     int this_send_bytes;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "data_bytes %d", data_bytes);
     if (data_bytes > 1590)
     {
         if (chansrv_drdynvc_data_first(chan_id, data, 1590, data_bytes) != 0)
@@ -990,7 +1032,7 @@ my_trans_data_in(struct trans *trans)
     s = trans_get_in_s(trans);
     in_uint8s(s, 4); /* version id */
     in_uint32_le(s, size);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] VERSION_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] VERSION_HEADER "
                       "version (ignored), message length %d", size);
 
     error = trans_force_read(trans, size - 8);
@@ -1031,17 +1073,20 @@ my_api_open_response(int chan_id, int creation_status)
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
     s = trans_get_out_s(trans, 8192);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport output stream is NULL");
         return 1;
     }
     out_uint32_le(s, creation_status);
     s_mark_end(s);
     if (trans_write_copy(trans) != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "trans_write_copy failed");
         return 1;
     }
     return 0;
@@ -1051,7 +1096,7 @@ my_api_open_response(int chan_id, int creation_status)
 static int
 my_api_close_response(int chan_id)
 {
-    LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_close_response:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "my_api_close_response: no-op");
     return 0;
 }
 
@@ -1066,17 +1111,20 @@ my_api_data_first(int chan_id, char *data, int bytes, int total_bytes)
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
     s = trans_get_out_s(trans, bytes);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport output stream is NULL");
         return 1;
     }
     out_uint8a(s, data, bytes);
     s_mark_end(s);
     if (trans_write_copy(trans) != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "trans_write_copy failed");
         return 1;
     }
     return 0;
@@ -1093,17 +1141,20 @@ my_api_data(int chan_id, char *data, int bytes)
     trans = get_api_trans_from_chan_id(chan_id);
     if (trans == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
     s = trans_get_out_s(trans, bytes);
     if (s == NULL)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport output stream is NULL");
         return 1;
     }
     out_uint8a(s, data, bytes);
     s_mark_end(s);
     if (trans_write_copy(trans) != 0)
     {
+        LOG_DEVEL(LOG_LEVEL_ERROR, "trans_write_copy failed");
         return 1;
     }
     return 0;
@@ -1256,25 +1307,25 @@ my_trans_conn_in(struct trans *trans, struct trans *new_trans)
 {
     if (trans == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in: error - transport is null");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is NULL");
         return 1;
     }
 
     if (trans != g_lis_trans)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in: bug/error - transport is not the global listening transport");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "transport is not the global listening transport");
         return 1;
     }
 
     if (g_con_trans != 0) /* if already set, error */
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in: bug/error - global connected transport is already set");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "global connected transport is already set");
         return 1;
     }
 
     if (new_trans == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in: bug/error - connected transport is null");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "new connected transport is null");
         return 1;
     }
 
@@ -1300,7 +1351,9 @@ my_api_trans_conn_in(struct trans *trans, struct trans *new_trans)
     LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_conn_in:");
     if ((trans == NULL) || (trans != g_api_lis_trans) || (new_trans == NULL))
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "my_api_trans_conn_in: error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "invalid tansport state: "
+                "trans %p, new_trans %p, g_api_lis_trans %p",
+                trans, new_trans, g_api_lis_trans);
         return 1;
     }
     new_trans->trans_data_in = my_api_trans_data_in;
@@ -1309,7 +1362,7 @@ my_api_trans_conn_in(struct trans *trans, struct trans *new_trans)
     ad = g_new0(struct xrdp_api_data, 1);
     if (ad == NULL)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_conn_in: error");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "failed to allocate memory for xrdp_api_data");
         return 1;
     }
     new_trans->callback_data = ad;
@@ -1490,7 +1543,7 @@ channel_thread_loop(void *in_val)
     int error;
     THREAD_RV rv;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "thread start");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "thread start");
     rv = 0;
     g_api_con_trans_list = list_create();
     setup_api_listen();
@@ -1506,13 +1559,13 @@ channel_thread_loop(void *in_val)
         trans_get_wait_objs(g_lis_trans, objs, &num_objs);
         trans_get_wait_objs(g_api_lis_trans, objs, &num_objs);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "timeout %d", timeout);
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "timeout %d", timeout);
         while (g_obj_wait(objs, num_objs, wobjs, num_wobjs, timeout) == 0)
         {
             check_timeout();
             if (g_is_wait_obj_set(g_term_event))
             {
-                LOG_DEVEL(LOG_LEVEL_INFO, "g_term_event set");
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "g_term_event set");
                 clipboard_deinit();
                 sound_deinit();
                 devredir_deinit();
@@ -1532,7 +1585,7 @@ channel_thread_loop(void *in_val)
             {
                 if (trans_check_wait_objs(g_con_trans) != 0)
                 {
-                    LOG_DEVEL(LOG_LEVEL_TRACE, "trans_check_wait_objs error resetting");
+                    LOG_DEVEL(LOG_LEVEL_DEBUG, "trans_check_wait_objs error resetting");
                     clipboard_deinit();
                     sound_deinit();
                     devredir_deinit();
@@ -1594,7 +1647,7 @@ channel_thread_loop(void *in_val)
     g_api_lis_trans = 0;
     api_con_trans_list_remove_all();
     list_delete(g_api_con_trans_list);
-    LOG_DEVEL(LOG_LEVEL_INFO, "thread stop");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "thread stop");
     g_set_wait_obj(g_thread_done_event);
     return rv;
 }
@@ -1611,7 +1664,7 @@ term_signal_handler(int sig)
 void
 nil_signal_handler(int sig)
 {
-    LOG_DEVEL(LOG_LEVEL_TRACE, "nil_signal_handler: got signal %d", sig);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "nil_signal_handler: got signal %d", sig);
 }
 
 /*****************************************************************************/
@@ -1735,7 +1788,7 @@ run_exec(void)
 {
     int pid;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "run_exec:");
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "run_exec:");
     pid = g_fork();
 
     if (pid == 0)
@@ -1775,7 +1828,7 @@ main(int argc, char **argv)
     log_path[255] = 0;
     if (get_log_path(log_path, 255) != 0)
     {
-        LOG_DEVEL(LOG_LEVEL_TRACE, "error reading CHANSRV_LOG_PATH and HOME environment variable");
+        LOG(LOG_LEVEL_ERROR, "error reading CHANSRV_LOG_PATH and HOME environment variable");
         main_cleanup();
         return 1;
     }
@@ -1810,7 +1863,7 @@ main(int argc, char **argv)
 
     /* starting logging subsystem */
     g_snprintf(log_file, 255, "%s/xrdp-chansrv.%d.log", log_path, g_display_num);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "chansrv::main: using log file [%s]", log_file);
+    LOG(LOG_LEVEL_INFO, "chansrv::main: using log file [%s]", log_file);
 
     if (g_file_exist(log_file))
     {
@@ -1833,14 +1886,14 @@ main(int argc, char **argv)
         switch (error)
         {
             case LOG_ERROR_MALLOC:
-                LOG_DEVEL(LOG_LEVEL_TRACE, "error on malloc. cannot start logging. quitting.");
+                LOG(LOG_LEVEL_ERROR, "error on malloc. cannot start logging. quitting.");
                 break;
             case LOG_ERROR_FILE_OPEN:
-                LOG_DEVEL(LOG_LEVEL_TRACE, "error opening log file [%s]. quitting.",
+                LOG(LOG_LEVEL_ERROR, "error opening log file [%s]. quitting.",
                           getLogFile(text, 255));
                 break;
             default:
-                LOG_DEVEL(LOG_LEVEL_TRACE, "log_start error");
+                LOG(LOG_LEVEL_ERROR, "log_start error");
                 break;
         }
 
