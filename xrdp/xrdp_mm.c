@@ -727,7 +727,7 @@ xrdp_mm_trans_process_channel_data(struct xrdp_mm *self, struct stream *s)
     in_uint16_le(s, chan_flags);
     in_uint16_le(s, size);
     in_uint32_le(s, total_size);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] CHANNEL_DATA "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] CHANNEL_DATA "
               "chansrv_chan_id %d, flags 0x%4.4x, data_length %d, "
               "total_data_length %d, data <omitted from log>",
               chan_id, chan_flags, size, total_size);
@@ -811,7 +811,7 @@ xrdp_mm_process_rail_create_window(struct xrdp_mm *self, struct stream *s)
         }
     }
     in_uint32_le(s, flags);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_CREATE_WINDOW "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_CREATE_WINDOW "
               "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
 
     rv = libxrdp_orders_init(self->wm->session);
@@ -887,7 +887,7 @@ xrdp_mm_process_rail_configure_window(struct xrdp_mm *self, struct stream *s)
         }
     }
     in_uint32_le(s, flags);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_CONFIGURE_WINDOW "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_CONFIGURE_WINDOW "
               "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
 
     rv = libxrdp_orders_init(self->wm->session);
@@ -915,7 +915,7 @@ xrdp_mm_process_rail_destroy_window(struct xrdp_mm *self, struct stream *s)
     int rv;
 
     in_uint32_le(s, window_id);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_DESTROY_WINDOW "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_DESTROY_WINDOW "
               "window_id 0x%8.8x", window_id);
 
     rv = libxrdp_orders_init(self->wm->session);
@@ -945,7 +945,7 @@ xrdp_mm_process_rail_show_window(struct xrdp_mm *self, struct stream *s)
     in_uint32_le(s, window_id);
     in_uint32_le(s, flags);
     in_uint32_le(s, rwso.show_state);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_SHOW_WINDOW "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_SHOW_WINDOW "
               "window_id 0x%8.8x, flags 0x%8.8x, show_state %d",
               window_id, flags, rwso.show_state);
 
@@ -981,7 +981,7 @@ xrdp_mm_process_rail_update_window_text(struct xrdp_mm *self, struct stream *s)
     rwso.title_info = g_new(char, size + 1);
     in_uint8a(s, rwso.title_info, size);
     rwso.title_info[size] = 0;
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] RAIL_UPDATE_WINDOW_TITLE "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_UPDATE_WINDOW_TITLE "
               "window_id 0x%8.8x, flags 0x%8.8x, title_length %d, title '%s'",
               window_id, flags, size, rwso.title_info);
 
@@ -1012,7 +1012,7 @@ xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
     rv = 0;
     in_uint32_le(s, order_type);
     LOG_DEVEL(LOG_LEVEL_TRACE,
-              "Received header [Xrdp-ChanServ] RAIL_DRAWING_ORDERS_HEADER "
+              "Received header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
               "order_type %d", order_type);
 
     switch (order_type)
@@ -1031,7 +1031,7 @@ xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
             break;
         default:
             LOG_DEVEL(LOG_LEVEL_WARNING,
-                      "Ignoring [Xrdp-ChanServ] unknown order_type %d", order_type);
+                      "Ignoring [Xrdp-Chansrv] unknown order_type %d", order_type);
             break;
     }
 
@@ -1285,17 +1285,17 @@ xrdp_mm_drdynvc_open_response(intptr_t id, int chan_id, int creation_status)
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 24); /* size */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
               "version 0, message length 24");
     out_uint32_le(s, 13); /* msg id */
     out_uint32_le(s, 16); /* size */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
               "message type 13, message length 16");
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     out_uint32_le(s, creation_status); /* status */
     s_mark_end(s);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_OPEN "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_OPEN "
               "chansrv_chan_id %d (rdp_channel_id %d), creation_status %d",
               chansrv_chan_id, chan_id, creation_status);
     return trans_write_copy(trans);
@@ -1323,16 +1323,16 @@ xrdp_mm_drdynvc_close_response(intptr_t id, int chan_id)
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 20); /* size */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
               "version 0, message length 20");
     out_uint32_le(s, 15); /* msg id */
     out_uint32_le(s, 12); /* size */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
               "message type 15, message length 12");
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     s_mark_end(s);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_CLOSE "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_CLOSE "
               "chansrv_chan_id %d (rdp_channel_id %d)",
               chansrv_chan_id, chan_id);
 
@@ -1362,11 +1362,11 @@ xrdp_mm_drdynvc_data_first(intptr_t id, int chan_id, char *data,
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + 4 + 4 + bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
               "version 0, message length %d", (8 + 8 + 4 + 4 + 4 + bytes));
     out_uint32_le(s, 17); /* msg id */
     out_uint32_le(s, 8 + 4 + 4 + 4 + bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
               "message type 17, message length %d", (8 + 4 + 4 + 4 + bytes));
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
@@ -1374,7 +1374,7 @@ xrdp_mm_drdynvc_data_first(intptr_t id, int chan_id, char *data,
     out_uint32_le(s, total_bytes);
     out_uint8a(s, data, bytes);
     s_mark_end(s);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_DATA_FIRST "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
               "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
               "total_data_length %d, data <omitted from log>",
               chansrv_chan_id, chan_id, bytes, total_bytes);
@@ -1404,18 +1404,18 @@ xrdp_mm_drdynvc_data(intptr_t id, int chan_id, char *data, int bytes)
     }
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + 4 + bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
               "version 0, message_length %d", (8 + 8 + 4 + 4 + bytes));
     out_uint32_le(s, 19); /* msg id */
     out_uint32_le(s, 8 + 4 + 4 + bytes);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
               "message_type 19, message_length %d", (8 + 4 + 4 + bytes));
     chansrv_chan_id = wm->mm->xr2cr_cid_map[chan_id];
     out_uint32_le(s, chansrv_chan_id);
     out_uint32_le(s, bytes);
     out_uint8a(s, data, bytes);
     s_mark_end(s);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] DRDYNVC_DATA "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA "
               "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
               "data <omitted from log>",
               chansrv_chan_id, chan_id, bytes);
@@ -1475,7 +1475,7 @@ xrdp_mm_trans_process_drdynvc_channel_open(struct xrdp_mm *self,
     in_uint32_le(s, flags);
     in_uint32_le(s, chansrv_chan_id);
     LOG_DEVEL(LOG_LEVEL_TRACE,
-              "Received [Xrdp-ChanServ] DRDYNVC_CHANNEL_OPEN "
+              "Received [Xrdp-Chansrv] DRDYNVC_CHANNEL_OPEN "
               "name_length %d, name '%s', flags 0x%8.8x, chansrv_chan_id %d",
               name_bytes, name, flags, chansrv_chan_id);
 
@@ -1531,7 +1531,7 @@ xrdp_mm_trans_process_drdynvc_channel_close(struct xrdp_mm *self,
     }
     in_uint32_le(s, chansrv_chan_id);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_CHANNEL_CLOSE "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_CHANNEL_CLOSE "
               "chansrv_chan_id %d (rdp_channel_id %d)",
               chansrv_chan_id, chan_id);
 
@@ -1575,7 +1575,7 @@ xrdp_mm_trans_process_drdynvc_data_first(struct xrdp_mm *self,
     }
     in_uint8p(s, data, data_bytes);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_DATA_FIRST "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
               "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
               "total_data_length %d, data <omitted from the log>",
               chansrv_chan_id, chan_id, data_bytes, total_bytes);
@@ -1618,7 +1618,7 @@ xrdp_mm_trans_process_drdynvc_data(struct xrdp_mm *self,
     }
     in_uint8p(s, data, data_bytes);
     chan_id = self->cs2xr_cid_map[chansrv_chan_id];
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-ChanServ] DRDYNVC_DATA "
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA "
               "chansrv_chan_id %d (rdp_channel_id %d), data_length %d, "
               "data <omitted from the log>",
               chansrv_chan_id, chan_id, data_bytes);
@@ -1652,7 +1652,7 @@ xrdp_mm_chan_process_msg(struct xrdp_mm *self, struct trans *trans,
         next_msg = s->p;
         in_uint32_le(s, id);
         in_uint32_le(s, size);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] MESSAGE_HEADER "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] MESSAGE_HEADER "
                   "message_type %d, message_length %d", id, size);
         if (size < 8)
         {
@@ -1691,14 +1691,14 @@ xrdp_mm_chan_process_msg(struct xrdp_mm *self, struct trans *trans,
                 break;
             default:
                 LOG(LOG_LEVEL_WARNING,
-                    "Received [Xrdp-ChanServ] unknown message_type %d", id);
+                    "Received [Xrdp-Chansrv] unknown message_type %d", id);
                 break;
         }
         s->end = s_end;
         if (rv != 0)
         {
             LOG(LOG_LEVEL_WARNING, "Ignoring return value of %d while "
-                "processing [Xrdp-ChanServ] message_type %d", rv, id);
+                "processing [Xrdp-Chansrv] message_type %d", rv, id);
             rv = 0;
         }
 
@@ -1738,7 +1738,7 @@ xrdp_mm_chan_data_in(struct trans *trans)
     {
         in_uint8s(s, 4); /* id */
         in_uint32_le(s, size);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] VERSION_HEADER "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] VERSION_HEADER "
                   "version (ignored), message_length %d", size);
         if (size > 8)
         {
@@ -2050,12 +2050,12 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
 
             out_uint32_le(s, 0); /* version */
             out_uint32_le(s, 8 + 8 + 2 + 2 + 2 + 4 + length);
-            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] VERSION_HEADER "
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                       "version 0, message_length %d", (8 + 8 + 2 + 2 + 2 + 4 + length));
 
             out_uint32_le(s, 5); /* msg id */
             out_uint32_le(s, 8 + 2 + 2 + 2 + 4 + length);
-            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-ChanServ] MESSAGE_HEADER "
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
                       "message_type 5, message_length %d", (8 + 2 + 2 + 2 + 4 + length));
 
             out_uint16_le(s, chan_id);
@@ -2064,7 +2064,7 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
             out_uint32_le(s, total_length);
             out_uint8a(s, data, length);
             s_mark_end(s);
-            LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-ChanServ] CHANNEL_DATA "
+            LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] CHANNEL_DATA "
                       "channel_id %d, flags 0x%4.4x, data_length %d, "
                       "total_data_length %d, data <omitted from the log>",
                       chan_id, flags, length, total_length);

@@ -964,7 +964,7 @@ process_message(void)
         in_uint32_le(s, size);
         next_msg += size;
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-ChanServ] MESSAGE_HEADER "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] MESSAGE_HEADER "
               "message type %d, message length %d", id, size);
         switch (id)
         {
