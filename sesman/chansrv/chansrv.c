@@ -42,6 +42,7 @@
 #include "audin.h"
 
 #include "ms-rdpbcgr.h"
+#include "xrdp_constants.h"
 
 #define MAX_PATH 260
 
@@ -290,12 +291,16 @@ send_channel_data(int chan_id, const char *data, int size)
         }
         out_uint32_le(s, 0); /* version */
         out_uint32_le(s, 26 + sending_bytes);
-        out_uint32_le(s, 8); /* msg id */
         LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length %d",
                 (26 + sending_bytes));
                 
+        out_uint32_le(s, XCS_CHANNEL_DATA_TO_CLIENT); /* msg id */
         out_uint32_le(s, 18 + sending_bytes);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_CHANNEL_DATA_TO_CLIENT), message_length %d",
+                XCS_CHANNEL_DATA_TO_CLIENT, (18 + sending_bytes));
+                
         out_uint16_le(s, chan_id);
         out_uint16_le(s, chan_flags);
         out_uint16_le(s, sending_bytes);
@@ -332,14 +337,19 @@ send_rail_drawing_orders(char *data, int size)
     s = trans_get_out_s(g_con_trans, 8192);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + size); /* size */
-    out_uint32_le(s, 10); /* msg id */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length %d",
                 (8 + 8 + size));
     
+    out_uint32_le(s, XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS); /* msg id */
     out_uint32_le(s, 8 + size); /* size */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS), message_length %d",
+                XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS, (8 + size));
+    
     out_uint8a(s, data, size);
     s_mark_end(s);
+                
     error = trans_force_write(g_con_trans);
     if (error != 0)
     {
@@ -763,12 +773,16 @@ chansrv_drdynvc_open(const char *name, int flags,
     name_bytes = g_strlen(name);
     out_uint32_le(s, 0); /* version */
     out_uint32_le(s, 8 + 8 + 4 + name_bytes + 4 + 4);
-    out_uint32_le(s, 12); /* msg id */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length %d",
                 (8 + 8 + 4 + name_bytes + 4 + 4));
                 
+    out_uint32_le(s, XCS_DRDYNVC_OPEN_REQUEST); /* msg id */
     out_uint32_le(s, 8 + 4 + name_bytes + 4 + 4);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_DRDYNVC_OPEN_REQUEST), message_length %d",
+                XCS_DRDYNVC_OPEN_REQUEST, (8 + 4 + name_bytes + 4 + 4));
+    
     out_uint32_le(s, name_bytes);
     out_uint8a(s, name, name_bytes);
     out_uint32_le(s, flags);
@@ -810,13 +824,17 @@ chansrv_drdynvc_close(int chan_id)
         return 1;
     }
     out_uint32_le(s, 0); /* version */
-    out_uint32_le(s, 20);
-    out_uint32_le(s, 14); /* msg id */
-    out_uint32_le(s, 12);
-    out_uint32_le(s, chan_id);
+    out_uint32_le(s, 20); /* message length */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length 20");
                 
+    out_uint32_le(s, XCS_DRDYNVC_CLOSE_REQUEST); /* msg id */
+    out_uint32_le(s, 12); /* message length */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_DRDYNVC_CLOSE_REQUEST), message_length 12",
+                XCS_DRDYNVC_CLOSE_REQUEST);
+    
+    out_uint32_le(s, chan_id); /* channel id */
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_CLOSE_REQUEST "
                 "channel_id %d", chan_id);
@@ -843,11 +861,15 @@ chansrv_drdynvc_data_first(int chan_id, const char *data, int data_bytes,
         return 1;
     }
     out_uint32_le(s, 0); /* version */
-    out_uint32_le(s, 28 + data_bytes);
-    out_uint32_le(s, 16); /* msg id */
-    out_uint32_le(s, 20 + data_bytes);
+    out_uint32_le(s, 28 + data_bytes); /* message length */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length %d", (28 + data_bytes));
+    
+    out_uint32_le(s, XCS_DRDYNVC_DATA_FIRST_TO_CLIENT); /* msg id */
+    out_uint32_le(s, 20 + data_bytes); /* message length */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_DRDYNVC_DATA_FIRST_TO_CLIENT), message_length %d",
+                XCS_DRDYNVC_DATA_FIRST_TO_CLIENT, (20 + data_bytes));
     
     out_uint32_le(s, chan_id);
     out_uint32_le(s, data_bytes);
@@ -878,12 +900,16 @@ chansrv_drdynvc_data(int chan_id, const char *data, int data_bytes)
         return 1;
     }
     out_uint32_le(s, 0); /* version */
-    out_uint32_le(s, 24 + data_bytes);
-    out_uint32_le(s, 18); /* msg id */
-    out_uint32_le(s, 16 + data_bytes);
+    out_uint32_le(s, 24 + data_bytes); /* message length */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] VERSION_HEADER "
                 "version 0, message_length %d", (24 + data_bytes));
                 
+    out_uint32_le(s, XCS_DRDYNVC_DATA_TO_CLIENT); /* msg id */
+    out_uint32_le(s, 16 + data_bytes); /* message length */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
+                "message_type %d (XCS_DRDYNVC_DATA_TO_CLIENT), message_length %d",
+                XCS_DRDYNVC_DATA_TO_CLIENT, (16 + data_bytes));
+    
     out_uint32_le(s, chan_id);
     out_uint32_le(s, data_bytes);
     out_uint8a(s, data, data_bytes);
@@ -965,25 +991,26 @@ process_message(void)
         next_msg += size;
 
         LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] MESSAGE_HEADER "
-              "message type %d, message length %d", id, size);
+                  "message_type %d (%s), message_length %d", 
+                  id, XCS_TYPE_TO_STR(id), size);
         switch (id)
         {
-            case 3: /* channel setup */
+            case XCS_CHANNEL_SETUP:
                 rv = process_message_channel_setup(s);
                 break;
-            case 5: /* channel data */
+            case XCS_CHANNEL_DATA_TO_SERVER:
                 rv = process_message_channel_data(s);
                 break;
-            case 13: /* drdynvc open response */
+            case XCS_DRDYNVC_OPEN_RESPONSE:
                 rv = process_message_drdynvc_open_response(s);
                 break;
-            case 15: /* drdynvc close response */
+            case XCS_DRDYNVC_CLOSE_RESPONSE:
                 rv = process_message_drdynvc_close_response(s);
                 break;
-            case 17: /* drdynvc data first */
+            case XCS_DRDYNVC_DATA_FIRST_TO_SERVER:
                 rv = process_message_drdynvc_data_first(s);
                 break;
-            case 19: /* drdynvc data */
+            case XCS_DRDYNVC_DATA_TO_SERVER:
                 rv = process_message_drdynvc_data(s);
                 break;
             default:
@@ -1084,6 +1111,8 @@ my_api_open_response(int chan_id, int creation_status)
     }
     out_uint32_le(s, creation_status);
     s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "TODO");
+    
     if (trans_write_copy(trans) != 0)
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "trans_write_copy failed");
@@ -1329,7 +1358,8 @@ my_trans_conn_in(struct trans *trans, struct trans *new_trans)
         return 1;
     }
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "my_trans_conn_in:");
+    /* TODO: add connection client info to log message */
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "Received connection to channel server");
     g_con_trans = new_trans;
     g_con_trans->trans_data_in = my_trans_data_in;
     g_con_trans->header_size = 8;

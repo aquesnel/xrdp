@@ -264,4 +264,34 @@
 #define XR_RDP_SCAN_LSHIFT 42
 #define XR_RDP_SCAN_ALT    56
 
+/* Chansrv message types (XCS = Xrdp Channel Server) */
+#define XCS_CHANNEL_SETUP                            3
+#define XCS_CHANNEL_DATA_TO_SERVER                   5
+#define XCS_CHANNEL_DATA_TO_CLIENT                   8
+#define XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS 10
+#define XCS_DRDYNVC_OPEN_REQUEST                    12
+#define XCS_DRDYNVC_OPEN_RESPONSE                   13
+#define XCS_DRDYNVC_CLOSE_REQUEST                   14
+#define XCS_DRDYNVC_CLOSE_RESPONSE                  15
+#define XCS_DRDYNVC_DATA_FIRST_TO_CLIENT            16
+#define XCS_DRDYNVC_DATA_FIRST_TO_SERVER            17
+#define XCS_DRDYNVC_DATA_TO_CLIENT                  18
+#define XCS_DRDYNVC_DATA_TO_SERVER                  19
+
+#define XCS_TYPE_TO_STR(xcs_type) \
+    ((xcs_type) == XCS_CHANNEL_SETUP ? "XCS_CHANNEL_SETUP" : \
+     (xcs_type) == XCS_CHANNEL_DATA_TO_SERVER ? "XCS_CHANNEL_DATA_TO_SERVER" : \
+     (xcs_type) == XCS_CHANNEL_DATA_TO_CLIENT ? "XCS_CHANNEL_DATA_TO_CLIENT" : \
+     (xcs_type) == XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS ? "XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS" : \
+     (xcs_type) == XCS_DRDYNVC_OPEN_REQUEST ? "XCS_DRDYNVC_OPEN_REQUEST" : \
+     (xcs_type) == XCS_DRDYNVC_OPEN_RESPONSE ? "XCS_DRDYNVC_OPEN_RESPONSE" : \
+     (xcs_type) == XCS_DRDYNVC_CLOSE_REQUEST ? "XCS_DRDYNVC_CLOSE_REQUEST" : \
+     (xcs_type) == XCS_DRDYNVC_CLOSE_RESPONSE ? "XCS_DRDYNVC_CLOSE_RESPONSE" : \
+     (xcs_type) == XCS_DRDYNVC_DATA_FIRST_TO_CLIENT ? "XCS_DRDYNVC_DATA_FIRST_TO_CLIENT" : \
+     (xcs_type) == XCS_DRDYNVC_DATA_FIRST_TO_SERVER ? "XCS_DRDYNVC_DATA_FIRST_TO_SERVER" : \
+     (xcs_type) == XCS_DRDYNVC_DATA_TO_CLIENT ? "XCS_DRDYNVC_DATA_TO_CLIENT" : \
+     (xcs_type) == XCS_DRDYNVC_DATA_TO_SERVER ? "XCS_DRDYNVC_DATA_TO_SERVER" : \
+     "unknown" \
+     )
+
 #endif
