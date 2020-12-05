@@ -722,7 +722,7 @@ rail_restore_windows(void)
     Window p;
     Window *children;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  restore rail windows");
+    LOG_DEVEL(LOG_LEVEL_INFO, "  restore rail windows");
     XQueryTree(g_display, g_root_window, &r, &p, &children, &nchild);
     for (i = 0; i < nchild; i++)
     {
@@ -1374,32 +1374,29 @@ rail_win_send_text(Window win)
     int crc;
     struct rail_window_data *rwd;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text:");
     len = rail_win_get_text(win, &data);
     rwd = rail_get_window_data_safe(win);
-    if (rwd != 0)
-    {
-        if (data != 0)
-        {
-            if (rwd->valid & RWD_TITLE)
-            {
-                crc = get_string_crc(data);
-                if (rwd->title_crc == crc)
-                {
-                    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: skipping, title not changed");
-                    g_free(data);
-                    XFree(rwd);
-                    return 0;
-                }
-            }
-        }
-    }
-    else
+    if (rwd == NULL)
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "chansrv::rail_win_send_text: error rail_get_window_data_safe failed");
         g_free(data);
         return 1;
     }
+    if (data != 0)
+    {
+        if (rwd->valid & RWD_TITLE)
+        {
+            crc = get_string_crc(data);
+            if (rwd->title_crc == crc)
+            {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_win_send_text: skipping, title not changed");
+                g_free(data);
+                XFree(rwd);
+                return 0;
+            }
+        }
+    }
+    
     if (data && len > 0)
     {
 

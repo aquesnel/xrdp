@@ -28,7 +28,7 @@ struct chan_item
 {
     int id;
     int flags;
-    char name[16];
+    char name[16]; /* TODO: why is the size not CHANNEL_NAME_LEN? */
 };
 
 int

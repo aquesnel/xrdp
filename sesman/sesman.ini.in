@@ -66,10 +66,10 @@ Policy=Default
 [Logging]
 ; Note: Log levels can be any of: core, error, warning, info, debug, or trace
 LogFile=xrdp-sesman.log
-LogLevel=INFO
-EnableSyslog=true
+LogLevel=TRACE
+EnableSyslog=false
 #SyslogLevel=INFO
-#EnableConsole=false
+EnableConsole=true
 #ConsoleLevel=INFO
 #EnableProcessId=false
 
@@ -131,11 +131,11 @@ FileUmask=077
 ; xrdp-chansrv.${DISPLAY}.log
 ;
 ; Note: Log levels can be any of: core, error, warning, info, debug, or trace
-LogLevel=INFO
-EnableSyslog=true
+LogLevel=TRACE
+EnableSyslog=false
 #SyslogLevel=INFO
-#EnableConsole=false
-#ConsoleLevel=INFO
+EnableConsole=true
+ConsoleLevel=TRACE
 #EnableProcessId=false
 
 [ChansrvLoggingPerLogger]

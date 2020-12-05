@@ -74,7 +74,11 @@ allow_multimon=true
 bitmap_cache=true
 bitmap_compression=true
 bulk_compression=true
-#hidelogwindow=true
+
+; when true, hide the connection log window from the user when a connection or 
+; authentication fails.
+#hidelogwindow=false
+
 max_bpp=32
 new_cursors=true
 ; fastpath - can be 'input', 'output', 'both', 'none'
