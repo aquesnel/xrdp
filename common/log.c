@@ -315,7 +315,7 @@ internal_config_read_logging(int file,
     {
         buf = (char *)list_get_item(param_n, i);
         g_writeln("config: %s = %s", buf, ((char *)list_get_item(param_v, i)));
-        
+
         if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_FILE))
         {
             lc->log_file = g_strdup((char *)list_get_item(param_v, i));
@@ -336,7 +336,7 @@ internal_config_read_logging(int file,
         {
             lc->log_level = internal_log_text2level((char *)list_get_item(param_v, i));
         }
-        
+
         if (0 == g_strcasecmp(buf, SESMAN_CFG_LOG_ENABLE_FILE))
         {
             lc->enable_file = g_text2bool((char *)list_get_item(param_v, i));
