@@ -346,19 +346,19 @@ xrdp_process_params(int argc, char **argv,
 
             if (g_strlen(startup_params->port) < 1)
             {
-                g_writeln("error processing params, port [%s]", startup_params->port);
+                LOG(LOG_LEVEL_ERROR, "error processing params, port [%s]", startup_params->port);
                 return 1;
             }
             else
             {
-                g_writeln("--port parameter found, ini override [%s]",
-                          startup_params->port);
+                LOG(LOG_LEVEL_INFO, "--port parameter found, ini override [%s]",
+                    startup_params->port);
             }
         }
         else if (nocase_matches(option, "-f", "--fork", NULL))
         {
             startup_params->fork = 1;
-            g_writeln("--fork parameter found, ini override");
+            LOG(LOG_LEVEL_INFO, "--fork parameter found, ini override");
         }
         else if (nocase_matches(option, "--dump-config", NULL))
         {
@@ -395,14 +395,14 @@ xrdp_sanity_check(void)
 #if defined(B_ENDIAN)
     if (!host_be)
     {
-        g_writeln("Not a big endian machine, edit arch.h");
+        LOG(LOG_LEVEL_ERROR, "Not a big endian machine, edit arch.h");
         return 1;
     }
 #endif
 #if defined(L_ENDIAN)
     if (host_be)
     {
-        g_writeln("Not a little endian machine, edit arch.h");
+        LOG(LOG_LEVEL_ERROR, "Not a little endian machine, edit arch.h");
         return 1;
     }
 #endif
@@ -410,31 +410,31 @@ xrdp_sanity_check(void)
     /* check long, int and void* sizes */
     if (sizeof(int) != 4)
     {
-        g_writeln("unusable int size, must be 4");
+        LOG(LOG_LEVEL_ERROR, "unusable int size, must be 4");
         return 1;
     }
 
     if (sizeof(long) != sizeof(void *))
     {
-        g_writeln("long size must match void* size");
+        LOG(LOG_LEVEL_ERROR, "long size must match void* size");
         return 1;
     }
 
     if (sizeof(long) != 4 && sizeof(long) != 8)
     {
-        g_writeln("unusable long size, must be 4 or 8");
+        LOG(LOG_LEVEL_ERROR, "unusable long size, must be 4 or 8");
         return 1;
     }
 
     if (sizeof(tui64) != 8)
     {
-        g_writeln("unusable tui64 size, must be 8");
+        LOG(LOG_LEVEL_ERROR, "unusable tui64 size, must be 8");
         return 1;
     }
 
     if (!g_file_exist(key_file))
     {
-        g_writeln("File %s is missing, create it using xrdp-keygen", key_file);
+        LOG(LOG_LEVEL_ERROR, "File %s is missing, create it using xrdp-keygen", key_file);
         return 1;
     }
 
@@ -453,15 +453,21 @@ main(int argc, char **argv)
     int daemon;
     char text[256];
     const char *pid_file = XRDP_PID_PATH "/xrdp.pid";
+    struct log_config *bootstrap_log_config;
     int errored_argc;
 
-#ifdef XRDP_DEBUG
-    int test;
+    g_init("xrdp");
+    ssl_init();
+
+    bootstrap_log_config = log_config_init_for_console(LOG_LEVEL_WARNING,
+                           g_getenv("XRDP_BOOT_LOG_LEVEL"));
+    log_start_from_param(bootstrap_log_config);
+    log_config_free(bootstrap_log_config);
+
     for (test = 0; test < argc; test++)
     {
-        g_writeln("Argument %i - %s", test, argv[test]);
+        LOG(LOG_LEVEL_DEBUG, "Argument %i - %s", test, argv[test]);
     }
-#endif
 
     g_init("xrdp");
     ssl_init();
@@ -541,6 +547,8 @@ main(int argc, char **argv)
 
     g_writeln("config file: %s", startup_params.xrdp_ini);
     
+    /* end the bootstrap logging */
+    log_end();
     /* starting logging subsystem */
     error = log_start(startup_params.xrdp_ini, "xrdp",
                       startup_params.dump_config);
@@ -602,10 +610,7 @@ main(int argc, char **argv)
 
         g_file_close(fd);
         g_file_delete(pid_file);
-    }
 
-    if (daemon)
-    {
         /* if can't listen, exit with failure status */
         if (xrdp_listen_test(&startup_params) != 0)
         {

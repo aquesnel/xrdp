@@ -54,6 +54,14 @@ Specify a path to a different \fIxrdp.ini\fR file. This option is intended
 to be used primarily for testing or for unusual configurations.
 
 
+.SH "ENVIRONMENT"
+.TP
+\fBXRDP_BOOT_LOG_LEVEL\fR
+The log level to use when booting \fIxrdp\fR until the logging sub-system 
+is initialized from the \fIxrdp.ini\fR file. All boot log messages are 
+written to the console. The default boot log level is: WARN.
+
+
 .SH "FILES"
 @sbindir@/xrdp
 .br
