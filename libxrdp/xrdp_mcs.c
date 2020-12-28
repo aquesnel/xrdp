@@ -906,7 +906,7 @@ xrdp_mcs_out_gcc_data(struct xrdp_sec *self)
     init_stream(s, 8192);
 
     /* [ITU-T T.124] ConnectData (ALIGNED variant of BASIC-PER) */
-    out_uint16_be(s, 5); /* = 0x00 0x05 */
+    out_uint16_be(s, 5); /* = 0x00 0x05
                             t124Identifier choice index = 0 (object) 
                             object length = 5 */
     out_uint16_be(s, 0x14);  /* t124Identifier.object = ??? (0x00 0x14 0x7c 0x00 0x01) */

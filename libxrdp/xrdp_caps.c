@@ -627,7 +627,7 @@ xrdp_caps_process_surface_cmds(struct xrdp_rdp *self, struct stream *s, int len)
 {
     int cmdFlags;
 #ifndef XRDP_DEBUG
-    /* TODO: remove UNUSED_VAR once the `cmdFlags` variable is used for more than 
+    /* TODO: remove UNUSED_VAR once the `cmdFlags` variable is used for more than
     logging in debug mode */
     UNUSED_VAR(cmdFlags);
 #endif
