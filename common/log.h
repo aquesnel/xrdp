@@ -212,20 +212,8 @@ internal_log_end(struct log_config *l_cfg);
  * @param lvl, the loglevel
  * @param str pointer where the string will be stored.
  */
-int
+void
 internal_log_lvl2str(const enum logLevels lvl, char *str);
-
-enum logReturns
-internal_log_format_message(
-                        struct log_config *config,
-                        char *dest_buffer,
-                        const int dest_buffer_len,
-                        const char *function_name, 
-                          const char *file_name, 
-                          const int line_number, 
-                          const enum logLevels level, 
-                          const char *msg, 
-                          va_list ap);
 
 /**
  *
@@ -261,7 +249,11 @@ internal_log_config_dump(struct log_config *config);
  * @return
  */
 enum logReturns
-internal_log_message(const enum logLevels lvl, bool_t force_log, const char *msg);
+internal_log_message(const enum logLevels lvl,
+                     const bool_t override_destination_level,
+                     const enum logLevels override_log_level,
+                     const char *msg,
+                     va_list ap);
 
 /**
  * @param log_level, the log level
