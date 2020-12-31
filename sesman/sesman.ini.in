@@ -97,7 +97,7 @@ EnableConsole=true
 param=Xorg
 ; Leave the rest paramaters as-is unless you understand what will happen.
 param=-config
-param=xrdp/xorg.conf
+param=xrdp-git-install/xorg.conf
 param=-noreset
 param=-nolisten
 param=tcp
