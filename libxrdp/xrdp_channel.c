@@ -51,11 +51,6 @@
      "unknown" \
     )
 
-#define XRDP_DRDYNVC_CHANNEL_ID_TO_NAME(self, chan_id) \
-    (xrdp_channel_get_item((self), (chan_id)) != NULL \
-     ? xrdp_channel_get_item((self), (chan_id))->name \
-     : "unknown")
-
 /*****************************************************************************/
 /* returns pointer or nil on error */
 static struct mcs_channel_item *
@@ -72,6 +67,24 @@ xrdp_channel_get_item(struct xrdp_channel *self, int channel_id)
     channel = (struct mcs_channel_item *)
               list_get_item(self->mcs_layer->channel_list, channel_id);
     return channel;
+}
+
+
+#define XRDP_DRDYNVC_CHANNEL_ID_TO_NAME(self, chan_id) \
+    xrdp_channel_get_channel_name((self), (chan_id))
+/*****************************************************************************/
+const char *
+xrdp_channel_get_channel_name(struct xrdp_channel *self, int channel_id)
+{
+    struct mcs_channel_item *channel = xrdp_channel_get_item(self, channel_id);
+    if (channel != NULL)
+    {
+        return channel->name;
+    }
+    else
+    {
+        return "unknown";
+    }
 }
 
 /*****************************************************************************/
@@ -130,7 +143,7 @@ xrdp_channel_send(struct xrdp_channel *self, struct stream *s, int channel_id,
     if (channel == NULL)
     {
         LOG(LOG_LEVEL_ERROR,
-            "Request to send a message to non-existent channel_id %d",
+            "Request to send a message on non-existent channel_id %d",
             channel_id);
         return 1;
     }
@@ -138,10 +151,13 @@ xrdp_channel_send(struct xrdp_channel *self, struct stream *s, int channel_id,
     if (channel->disabled)
     {
         LOG(LOG_LEVEL_DEBUG,
-            "Request to send a message to the disabled channel %s (%d)",
-            channel->name, channel_id);
+            "Request to send a message to the client on the disabled channel %d (%s)",
+            channel_id, channel->name);
         return 0; /* not an error */
     }
+    LOG(LOG_LEVEL_DEBUG,
+        "Request to send a message to the client on channel %d (%s)",
+        channel_id, channel->name);
 
     s_pop_layer(s, channel_hdr);
     out_uint32_le(s, total_data_len);
@@ -703,10 +719,13 @@ xrdp_channel_process(struct xrdp_channel *self, struct stream *s,
     if (channel->disabled)
     {
         LOG(LOG_LEVEL_WARNING,
-            "Received a message for the disabled channel %s (%d)",
-            channel->name, chanid);
+            "Received a message for the disabled channel %d (%s)",
+            chanid, channel->name);
         return 0; /* not an error */
     }
+    LOG(LOG_LEVEL_DEBUG,
+            "Processing received message on channel %d (%s)",
+            chanid, channel->name);
     if (channel_id == self->drdynvc_channel_id)
     {
         return xrdp_channel_process_drdynvc(self, channel, s);

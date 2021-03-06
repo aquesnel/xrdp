@@ -68,6 +68,13 @@ int g_rdpsnd_chan_id = -1;  /* rdpsnd  */
 int g_rdpdr_chan_id = -1;   /* rdpdr   */
 int g_rail_chan_id = -1;    /* rail    */
 
+#define CHANSRV_CHANNEL_ID_TO_NAME(chan_id) \
+    ((chan_id) == g_cliprdr_chan_id ? "cliprdr" : \
+     (chan_id) == g_rdpsnd_chan_id ? "rdpsnd" : \
+     (chan_id) == g_rdpdr_chan_id ? "rdpdr" : \
+     (chan_id) == g_rail_chan_id ? "rail" : \
+     "unknown")
+
 char *g_exec_name;
 tbus g_exec_event = 0;
 tbus g_exec_mutex;
@@ -270,7 +277,7 @@ send_channel_data(int chan_id, const char *data, int size)
             (size < 1) || (size > MAX_CHANNEL_BYTES))
     {
         /* bad param */
-        LOG_DEVEL(LOG_LEVEL_ERROR, "bad argument: chan_id %d data %p size %d", 
+        LOG_DEVEL(LOG_LEVEL_ERROR, "bad argument: chan_id %d, data %p, size %d", 
                 chan_id, data, size);
         return 1;
     }
@@ -308,9 +315,10 @@ send_channel_data(int chan_id, const char *data, int size)
         out_uint8a(s, data, sending_bytes);
         s_mark_end(s);
         LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] CHANNEL_DATA "
-                "channel_id %d, flags 0x%4.4x, data_length %d, "
+                "channel_id %d (%s), flags 0x%4.4x, data_length %d, "
                 "total_data_length %d, data <omitted from log>",
-                chan_id, chan_flags, sending_bytes, total_size);
+                chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id),
+                chan_flags, sending_bytes, total_size);
         
         size -= sending_bytes;
         data += sending_bytes;
@@ -344,7 +352,8 @@ send_rail_drawing_orders(char *data, int size)
     out_uint32_le(s, XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS); /* msg id */
     out_uint32_le(s, 8 + size); /* size */
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [Xrdp-Chansrv] MESSAGE_HEADER "
-                "message_type %d (XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS), message_length %d",
+                "message_type %d (XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS), "
+                "message_length %d",
                 XCS_RAIL_ALTERNATE_SECONDARY_DRAWING_ORDERS, (8 + size));
     
     out_uint8a(s, data, size);
@@ -401,8 +410,8 @@ process_message_channel_setup(struct stream *s)
         in_uint16_le(s, ci->flags);
         LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] CHANNEL_SETUP.CHANNEL_INFO[%d] "
               "name '%s', id %d flags %4.4x", index, ci->name, ci->id, ci->flags);
-        LOG(LOG_LEVEL_INFO, "setup channel: name '%s' "
-              "id %d flags %8.8x", ci->name, ci->id, ci->flags);
+        LOG(LOG_LEVEL_INFO, "setup channel: name '%s', "
+              "id %d, flags 0x%8.8x", ci->name, ci->id, ci->flags);
 
         if (g_strcasecmp(ci->name, "cliprdr") == 0)
         {
@@ -427,7 +436,8 @@ process_message_channel_setup(struct stream *s)
         }
         else
         {
-            LOG(LOG_LEVEL_WARNING, "unknown channel name '%s'", ci->name);
+            LOG(LOG_LEVEL_WARNING, "(ignoring) unknown channel named '%s'", 
+                ci->name);
         }
 
         g_num_chan_items++;
@@ -486,8 +496,9 @@ process_message_channel_data(struct stream *s)
     in_uint16_le(s, length);
     in_uint32_le(s, total_length);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Chansrv] CHANNEL_DATA "
-              "channel id %d, flags 0x%8.8x, data_length %d, total_data_length %d",
-              chan_id, chan_flags, length, total_length);
+              "channel id %d (%s), flags 0x%8.8x, data_length %d, total_data_length %d",
+              chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id),
+              chan_flags, length, total_length);
     rv = 0;
 
     if (chan_id == g_cliprdr_chan_id)
@@ -573,7 +584,8 @@ process_message_drdynvc_open_response(struct stream *s)
         return 1;
     }
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_OPEN_RESPONSE "
-          "chan_id %d, creation_status %d", chan_id, creation_status);
+              "chan_id %d (%s), creation_status %d", 
+              chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id), creation_status);
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_OPEN_SENT)
     {
@@ -626,7 +638,7 @@ process_message_drdynvc_close_response(struct stream *s)
         return 1;
     }
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_CLOSE_RESPONSE "
-          "chan_id %d", chan_id);
+              "chan_id %d (%s)", chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id));
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->status != CHANSRV_DRDYNVC_STATUS_CLOSE_SENT)
     {
@@ -677,8 +689,9 @@ process_message_drdynvc_data_first(struct stream *s)
     }
     in_uint8p(s, data, bytes);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
-          "chan_id %d, data_length %d, total_data_length %d, data <omitted from log>", 
-          chan_id, bytes, total_bytes);
+              "chan_id %d (%s), data_length %d, total_data_length %d, "
+              "data <omitted from log>", 
+              chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id), bytes, total_bytes);
     if ((chan_id < 0) || (chan_id > 255))
     {
         LOG_DEVEL(LOG_LEVEL_ERROR, "invalid channel id %d", chan_id);
@@ -726,8 +739,8 @@ process_message_drdynvc_data(struct stream *s)
     }
     in_uint8p(s, data, bytes);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] DRDYNVC_DATA "
-          "chan_id %d, data_length %d, data <omitted from log>", 
-          chan_id, bytes);
+          "chan_id %d (%s), data_length %d, data <omitted from log>", 
+          chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id), bytes);
     
     drdynvc = g_drdynvcs + chan_id;
     if (drdynvc->data != NULL)
@@ -837,7 +850,8 @@ chansrv_drdynvc_close(int chan_id)
     out_uint32_le(s, chan_id); /* channel id */
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_CLOSE_REQUEST "
-                "channel_id %d", chan_id);
+              "channel_id %d (%s)",
+              chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id));
     
     error = trans_write_copy(g_con_trans);
     g_drdynvcs[chan_id].status = CHANSRV_DRDYNVC_STATUS_CLOSE_SENT;
@@ -877,9 +891,10 @@ chansrv_drdynvc_data_first(int chan_id, const char *data, int data_bytes,
     out_uint8a(s, data, data_bytes);
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA_FIRST "
-                "channel_id %d, data_length %d, total_data_length %d, "
+                "channel_id %d (%s), data_length %d, total_data_length %d, "
                 "data <omitted from log>", 
-                chan_id, data_bytes, total_data_bytes);
+                chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id), data_bytes,
+                total_data_bytes);
     
     error = trans_write_copy(g_con_trans);
     return error;
@@ -915,9 +930,9 @@ chansrv_drdynvc_data(int chan_id, const char *data, int data_bytes)
     out_uint8a(s, data, data_bytes);
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] DRDYNVC_DATA "
-                "channel_id %d, data_length %d, "
+                "channel_id %d (%s), data_length %d, "
                 "data <omitted from log>", 
-                chan_id, data_bytes);
+                chan_id, CHANSRV_CHANNEL_ID_TO_NAME(chan_id), data_bytes);
     
     error = trans_write_copy(g_con_trans);
     return error;
@@ -1240,7 +1255,8 @@ my_api_trans_data_in(struct trans *trans)
         chan_name[channel_name_bytes] = '\0';
 
         in_uint32_le(s, ad->chan_flags);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: chan_name %s chan_flags 0x%8.8x", chan_name, ad->chan_flags);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "my_api_trans_data_in: chan_name %s, "
+                  "chan_flags 0x%8.8x", chan_name, ad->chan_flags);
         if (ad->chan_flags == 0)
         {
             /* SVC */
@@ -1703,18 +1719,24 @@ child_signal_handler(int sig)
 {
     int pid;
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "child_signal_handler:");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "child_signal_handler: begin");
     do
     {
         pid = g_waitchild();
-        LOG(LOG_LEVEL_INFO, "child_signal_handler: child pid %d", pid);
+        // LOG(LOG_LEVEL_INFO, "child_signal_handler: child pid %d", pid);
         if ((pid == g_exec_pid) && (pid > 0))
         {
             LOG(LOG_LEVEL_INFO, "child_signal_handler: found pid %d", pid);
             //shutdownx();
         }
     }
-    while (pid >= 0);
+    /* TODO: why does this signal handler loop when there is no terminated children?
+       it seems like this should exit when pid > 0 because the xrdp waitpid() 
+       call is using WNOHANG as mentioned in 
+       http://web.stanford.edu/class/cs110/lectures/06-signal-slides.pdf
+    */
+    while (pid > 0); 
+    LOG_DEVEL(LOG_LEVEL_TRACE, "child_signal_handler: end");
 }
 
 /*****************************************************************************/

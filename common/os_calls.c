@@ -2795,7 +2795,7 @@ g_fork(void)
     }
     else
     {
-        LOG(LOG_LEVEL_DEBUG, "Forked parent  process pid %d with child pid %d ", g_getpid(), rv);
+        LOG(LOG_LEVEL_DEBUG, "Forked parent process pid %d with child pid %d", g_getpid(), rv);
     }
 
     return rv;
@@ -2942,6 +2942,7 @@ g_waitpid(int pid)
     }
     else
     {
+        LOG(LOG_LEVEL_DEBUG, "waiting for pid %d to exit", pid);
         rv = waitpid(pid, 0, 0);
 
         if (rv == -1)
@@ -3073,6 +3074,7 @@ g_sigterm(int pid)
 #if defined(_WIN32)
     return 0;
 #else
+    LOG(LOG_LEVEL_DEBUG, "Sending SIGTERM to pid %d", pid);
     return kill(pid, SIGTERM);
 #endif
 }

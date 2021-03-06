@@ -444,13 +444,13 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
     LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [MS-RDPERP] TS_WINDOW_ORDER_HEADER "
               "OrderSize %d, FieldsPresentFlags 0x%8.8x, WindowId 0x%8.8x",
               order_size, field_present_flags, window_id);
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding order [MS-RDPERP] New or Existing Window (TS_WINDOW_INFO)");
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding order [MS-RDPERP] New or Existing Window (NEW_OR_EXISTING_WINDOW)");
 
     if (field_present_flags & WINDOW_ORDER_FIELD_OWNER)
     {
         /* ownerWindowId (4 bytes) */
         out_uint32_le(self->out_s, window_state->owner_window_id);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "OwnerWindowId 0x%8.8x", window_state->owner_window_id);
     }
 
@@ -461,7 +461,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* extendedStyle (4 bytes) */
         out_uint32_le(self->out_s, window_state->extended_style);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "Style 0x%8.8x, ExtendedStyle 0x%8.8x",
                   window_state->style, window_state->extended_style);
     }
@@ -471,7 +471,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* showState (1 byte) */
         out_uint8(self->out_s, window_state->show_state);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "ShowState 0x%2.2x", window_state->show_state);
     }
 
@@ -480,7 +480,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* titleInfo */
         xrdp_orders_send_as_unicode(self->out_s, window_state->title_info);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "TitleInfo %s", window_state->title_info);
     }
 
@@ -491,7 +491,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* clientOffsetY (4 bytes) */
         out_uint32_le(self->out_s, window_state->client_offset_y);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "ClientOffsetX  %d, ClientOffsetY %d",
                   window_state->client_offset_x, window_state->client_offset_y);
     }
@@ -508,7 +508,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* clientAreaHeight (4 bytes) */
         out_uint32_le(self->out_s, window_state->client_area_height);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "ClientAreaWidth %d, ClientAreaHeight %d",
                   window_state->client_area_width, window_state->client_area_height);
     }
@@ -529,7 +529,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* RPContent (1 byte) */
         out_uint8(self->out_s, window_state->rp_content);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "RPContent 0x%2.2x", window_state->rp_content);
     }
 
@@ -543,7 +543,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* rootParentHandle (4 bytes) */
         out_uint32_le(self->out_s, window_state->root_parent_handle);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "RootParentHandle 0x%8.8x", window_state->root_parent_handle);
     }
 
@@ -554,7 +554,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* windowOffsetY (4 bytes) */
         out_uint32_le(self->out_s, window_state->window_offset_y);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "WindowOffsetX %d, WindowOffsetY %d",
                   window_state->window_offset_x, window_state->window_offset_y);
     }
@@ -566,7 +566,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* windowClientDeltaY (4 bytes) */
         out_uint32_le(self->out_s, window_state->window_client_delta_y);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "WindowClientDeltaX %d, WindowClientDeltaY %d",
                   window_state->window_client_delta_x, window_state->window_client_delta_y);
     }
@@ -578,7 +578,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* windowHeight (4 bytes) */
         out_uint32_le(self->out_s, window_state->window_height);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "WindowWidth %d, WindowHeight %d",
                   window_state->window_width, window_state->window_height);
     }
@@ -587,17 +587,26 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
     {
         /* numWindowRects (2 bytes) */
         out_uint16_le(self->out_s, window_state->num_window_rects);
-
+        LOG_DEVEL(LOG_LEVEL_TRACE,
+                  "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
+                  "NumWindowRects %d",
+                  window_state->num_window_rects);
         for (index = 0; index < window_state->num_window_rects; index++)
         {
             out_uint16_le(self->out_s, window_state->window_rects[index].left);
             out_uint16_le(self->out_s, window_state->window_rects[index].top);
             out_uint16_le(self->out_s, window_state->window_rects[index].right);
             out_uint16_le(self->out_s, window_state->window_rects[index].bottom);
+                        LOG_DEVEL(LOG_LEVEL_TRACE,
+                      "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
+                      "WindowRects[%d] TS_RECTANGLE_16 "
+                      "Left %d, Top %d, Right %d, Bottom %d",
+                      index,
+                      window_state->window_rects[index].left,
+                      window_state->window_rects[index].top,
+                      window_state->window_rects[index].right,
+                      window_state->window_rects[index].bottom);
         }
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
-                  "NumWindowRects %d, WindowRects <omitted from log>",
-                  window_state->num_window_rects);
     }
 
     if (field_present_flags & WINDOW_ORDER_FIELD_VIS_OFFSET)
@@ -607,7 +616,7 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
         /* visibleOffsetY (4 bytes) */
         out_uint32_le(self->out_s, window_state->visible_offset_y);
 
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
                   "VisibleOffsetX %d, VisibleOffsetY %d",
                   window_state->visible_offset_x, window_state->visible_offset_y);
     }
@@ -616,17 +625,27 @@ xrdp_orders_send_window_new_update(struct xrdp_orders *self, int window_id,
     {
         /* numVisibilityRects (2 bytes) */
         out_uint16_le(self->out_s, window_state->num_visibility_rects);
-
+        LOG_DEVEL(LOG_LEVEL_TRACE,
+                  "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
+                  "NumVisibilityRects %d",
+                  window_state->num_visibility_rects);
         for (index = 0; index < window_state->num_visibility_rects; index++)
         {
             out_uint16_le(self->out_s, window_state->visibility_rects[index].left);
             out_uint16_le(self->out_s, window_state->visibility_rects[index].top);
             out_uint16_le(self->out_s, window_state->visibility_rects[index].right);
             out_uint16_le(self->out_s, window_state->visibility_rects[index].bottom);
+            LOG_DEVEL(LOG_LEVEL_TRACE,
+                      "Adding optional field [MS-RDPERP] NEW_OR_EXISTING_WINDOW "
+                      "VisibilityRects[%d] TS_RECTANGLE_16 "
+                      "Left %d, Top %d, Right %d, Bottom %d",
+                      index,
+                      window_state->visibility_rects[index].left,
+                      window_state->visibility_rects[index].top,
+                      window_state->visibility_rects[index].right,
+                      window_state->visibility_rects[index].bottom);
         }
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Adding optional field [MS-RDPERP] TS_WINDOW_INFO "
-                  "NumVisibilityRects %d, VisibilityRects <omitted from log>",
-                  window_state->num_visibility_rects);
+        
     }
     /* TODO: The [MS-RDPERP] spec section 2.2.1.3.1.2.1 has the following additional fields:
      * OverlayDescription (optional, variable)

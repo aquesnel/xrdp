@@ -56,9 +56,10 @@ xcommon_error_handler(Display *dis, XErrorEvent *xer)
     char text[256];
 
     XGetErrorText(dis, xer->error_code, text, 255);
-    LOG_DEVEL(LOG_LEVEL_ERROR, "X error [%s](%d) opcodes %d/%d "
-              "resource 0x%lx", text, xer->error_code,
-              xer->request_code, xer->minor_code, xer->resourceid);
+    LOG(LOG_LEVEL_ERROR, "X error %d [%s] on display %s for request "
+        "op-code %d/%d and serial number %lu, resource 0x%lx", 
+        xer->error_code, text, XDisplayString(dis),
+        xer->request_code, xer->minor_code, xer->serial, xer->resourceid);
     return 0;
 }
 
@@ -178,14 +179,15 @@ xcommon_check_wait_objs(void)
     {
         g_memset(&xevent, 0, sizeof(xevent));
         XNextEvent(g_display, &xevent);
-        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XEvent] type 0x%8.8x, serial %lu", 
-              xevent.type, xevent.xany.serial);
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent type 0x%8.8x, serial %lu", 
+                  xevent.type, xevent.xany.serial);
+
         clip_rv = clipboard_xevent(&xevent);
         rail_rv = rail_xevent(&xevent);
         if ((clip_rv == 1) && (rail_rv == 1))
         {
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "xcommon_check_wait_objs unknown xevent type %d",
-                      xevent.type);
+            LOG_DEVEL(LOG_LEVEL_DEBUG, "Unhandled [XServer] XEvent type 0x%8.8x, serial %lu",
+                      xevent.type, xevent.xany.serial);
         }
     }
     return 0;

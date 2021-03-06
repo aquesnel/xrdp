@@ -121,7 +121,7 @@ enum logReturns
  *
  * @param log_level, the log level
  * @param message, a message prefix for the hex dump. Note: no printf like
- *          formatting is done to this message.
+ *          formatting is LOG_LEVEL_ERROR to this message.
  * @param buffer, a pointer to the byte array to log as a hex dump
  * @param length, the length of the byte array to log
  */

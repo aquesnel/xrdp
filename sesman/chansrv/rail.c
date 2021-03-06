@@ -132,6 +132,24 @@ struct rail_window_data
    server to client. */
 #define TS_RAIL_ORDER_GET_APPID_RESP 0x000F
 
+#define RAIL_ORDER_TO_STR(order_id) \
+    ((order_id) == TS_RAIL_ORDER_EXEC ? "TS_RAIL_ORDER_EXEC" : \
+     (order_id) == TS_RAIL_ORDER_ACTIVATE ? "TS_RAIL_ORDER_ACTIVATE" : \
+     (order_id) == TS_RAIL_ORDER_SYSPARAM ? "TS_RAIL_ORDER_SYSPARAM" : \
+     (order_id) == TS_RAIL_ORDER_SYSCOMMAND ? "TS_RAIL_ORDER_SYSCOMMAND" : \
+     (order_id) == TS_RAIL_ORDER_HANDSHAKE ? "TS_RAIL_ORDER_HANDSHAKE" : \
+     (order_id) == TS_RAIL_ORDER_NOTIFY_EVENT ? "TS_RAIL_ORDER_NOTIFY_EVENT" : \
+     (order_id) == TS_RAIL_ORDER_WINDOWMOVE ? "TS_RAIL_ORDER_WINDOWMOVE" : \
+     (order_id) == TS_RAIL_ORDER_LOCALMOVESIZE ? "TS_RAIL_ORDER_LOCALMOVESIZE" : \
+     (order_id) == TS_RAIL_ORDER_MINMAXINFO ? "TS_RAIL_ORDER_MINMAXINFO" : \
+     (order_id) == TS_RAIL_ORDER_CLIENTSTATUS ? "TS_RAIL_ORDER_CLIENTSTATUS" : \
+     (order_id) == TS_RAIL_ORDER_SYSMENU ? "TS_RAIL_ORDER_SYSMENU" : \
+     (order_id) == TS_RAIL_ORDER_LANGBARINFO ? "TS_RAIL_ORDER_LANGBARINFO" : \
+     (order_id) == TS_RAIL_ORDER_EXEC_RESULT ? "TS_RAIL_ORDER_EXEC_RESULT" : \
+     (order_id) == TS_RAIL_ORDER_GET_APPID_REQ ? "TS_RAIL_ORDER_GET_APPID_REQ" : \
+     (order_id) == TS_RAIL_ORDER_GET_APPID_RESP ? "TS_RAIL_ORDER_GET_APPID_RESP" : \
+     "unknown")
+
 /* Resize the window. */
 #define SC_SIZE 0xF000
 /* Move the window. */
@@ -150,23 +168,12 @@ struct rail_window_data
 /* Perform the default action of the window's system menu. */
 #define SC_DEFAULT 0xF160
 
-/* for tooltips */
-#define RAIL_STYLE_TOOLTIP (0x80000000)
-#define RAIL_EXT_STYLE_TOOLTIP (0x00000080 | 0x00000008)
-
-/* for normal desktop windows */
-#define RAIL_STYLE_NORMAL (0x00C00000 | 0x00080000 | 0x00040000 | 0x00010000 | 0x00020000)
-#define RAIL_EXT_STYLE_NORMAL (0x00040000)
-
-/* for dialogs */
-#define RAIL_STYLE_DIALOG (0x80000000)
-#define RAIL_EXT_STYLE_DIALOG (0x00040000)
-
 static int rail_win_get_state(Window win);
 static int rail_create_window(Window window_id, Window owner_id);
 static int rail_win_set_state(Window win, unsigned long state);
 static int rail_show_window(Window window_id, int show_state);
 static int rail_win_send_text(Window win);
+static int rail_send_sync();
 
 /*****************************************************************************/
 static int
@@ -198,24 +205,39 @@ rail_get_window_data(Window window)
     unsigned char *prop_return;
     struct rail_window_data *rv;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_get_window_data:");
-    rv = 0;
+    rv = NULL;
     actual_type_return = 0;
     actual_format_return = 0;
     nitems_return = 0;
-    prop_return = 0;
+    prop_return = NULL;
     bytes = sizeof(struct rail_window_data);
     XGetWindowProperty(g_display, window, g_rwd_atom, 0, bytes, 0,
                        XA_STRING, &actual_type_return,
                        &actual_format_return, &nitems_return,
                        &bytes_after_return, &prop_return);
-    if (prop_return == 0)
+    if (prop_return == NULL)
     {
-        return 0;
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "Result [XServer] XGetWindowProperty(XRDP_RAIL_WINDOW_DATA, "
+              "window_id 0x%8.8lx) returned PROPERTY_NOT_SET",
+              window);
+        return NULL;
     }
     if (nitems_return == bytes)
     {
         rv = (struct rail_window_data *)prop_return;
+        LOG_DEVEL(LOG_LEVEL_DEBUG, "Result [XServer] XGetWindowProperty(XRDP_RAIL_WINDOW_DATA, "
+              "window_id 0x%8.8lx) returned rail_window_data = { "
+              "valid 0x%4.4x, x %d, y %d, width %d, height %d, title_crc %d }",
+              window, rv->valid, rv->x, rv->y, rv->width, rv->height, 
+              rv->title_crc);
+        
+    }
+    else
+    {
+        LOG_DEVEL(LOG_LEVEL_WARNING, "Result [XServer] XGetWindowProperty("
+                  "XRDP_RAIL_WINDOW_DATA, window_id 0x%8.8lx) returned "
+                  "unexpected number of bytes. Expected %d, received %ld",
+                  window, bytes, nitems_return);
     }
     return rv;
 }
@@ -228,11 +250,11 @@ rail_set_window_data(Window window, struct rail_window_data *rwd)
 
     bytes = sizeof(struct rail_window_data);
 
-    LOG_DEVEL(LOG_LEVEL_TRACE, "calling XChangeProperty XRDP_RAIL_WINDOW_DATA "
-              "PropModeReplace window_id 0x%8.8lx rail_window_data.valid 0x%4.4x "
-              "rail_window_data.x %d rail_window_data.y %d rail_window_data.width %d "
-              "rail_window_data.height %d rail_window_data.title_crc %d ",
-              window, rwd->valid, rwd->x, rwd->y, rwd->width, rwd->height, rwd->title_crc);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Calling [XServer] XChangeProperty XRDP_RAIL_WINDOW_DATA "
+              "PropModeReplace, window_id 0x%8.8lx, rail_window_data = { "
+              "valid 0x%4.4x, x %d, y %d, width %d, height %d, title_crc %d }",
+              window, rwd->valid, rwd->x, rwd->y, rwd->width, rwd->height, 
+              rwd->title_crc);
     XChangeProperty(g_display, window, g_rwd_atom, XA_STRING, 8,
                     PropModeReplace, (unsigned char *)rwd, bytes);
     return 0;
@@ -296,16 +318,63 @@ rail_send_init(void)
     out_uint16_le(s, TS_RAIL_ORDER_HANDSHAKE);
     size_ptr = s->p;
     out_uint16_le(s, 0);        /* size, set later */
+    
     out_uint32_le(s, 1);        /* build number */
     s_mark_end(s);
     bytes = (int)(s->end - s->data);
     size_ptr[0] = bytes;
     size_ptr[1] = bytes >> 8;
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [MS-RDPERP] TS_RAIL_PDU_HEADER "
+              "orderType 0x%4.4x (%s), orderLength %d", 
+              TS_RAIL_ORDER_HANDSHAKE, 
+              RAIL_ORDER_TO_STR(TS_RAIL_ORDER_HANDSHAKE), bytes);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPERP] TS_RAIL_ORDER_HANDSHAKE "
-              "orderType 0x%4.4x, orderLength %d, buildNumber 1", 
-              TS_RAIL_ORDER_HANDSHAKE, bytes);
+              "buildNumber 1");
     
     send_channel_data(g_rail_chan_id, s->data, bytes);
+    free_stream(s);
+    return 0;
+}
+/*****************************************************************************/
+static int
+rail_send_exec_result(int client_exec_flags, char *exe_or_file, int exec_result)
+{
+    struct stream *s;
+    struct stream size_ptr;
+    int exe_or_file_length = g_strlen(exe_or_file);
+    int order_length;
+
+    make_stream(s);
+    init_stream(s, 8182);
+    /* TS_RAIL_PDU_HEADER */
+    out_uint16_le(s, TS_RAIL_ORDER_EXEC_RESULT); /* orderType */
+    size_ptr.p = s->p;
+    out_uint8s(s, 2); /* orderLength, set later */
+    
+    /* TS_RAIL_ORDER_EXEC_RESULT */
+    out_uint16_le(s, client_exec_flags);  /* Flags */
+    out_uint16_le(s, exec_result);        /* ExecResult */
+    out_uint32_le(s, 0);                  /* RawResult = (win32 HRESULT) ERROR_SUCCESS */
+    out_uint16_le(s, 0);                  /* Padding */ 
+    out_uint16_le(s, exe_or_file_length); /* ExeOrFileLength */ 
+    // LOG(LOG_LEVEL_ERROR, "TODO: the exe_or_file string needs to be sent as UTF-16-LE, but right now it is UTF-8 see xrdp_orders_rail.c:xrdp_orders_send_as_unicode");
+    // out_uint8a(s, exe_or_file, exe_or_file_length); /* ExeOrFile */
+    out_utf16_le(s, exe_or_file, exe_or_file_length); /* ExeOrFile */
+    s_mark_end(s);
+    
+    order_length = (int)(s->end - s->data);
+    out_uint16_le(&size_ptr, order_length); /* TS_RAIL_PDU_HEADER.orderLength */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding header [MS-RDPERP] TS_RAIL_PDU_HEADER "
+              "orderType 0x%4.4x (%s), orderLength %d", 
+              TS_RAIL_ORDER_EXEC_RESULT, 
+              RAIL_ORDER_TO_STR(TS_RAIL_ORDER_EXEC_RESULT), 
+              order_length);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPERP] TS_RAIL_ORDER_EXEC_RESULT "
+              "Flags 0x%4.4x, ExecResult %d, RawResult 0, Padding <ignored>, "
+              "ExeOrFileLength %d, ExeOrFile [%s]", 
+              client_exec_flags, exec_result, exe_or_file_length, exe_or_file);
+    
+    send_channel_data(g_rail_chan_id, s->data, order_length);
     free_stream(s);
     return 0;
 }
@@ -432,40 +501,61 @@ rail_startup(void)
 }
 
 /*****************************************************************************/
-static char *
-read_uni(struct stream *s, int num_chars)
-{
-    twchar *rchrs;
-    char *rv;
-    int index;
-    int lchars;
+/* Read a UTF-16-LE encoded unicode string.
+ */
+// static char *
+// read_uni(struct stream *s, int num_bytes)
+// {
+//     int num_chars;
+//     twchar *rchrs;
+//     char *rv;
+//     int index;
+//     int lchars;
 
-    rchrs = 0;
-    rv = 0;
+//     rchrs = 0;
+//     rv = 0;
 
-    if (num_chars > 0)
-    {
-        rchrs = (twchar *)g_malloc((num_chars + 1) * sizeof(twchar), 0);
+//     if (num_bytes % 2 != 0)
+//     {
+//         LOG(LOG_LEVEL_ERROR, "Error parsing a [UTF-16-LE] encoded string "
+//             "which requires 2 bytes per character, but there is %d bytes to "
+//             "parse", num_bytes);
+//         return rv;
+//     }
+//     num_chars = num_bytes / 2;
+    
+//     if (s_rem(s) < num_bytes)
+//     {
+//         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream. "
+//             "Expected %d, Actual %d", num_bytes, s_rem(s));
+//         return rv;
+//     }
 
-        for (index = 0; index < num_chars; index++)
-        {
-            in_uint16_le(s, rchrs[index]);
-        }
+//     if (num_bytes > 0)
+//     {
+//         rchrs = (twchar *)g_malloc((num_chars + 1) * sizeof(twchar), 0);
 
-        rchrs[num_chars] = 0;
-        lchars = g_wcstombs(0, rchrs, 0);
+//         for (index = 0; index < num_chars; index++)
+//         {
+//             in_uint16_le(s, rchrs[index]);
+//         }
 
-        if (lchars > 0)
-        {
-            rv = (char *)g_malloc((lchars + 1) * 4, 0);
-            g_wcstombs(rv, rchrs, lchars);
-            rv[lchars] = 0;
-        }
-    }
+//         rchrs[num_chars] = 0;
+//         lchars = g_wcstombs(0, rchrs, 0);
 
-    g_free(rchrs);
-    return rv;
-}
+//         if (lchars > 0)
+//         {
+//             rv = (char *)g_malloc((lchars + 1) * 4, 0);
+//             g_wcstombs(rv, rchrs, lchars);
+//             rv[lchars] = 0;
+//         }
+//     }
+
+//     g_free(rchrs);
+//     return rv;
+// }
+
+#define MAX_RAIL_ORDER_EXEC_STR_LEN 520
 
 /*****************************************************************************/
 static int
@@ -475,19 +565,34 @@ rail_process_exec(struct stream *s, int size)
     int ExeOrFileLength;
     int WorkingDirLength;
     int ArgumentsLen;
-    char *ExeOrFile;
-    char *WorkingDir;
-    char *Arguments;
+    char ExeOrFile[MAX_RAIL_ORDER_EXEC_STR_LEN + 1];
+    char WorkingDir[MAX_RAIL_ORDER_EXEC_STR_LEN + 1];
+    char Arguments[MAX_RAIL_ORDER_EXEC_STR_LEN + 1];
 
     in_uint16_le(s, flags);
     in_uint16_le(s, ExeOrFileLength);
     in_uint16_le(s, WorkingDirLength);
     in_uint16_le(s, ArgumentsLen);
-    ExeOrFile = read_uni(s, ExeOrFileLength);
-    WorkingDir = read_uni(s, WorkingDirLength);
-    Arguments = read_uni(s, ArgumentsLen);
+    if(in_utf16_le(s, ExeOrFile, ExeOrFileLength, MAX_RAIL_ORDER_EXEC_STR_LEN))
+    {
+        LOG(LOG_LEVEL_ERROR, "in_utf16_le failed to parse ExeOrFile");
+        return 1;
+    }
+    if(in_utf16_le(s, WorkingDir, WorkingDirLength, MAX_RAIL_ORDER_EXEC_STR_LEN))
+    {
+        LOG(LOG_LEVEL_ERROR, "in_utf16_le failed to parse WorkingDir");
+        return 1;
+    }
+    if(in_utf16_le(s, Arguments, ArgumentsLen, MAX_RAIL_ORDER_EXEC_STR_LEN))
+    {
+        LOG(LOG_LEVEL_ERROR, "in_utf16_le failed to parse Arguments");
+        return 1;
+    }
+    // ExeOrFile = read_uni(s, ExeOrFileLength);
+    // WorkingDir = read_uni(s, WorkingDirLength);
+    // Arguments = read_uni(s, ArgumentsLen);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_RAIL_ORDER_EXEC "
-              "flags 0x%8.8x, ExeOrFileLength %d, WorkingDirLength %d, "
+              "flags 0x%4.4x, ExeOrFileLength %d, WorkingDirLength %d, "
               "ArgumentsLen %d, ExeOrFile [%s], WorkingDir [%s], "
               "Arguments [%s]", flags, ExeOrFileLength, WorkingDirLength,
               ArgumentsLen, ExeOrFile, WorkingDir, Arguments);
@@ -497,7 +602,7 @@ rail_process_exec(struct stream *s, int size)
         rail_startup();
 
         LOG(LOG_LEVEL_DEBUG, "Received RAIL execute request with "
-            "WorkingDir [%s] ExeOrFile [%s] Arguments [%s]", 
+            "WorkingDir [%s], ExeOrFile [%s], Arguments [%s]", 
             WorkingDir, ExeOrFile, Arguments);
         if (g_strlen(WorkingDir) > 0)
         {
@@ -514,24 +619,44 @@ rail_process_exec(struct stream *s, int size)
         /* in chansrv.c : run_exec() */
         tc_mutex_lock(g_exec_mutex);
         g_exec_name = ExeOrFile;
+
         g_set_wait_obj(g_exec_event);
         tc_sem_dec(g_exec_sem);
+        /* g_exec_pid is now the pid of the program that was just started */
+        
+        g_exec_name = NULL;
         tc_mutex_unlock(g_exec_mutex);
+        
+        /* TODO: wait for the program to actually start up. I've observed that 
+            when calling g_set_wait_obj(g_exec_event) the chansrv process forks 
+            then exec's, and the semaphore in this process is usually 
+            incremented before the forked process is able to run exec. */
+        /* TODO: is it safe to sleep in this thread, this is probably safer as a timeout callback */
+        g_sleep(5000);
+        
+        /* TODO: we are assuming success here, but we should really get the actual exec result */
+        
+        /* TODO: mstsc seems to crash here, I think it might be because the 
+            returned ExeOrFile string is not the same as the sent ExeOrFile 
+            string because of some parsing bug. I have yet to identify where 
+            the parsing bug is that causes the ExeOrFile value to be wrong 
+            here. */
+        rail_send_exec_result(flags, ExeOrFile, 0 /* = RAIL_EXEC_S_OK */);
         
         LOG(LOG_LEVEL_INFO, 
             "RAIL started process [%s] with pid %d and environment variables "
             "DISPLAY [%s] XAUTHORITY [%s]", 
-            g_exec_name, g_exec_pid, g_getenv("DISPLAY"), g_getenv("XAUTHORITY"));
+            ExeOrFile, g_exec_pid, g_getenv("DISPLAY"), g_getenv("XAUTHORITY"));
     }
     else
     {
         LOG(LOG_LEVEL_ERROR, 
             "Received RAIL execute request with empty string as the executable.");
     }
-
-    g_free(ExeOrFile);
-    g_free(WorkingDir);
-    g_free(Arguments);
+    
+    // g_free(ExeOrFile);
+    // g_free(WorkingDir);
+    // g_free(Arguments);
     return 0;
 }
 
@@ -646,7 +771,7 @@ rail_process_activate(struct stream *s, int size)
         {
             /* In case that window is unmapped upon minimization and not yet mapped*/
             LOG_DEVEL(LOG_LEVEL_TRACE, 
-                          "calling XMapWindow for window 0x%8.8x", window_id);
+                          "Calling [XServer] XMapWindow for window 0x%8.8x", window_id);
             XMapWindow(g_display, window_id);
         }
         else
@@ -656,7 +781,7 @@ rail_process_activate(struct stream *s, int size)
             {
                 /* In case that window is unmapped upon minimization and not yet mapped */
                 LOG_DEVEL(LOG_LEVEL_TRACE, 
-                          "calling XMapWindow for window 0x%8.8x", window_id);
+                          "Calling [XServer] XMapWindow for window 0x%8.8x", window_id);
                 XMapWindow(g_display, window_id);
             }
             XGetTransientForHint(g_display, window_id, &transient_for);
@@ -722,8 +847,8 @@ rail_restore_windows(void)
     Window p;
     Window *children;
 
-    LOG_DEVEL(LOG_LEVEL_INFO, "  restore rail windows");
     XQueryTree(g_display, g_root_window, &r, &p, &children, &nchild);
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "RAIL: Restore windows, window count %d", nchild);
     for (i = 0; i < nchild; i++)
     {
         XWindowAttributes window_attributes;
@@ -760,6 +885,9 @@ rail_process_system_param(struct stream *s, int size)
      */
     if (system_param == 0x0000002F) /*SPI_SET_WORK_AREA*/
     {
+        LOG_DEVEL(LOG_LEVEL_TRACE, "Received [MS-RDPERP] "
+                  "TS_RAIL_ORDER_SYSPARAM->SPI_SETWORKAREA->TS_RECTANGLE_16 "
+                  "TODO");
         rail_restore_windows();
     }
     else
@@ -1021,6 +1149,10 @@ rail_process_handshake(struct stream *s, int size)
         "buildNumber 0x%8.8x", build_number);
     
     LOG(LOG_LEVEL_INFO, "client has build number 0x%8.8x", build_number);
+    
+    LOG(LOG_LEVEL_DEBUG, "State tansition [MS-RDPERP] from Initializing to SyncDesktop");
+    rail_send_sync();
+    
     return 0;
 }
 
@@ -1291,6 +1423,29 @@ rail_data_in(struct stream *s, int chan_id, int chan_flags, int length,
     return  0;
 }
 
+/*****************************************************************************/
+static int
+rail_send_sync()
+{
+    struct stream *s;
+    
+    make_stream(s);
+    init_stream(s, 1024);
+
+    out_uint32_le(s, RAIL_SYNC); /* sync */
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
+                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+                "order_type %d (RAIL_SYNC)", RAIL_SYNC);
+            
+    s_mark_end(s);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_SYNC");
+                
+    send_rail_drawing_orders(s->data, (int)(s->end - s->data));
+    free_stream(s);
+    return 0;
+}
+
+
 static const unsigned int g_crc_seed = 0xffffffff;
 static const unsigned int g_crc_table[256] =
 {
@@ -1494,7 +1649,7 @@ rail_create_window(Window window_id, Window owner_id)
     tui32 border;
     Window root;
     tui32 depth;
-    char *title_bytes = 0;
+    char *title_bytes = NULL;
     int title_size = 0;
     XWindowAttributes attributes;
     int style;
@@ -1507,42 +1662,46 @@ rail_create_window(Window window_id, Window owner_id)
     int index;
     int crc;
     Window transient_for = 0;
+    Window child_window_id = 0;
+    Window parent_window_id = 0;
+    Window root_parent_handle = 0;
     struct rail_window_data *rwd;
     struct stream *s;
-
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::rail_create_window 0x%8.8lx", window_id);
 
     rwd = rail_get_window_data_safe(window_id);
     if (rwd == 0)
     {
-        LOG_DEVEL(LOG_LEVEL_ERROR, "chansrv::rail_create_window: error rail_get_window_data_safe failed");
+        LOG_DEVEL(LOG_LEVEL_ERROR, "rail_create_window: error rail_get_window_data_safe failed");
         return 0;
     }
     XGetGeometry(g_display, window_id, &root, &x, &y, &width, &height,
                  &border, &depth);
-    XGetWindowAttributes(g_display, window_id, &attributes);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Result [XServer] XGetGeometry(window_id 0x%8.8lx) "
+              "returned x %d, y %d, width %d, height %d, border_width %d, depth %d",
+              window_id, x, y, width, height, border, depth);
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  x %d y %d width %d height %d border_width %d", x, y, width,
-              height, border);
-
+    flags = WINDOW_ORDER_TYPE_WINDOW;
     index = list_index_of(g_window_list, window_id);
     if (index == -1)
     {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "  create new window");
-        flags = WINDOW_ORDER_TYPE_WINDOW | WINDOW_ORDER_STATE_NEW;
+        flags |= WINDOW_ORDER_STATE_NEW;
         list_add_item(g_window_list, window_id);
     }
-    else
-    {
-        LOG_DEVEL(LOG_LEVEL_DEBUG, "  update existing window");
-        flags = WINDOW_ORDER_TYPE_WINDOW;
-    }
+    LOG_DEVEL(LOG_LEVEL_DEBUG, "[RAIL] %s window with window_id 0x%8.8lx", 
+              ((index == -1) ? "create new" : "update existing"), window_id);
 
-    title_size = 0;
-    title_bytes = 0;
+    XGetWindowAttributes(g_display, window_id, &attributes);
+    LOG_DEVEL(LOG_LEVEL_TRACE,
+              "Result [XServer] XGetWindowAttributes(window_id 0x%8.8lx) "
+              "returned attributes.override_redirect %d",
+              window_id, attributes.override_redirect);
 
     XGetTransientForHint(g_display, window_id, &transient_for);
-
+    LOG_DEVEL(LOG_LEVEL_TRACE,
+              "Result [XServer] XGetTransientForHint(window_id 0x%8.8lx) "
+              "returned prop_window 0x%8.8lx",
+              window_id, transient_for);
+              
     if (attributes.override_redirect)
     {
         style = RAIL_STYLE_TOOLTIP;
@@ -1562,59 +1721,91 @@ rail_create_window(Window window_id, Window owner_id)
         ext_style = RAIL_EXT_STYLE_NORMAL;
         title_size = rail_win_get_text(window_id, &title_bytes);
     }
+    
+    if (g_root_window == owner_id)
+    {
+        // g_root_window is the desktop window, which won't have a 
+        // corresponding window on the client side. So top level windows 
+        // need to be owned by NULL.
+        owner_id = 0;
+        
+        // [MS-RDPERP] 2.2.1.3.1.2.1 New or Existing Window says that for a 
+        // top level window the root parent is set to itself
+        root_parent_handle = window_id;
+    }
+    else
+    {
+        i = 0;
+        parent_window_id = window_id;
+        while(g_root_window != parent_window_id && i < 100)
+        {
+            i++; /* escape hatch */
+            child_window_id = parent_window_id;
+            XQueryTree(g_display, child_window_id, NULL, &parent_window_id, NULL, NULL);
+        }
+        root_parent_handle = child_window_id;
+    }
+    
+    if (title_size == 0)
+    {
+        title_size = 5; /* title_size */
+        title_bytes = g_strdup("title"); /* title */
+    }
 
     make_stream(s);
     init_stream(s, title_size + 1024 + num_window_rects * 8 + num_visibility_rects * 8);
 
-    out_uint32_le(s, 2); /* create_window */
-    LOG_DEVEL(LOG_LEVEL_TRACE, 
-                "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
-                "order_type 2");
+    out_uint32_le(s, RAIL_CREATE_WINDOW); /* order_type */
+    LOG_DEVEL(LOG_LEVEL_TRACE,
+              "Adding header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
+              "order_type %d (%s)",
+              RAIL_CREATE_WINDOW, RAIL_DRAWING_ORDER_TO_STR(RAIL_CREATE_WINDOW));
                 
     out_uint32_le(s, window_id); /* window_id */
-    out_uint32_le(s, owner_id); /* owner_window_id */
-    flags |= WINDOW_ORDER_FIELD_OWNER;
+    // out_uint32_le(s, owner_id); /* owner_window_id */
+    if(owner_id != 0)
+    {
+        flags |= WINDOW_ORDER_FIELD_OWNER;
+    }
+    
     out_uint32_le(s, style); /* style */
     out_uint32_le(s, ext_style); /* extended_style */
     flags |= WINDOW_ORDER_FIELD_STYLE;
-    out_uint32_le(s, 0x05); /* show_state */
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  title %s", title_bytes);
+    
+    out_uint32_le(s, WINDOW_ORDER_VISIBILITY_SHOW); /* show_state */
     flags |= WINDOW_ORDER_FIELD_SHOW;
-    if (title_size > 0)
-    {
-        out_uint16_le(s, title_size); /* title_size */
-        out_uint8a(s, title_bytes, title_size); /* title */
-        rwd->valid |= RWD_TITLE;
-        crc = get_string_crc(title_bytes);
-        rwd->title_crc = crc;
-    }
-    else
-    {
-        out_uint16_le(s, 5); /* title_size */
-        out_uint8a(s, "title", 5); /* title */
-        rwd->valid |= RWD_TITLE;
-        rwd->title_crc = 0;
-    }
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "  set title info %d", title_size);
+    
+    out_uint16_le(s, title_size); /* title_size */
+    out_uint8a(s, title_bytes, title_size); /* title */
+    rwd->valid |= RWD_TITLE;
+    crc = get_string_crc(title_bytes);
+    rwd->title_crc = crc;
     flags |= WINDOW_ORDER_FIELD_TITLE;
+    
     out_uint32_le(s, 0); /* client_offset_x */
     out_uint32_le(s, 0); /* client_offset_y */
     flags |= WINDOW_ORDER_FIELD_CLIENT_AREA_OFFSET;
+    
     out_uint32_le(s, width); /* client_area_width */
     out_uint32_le(s, height); /* client_area_height */
     flags |= WINDOW_ORDER_FIELD_CLIENT_AREA_SIZE;
+    
     out_uint32_le(s, 0); /* rp_content */
-    out_uint32_le(s, g_root_window); /* root_parent_handle */
+    out_uint32_le(s, root_parent_handle); /* root_parent_handle */
     flags |= WINDOW_ORDER_FIELD_ROOT_PARENT;
+    
     out_uint32_le(s, x); /* window_offset_x */
     out_uint32_le(s, y); /* window_offset_y */
     flags |= WINDOW_ORDER_FIELD_WND_OFFSET;
+    
     out_uint32_le(s, 0); /* window_client_delta_x */
     out_uint32_le(s, 0); /* window_client_delta_y */
     flags |= WINDOW_ORDER_FIELD_WND_CLIENT_DELTA;
+    
     out_uint32_le(s, width); /* window_width */
     out_uint32_le(s, height); /* window_height */
     flags |= WINDOW_ORDER_FIELD_WND_SIZE;
+    
     out_uint16_le(s, num_window_rects); /* num_window_rects */
     for (i = 0; i < num_window_rects; i++)
     {
@@ -1624,9 +1815,11 @@ rail_create_window(Window window_id, Window owner_id)
         out_uint16_le(s, height); /* bottom */
     }
     flags |= WINDOW_ORDER_FIELD_WND_RECTS;
+    
     out_uint32_le(s, x); /* visible_offset_x */
     out_uint32_le(s, y); /* visible_offset_y */
     flags |= WINDOW_ORDER_FIELD_VIS_OFFSET;
+    
     out_uint16_le(s, num_visibility_rects); /* num_visibility_rects */
     for (i = 0; i < num_visibility_rects; i++)
     {
@@ -1636,11 +1829,28 @@ rail_create_window(Window window_id, Window owner_id)
         out_uint16_le(s, height); /* bottom */
     }
     flags |= WINDOW_ORDER_FIELD_VISIBILITY;
+    
     out_uint32_le(s, flags); /*flags*/
 
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] RAIL_CREATE_WINDOW "
-                "window_id 0x%8.8lx, TODO:add remaining fields...", window_id);
+                "window_id 0x%8.8lx, owner_window_id 0x%8.8lx, style 0x%8.8x (%s), "
+                "ext_style 0x%8.8x (%s), show_state 0x%8.8x (%s), "
+                "title_length %d, title %s, client_offset_x 0, client_offset_y 0, "
+                "client_area_width %d, client_area_height %d, rp_content 0, "
+                "root_parent_handle 0x%8.8lx, window_offset_x %d, window_offset_y %d, "
+                "window_client_delta_x 0, window_client_delta_y 0, "
+                "window_width %d, window_height %d, num_window_rects %d, "
+                "window_rects[] <omitted from log>, "
+                "visible_offset_x %d, visible_offset_y %d, num_visibility_rects %d, "
+                "visibility_rects[] <omitted from log>, flags 0x%8.8x", 
+                window_id, owner_id, style, RAIL_STYLE_TO_STR(style), 
+                ext_style, RAIL_EXT_STYLE_TO_STR(ext_style),
+                WINDOW_ORDER_VISIBILITY_SHOW, 
+                WINDOW_ORDER_VISIBILITY_TO_STR(WINDOW_ORDER_VISIBILITY_SHOW),
+                title_size, title_bytes, width, height, g_root_window, x, y,
+                width, height, num_window_rects, x, y, num_visibility_rects,
+                flags);
                 
     send_rail_drawing_orders(s->data, (int)(s->end - s->data));
     free_stream(s);
@@ -1988,9 +2198,7 @@ rail_xevent(void *xevent)
 
     rv = 1;
     lxevent = (XEvent *)xevent;
-    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent type 0x%8.8x serial %lu", 
-              lxevent->type, lxevent->xany.serial);
-
+    
     switch (lxevent->type)
     {
         case PropertyNotify:
@@ -2090,7 +2298,10 @@ rail_xevent(void *xevent)
             LOG_DEVEL(LOG_LEVEL_TRACE, "Received [XServer] XEvent.MapRequest "
                       "window_id 0x%8.8lx",
                      lxevent->xmaprequest.window);
-            
+                     
+            LOG_DEVEL(LOG_LEVEL_TRACE, 
+                  "Calling [XServer] XMapWindow window_id 0x%8.8lx",
+                  lxevent->xmaprequest.window);
             XMapWindow(g_display, lxevent->xmaprequest.window);
             break;
 
@@ -2102,11 +2313,17 @@ rail_xevent(void *xevent)
             
             if (lxevent->xmap.window != lxevent->xmap.event)
             {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx != event 0x%8.8lx",
+                          lxevent->xmap.window, lxevent->xmap.event);
                 break;
             }
 
             if (!is_window_valid_child_of_root(lxevent->xmap.window))
             {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx is not a child of the root window",
+                          lxevent->xmap.window);
                 break;
             }
 
@@ -2114,12 +2331,25 @@ rail_xevent(void *xevent)
             if (wnd_attributes.map_state == IsViewable)
             {
                 rail_create_window(lxevent->xmap.window, g_root_window);
+                // rail_create_window(lxevent->xmap.window, 0);
                 if (!wnd_attributes.override_redirect)
                 {
                     rail_win_set_state(lxevent->xmap.window, 0x1); /* NormalState */
                     rail_win_send_text(lxevent->xmap.window);
                 }
+                else
+                {
+                    LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx is has override_redirect enabled",
+                          lxevent->xmap.window);
+                }
                 rv = 0;
+            }
+            else
+            {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx is not viewable",
+                          lxevent->xmap.window);
             }
             break;
 
@@ -2131,29 +2361,40 @@ rail_xevent(void *xevent)
                      
             if (lxevent->xunmap.window != lxevent->xunmap.event)
             {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.UnmapNotify because "
+                          "window_id 0x%8.8lx != event 0x%8.8lx",
+                          lxevent->xmap.window, lxevent->xmap.event);
                 break;
             }
-            if (is_window_valid_child_of_root(lxevent->xunmap.window))
+            if (!is_window_valid_child_of_root(lxevent->xunmap.window))
             {
-                index = list_index_of(g_window_list, lxevent->xunmap.window);
-                LOG_DEVEL(LOG_LEVEL_DEBUG, "  window 0x%8.8lx is unmapped", lxevent->xunmap.window);
-                if (index >= 0)
-                {
-                    XGetWindowAttributes(g_display, lxevent->xunmap.window, &wnd_attributes);
-                    if (wnd_attributes.override_redirect)
-                    {
-                        // remove popups
-                        rail_destroy_window(lxevent->xunmap.window);
-                        list_remove_item(g_window_list, index);
-                    }
-                    else
-                    {
-                        rail_show_window(lxevent->xunmap.window, 0x0);
-                    }
-
-                    rv = 0;
-                }
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx is not a child of the root window",
+                          lxevent->xmap.window);
+                break;
             }
+            index = list_index_of(g_window_list, lxevent->xunmap.window);
+            if (index < 0)
+            {
+                LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring XEvent.MapNotify because "
+                          "window_id 0x%8.8lx was not found in the list of managed windows",
+                          lxevent->xmap.window);
+                break;
+            }
+            
+            XGetWindowAttributes(g_display, lxevent->xunmap.window, &wnd_attributes);
+            if (wnd_attributes.override_redirect)
+            {
+                // remove popups
+                rail_destroy_window(lxevent->xunmap.window);
+                list_remove_item(g_window_list, index);
+            }
+            else
+            {
+                rail_show_window(lxevent->xunmap.window, 0x0);
+            }
+
+            rv = 0;
             break;
 
         case ConfigureNotify:
@@ -2255,9 +2496,6 @@ rail_xevent(void *xevent)
             handeled/unhandled. It is ok to not handle an event since all 
             enabled modules are blindly sent the XEvent, it is only a problem 
             if no module handles the event. */
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "Ignoring [XServer] XEvent with "
-                    "unknown type 0x%8.8x, serial %lu", 
-                    lxevent->type, lxevent->xany.serial);
     }
 
     return rv;

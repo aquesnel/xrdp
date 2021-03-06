@@ -19,6 +19,8 @@
 #if !defined(_RAIL_H)
 #define _RAIL_H
 
+#error This file a duplicate of xrdp_rail.h
+
 /*
   ORDER_TYPE_WINDOW
     WINDOW_ORDER_TYPE_WINDOW

@@ -2431,8 +2431,6 @@ clipboard_xevent(void *xevent)
 {
     XEvent *lxevent;
 
-    LOG_DEVEL(LOG_LEVEL_DEBUG, "clipboard_xevent: event detected");
-
     if (!g_clip_up)
     {
         LOG_DEVEL(LOG_LEVEL_WARNING, "clipboard is not initialised");
@@ -2460,16 +2458,8 @@ clipboard_xevent(void *xevent)
         case SelectionClear:
             clipboard_event_selection_clear(lxevent);
             break;
-        case MappingNotify:
-            break;
         case PropertyNotify:
             clipboard_event_property_notify(lxevent);
-            break;
-        case UnmapNotify:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::clipboard_xevent: got UnmapNotify");
-            break;
-        case ClientMessage:
-            LOG_DEVEL(LOG_LEVEL_DEBUG, "chansrv::clipboard_xevent: got ClientMessage");
             break;
         default:
 

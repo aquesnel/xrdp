@@ -729,9 +729,10 @@ xrdp_mm_trans_process_channel_data(struct xrdp_mm *self, struct stream *s)
     in_uint16_le(s, size);
     in_uint32_le(s, total_size);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] CHANNEL_DATA "
-              "chansrv_chan_id %d, flags 0x%4.4x, data_length %d, "
-              "total_data_length %d, data <omitted from log>",
-              chan_id, chan_flags, size, total_size);
+              "channel_id %d (%s), flags 0x%4.4x, data_length %d, "
+              "total_data_length %d, data <omitted from log>", 
+              chan_id, libxrdp_get_channel_name(self->wm->session, chan_id),
+              chan_flags, size, total_size);
     rv = 0;
 
     if (rv == 0)
@@ -813,8 +814,30 @@ xrdp_mm_process_rail_create_window(struct xrdp_mm *self, struct stream *s)
     }
     in_uint32_le(s, flags);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_CREATE_WINDOW "
-              "window_id 0x%8.8x, TODO:add remaining fields...", window_id);
-
+              "window_id 0x%8.8x, owner_window_id 0x%8.8x, style 0x%8.8x (%s), "
+              "ext_style 0x%8.8x (%s), show_state 0x%8.8x (%s), "
+              "title_length %d, title %s, client_offset_x %d, client_offset_y %d, "
+              "client_area_width %d, client_area_height %d, rp_content %d, "
+              "root_parent_handle 0x%8.8x, window_offset_x %d, window_offset_y %d, "
+              "window_client_delta_x %d, window_client_delta_y %d, "
+              "window_width %d, window_height %d, num_window_rects %d, "
+              "window_rects[] <omitted from log>, "
+              "visible_offset_x %d, visible_offset_y %d, num_visibility_rects %d, "
+              "visibility_rects[] <omitted from log>, flags 0x%8.8x", 
+              window_id, rwso.owner_window_id,
+              rwso.style, RAIL_STYLE_TO_STR(rwso.style), 
+              rwso.extended_style, RAIL_EXT_STYLE_TO_STR(rwso.extended_style),
+              rwso.show_state, WINDOW_ORDER_VISIBILITY_TO_STR(rwso.show_state),
+              title_bytes, rwso.title_info,
+              rwso.client_offset_x, rwso.client_offset_y,
+              rwso.client_area_width, rwso.client_area_height,
+              rwso.rp_content, rwso.root_parent_handle,
+              rwso.window_offset_x, rwso.window_offset_y,
+              rwso.window_client_delta_x, rwso.window_client_delta_y, 
+              rwso.window_width, rwso.window_height, rwso.num_window_rects,
+              rwso.visible_offset_x, rwso.visible_offset_y,
+              rwso.num_visibility_rects, flags);
+    
     rv = libxrdp_orders_init(self->wm->session);
     if (rv == 0)
     {
@@ -1003,6 +1026,52 @@ xrdp_mm_process_rail_update_window_text(struct xrdp_mm *self, struct stream *s)
 
 /*****************************************************************************/
 /* returns error
+   process rail sync order */
+static int
+xrdp_mm_process_rail_sync(struct xrdp_mm* self, struct stream* s)
+{
+    int rv;
+    struct rail_monitored_desktop_order rwso;
+    g_memset(&rwso, 0, sizeof(rwso));
+    
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Chansrv] RAIL_SYNC");
+
+
+    rv = libxrdp_orders_init(self->wm->session);
+    if (rv == 0)
+    {
+        rv = libxrdp_monitored_desktop(self->wm->session, &rwso, WINDOW_ORDER_FIELD_DESKTOP_ARC_BEGAN);
+    }
+    if (rv == 0)
+    {
+        rv = libxrdp_orders_send(self->wm->session);
+    }
+
+    // rv = libxrdp_orders_init(self->wm->session);
+    // if (rv == 0)
+    // {
+    //     rv = libxrdp_monitored_desktop(self->wm->session, &rwso, flags);
+    // }
+    // if (rv == 0)
+    // {
+    //     rv = libxrdp_orders_send(self->wm->session);
+    // }
+    
+    rv = libxrdp_orders_init(self->wm->session);
+    if (rv == 0)
+    {
+        rv = libxrdp_monitored_desktop(self->wm->session, &rwso, WINDOW_ORDER_FIELD_DESKTOP_ARC_COMPLETED );
+    }
+    if (rv == 0)
+    {
+        rv = libxrdp_orders_send(self->wm->session);
+    }
+
+    return rv;
+}
+
+/*****************************************************************************/
+/* returns error
    process alternate secondary drawing orders for rail channel */
 static int
 xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
@@ -1012,23 +1081,27 @@ xrdp_mm_process_rail_drawing_orders(struct xrdp_mm *self, struct stream *s)
 
     rv = 0;
     in_uint32_le(s, order_type);
-    LOG_DEVEL(LOG_LEVEL_TRACE,
+    LOG_DEVEL(LOG_LEVEL_TRACE, 
               "Received header [Xrdp-Chansrv] RAIL_DRAWING_ORDERS_HEADER "
-              "order_type %d", order_type);
+              "order_type %d (%s)", 
+              order_type, RAIL_DRAWING_ORDER_TO_STR(order_type));
 
     switch (order_type)
     {
-        case 2: /* create_window */
+        case RAIL_CREATE_WINDOW:
             xrdp_mm_process_rail_create_window(self, s);
             break;
-        case 4: /* destroy_window */
+        case RAIL_DESTROY_WINDOW:
             xrdp_mm_process_rail_destroy_window(self, s);
             break;
-        case 6: /* show_window */
+        case RAIL_SHOW_WINDOW:
             rv = xrdp_mm_process_rail_show_window(self, s);
             break;
-        case 8: /* update title info */
+        case RAIL_UPDATE_WINDOW_TITLE:
             rv = xrdp_mm_process_rail_update_window_text(self, s);
+            break;
+        case RAIL_SYNC:
+            rv = xrdp_mm_process_rail_sync(self, s);
             break;
         default:
             LOG_DEVEL(LOG_LEVEL_WARNING,
@@ -2072,10 +2145,11 @@ xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
             out_uint8a(s, data, length);
             s_mark_end(s);
             LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [Xrdp-Chansrv] CHANNEL_DATA "
-                      "channel_id %d, flags 0x%4.4x, data_length %d, "
-                      "total_data_length %d, data <omitted from the log>",
-                      chan_id, flags, length, total_length);
-
+                      "channel_id %d (%s), flags 0x%4.4x, data_length %d, "
+                      "total_data_length %d, data <omitted from the log>", 
+                      chan_id, libxrdp_get_channel_name(self->wm->session, chan_id),
+                      flags, length, total_length);
+            
             rv = trans_force_write(self->chan_trans);
         }
     }
@@ -2220,7 +2294,7 @@ access_control(char *username, char *password, char *srv)
                         {
                             in_uint16_be(in_s, code);
                             LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] MESSAGE_HEADER "
-                                      "message_type %d", code)
+                                      "message_type %d", code);
                             in_uint16_be(in_s, pAM_errorcode); /* this variable holds the PAM error code if the variable is >32 it is a "invented" code */
                             in_uint16_be(in_s, dummy);
                             LOG_DEVEL(LOG_LEVEL_TRACE, "Received [Xrdp-Sesman] SCP_GW_AUTHENTICATION "

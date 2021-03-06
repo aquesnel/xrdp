@@ -42,6 +42,8 @@ enum SCP_SERVER_STATES_E scp_vXs_accept(struct SCP_CONNECTION *c, struct SCP_SES
     }
 
     in_uint32_be(c->in_s, version);
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Received header [Xrdp-Sesman] VERSION_HEADER "
+              "version %d, message_length <TBD>", version);
 
     if (version == 0)
     {

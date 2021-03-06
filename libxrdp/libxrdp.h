@@ -587,6 +587,8 @@ xrdp_channel_drdynvc_data_first(struct xrdp_channel *self, int chan_id,
 int
 xrdp_channel_drdynvc_data(struct xrdp_channel *self, int chan_id,
                           const char *data, int data_bytes);
+const char *
+xrdp_channel_get_channel_name(struct xrdp_channel *self, int chan_id);
 
 /* xrdp_fastpath.c */
 struct xrdp_fastpath *

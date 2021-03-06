@@ -578,7 +578,6 @@ xrdp_wm_init(struct xrdp_wm *self)
     {
         int chan_id;
         int chan_count = libxrdp_get_channel_count(self->session);
-        const char *disabled_str = NULL;
 
         for (chan_id = 0 ; chan_id < chan_count ; ++chan_id)
         {

@@ -486,11 +486,13 @@ xrdp_caps_process_window(struct xrdp_rdp *self, struct stream *s, int len)
     self->client_info.wnd_num_icon_caches = i32;
     in_uint16_le(s, i32);
     self->client_info.wnd_num_icon_cache_entries = i32;
-    LOG(LOG_LEVEL_INFO, "xrdp_process_capset_window wnd_support_level %d, "
-        "wnd_num_icon_caches %d, wnd_num_icon_cache_entries %d",
+    LOG(LOG_LEVEL_TRACE, "Received [MS-RDPERP] TS_CONFIRM_ACTIVE_PDU - CAPSTYPE_WINDOW "
+        "WndSupportLevel 0x%8.8x (%s), NumIconCaches %d, NumIconCacheEntries %d",
         self->client_info.wnd_support_level,
+        TS_WINDOW_LEVEL_TO_STR(self->client_info.wnd_support_level),
         self->client_info.wnd_num_icon_caches,
-        self->client_info.wnd_num_icon_cache_entries);
+        self->client_info.wnd_num_icon_cache_entries
+       );
     return 0;
 }
 
@@ -883,15 +885,16 @@ xrdp_caps_send_demand_active(struct xrdp_rdp *self)
     out_uint8s(s, 4);
     caps_ptr = s->p;
 
-    /* Output share capability set */
+    /* Output share capability set TS_SHARE_CAPABILITYSET */
     caps_count++;
-    out_uint16_le(s, CAPSTYPE_SHARE);
-    out_uint16_le(s, CAPSTYPE_SHARE_LEN);
-    out_uint16_le(s, self->mcs_channel);
-    out_uint16_be(s, 0xb5e2); /* 0x73e1 */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_caps_send_demand_active: Server Capability "
-              "CAPSTYPE_SHARE "
-              "channel ID = 0x%x", self->mcs_channel);
+    out_uint16_le(s, CAPSTYPE_SHARE); /* capabilitySetType  */
+    out_uint16_le(s, CAPSTYPE_SHARE_LEN); /* lengthCapability */
+    out_uint16_le(s, self->mcs_channel); /* nodeID */
+    out_uint16_be(s, 0xb5e2); /* pad2octets (ignored) 0x73e1 */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "Adding struct [MS-RDPBCGR] TS_SHARE_CAPABILITYSET "
+              "capabilitySetType CAPSTYPE_SHARE, lengthCapability %d, "
+              "nodeID (channel ID) %d, pad2octets (ignored)", 
+              CAPSTYPE_SHARE_LEN, self->mcs_channel);
 
     /* Output general capability set */
     caps_count++;
@@ -1099,6 +1102,15 @@ xrdp_caps_send_demand_active(struct xrdp_rdp *self)
               "CAPSTYPE_INPUT: "
               "inputFlags = 0x%x", flags);
 
+    /* Virtual Channel Capability Set */
+    caps_count++;
+    out_uint16_le(s, 0x0014); /* CAPSTYPE_VIRTUALCHANNEL */
+    out_uint16_le(s, 12); /* lengthCapability */
+    out_uint32_le(s, 0x00000002); /* flags = VCCAPS_COMPR_CS_8K (I don't know what is really supported by xrdp, so I'm just setting a reasonable default) */
+    out_uint32_le(s, 16256); /* VCChunkSize = 16256 since this is the max allowed size in the spec */
+    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_caps_send_demand_active: Server Capability "
+              "CAPSTYPE_VIRTUALCHANNEL TODO");
+
     if (self->client_info.rail_enable) /* MS-RDPERP 3.3.5.1.4 */
     {
         /* Remote Programs Capability Set */
@@ -1127,13 +1139,26 @@ xrdp_caps_send_demand_active(struct xrdp_rdp *self)
                   "NumIconCacheEntries = 12");
     }
 
-    /* 6 - bitmap cache v3 codecid */
-    caps_count++;
-    out_uint16_le(s, 0x0006);
-    out_uint16_le(s, 5);
-    out_uint8(s, 0); /* client sets */
-    LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_caps_send_demand_active: Server Capability "
-              "0x0006 = 0");
+    /* TODO: figure out what capability 6 is.
+     * ORDERFLAGS_EX_CACHE_BITMAP_REV3_SUPPORT is declared in the 
+     * TS_ORDER_CAPABILITYSET.orderSupportExFlags field.
+     * The capability set 0x0006 is unused according to the spec in MS-RDPBCGR
+     * section 2.2.1.13.1.1.1 TS_CAPS_SET so I don't know what this capability
+     * is.
+     * In MS-RDPEGDI section 2.2.2.2.1.2.8 CACHE_BITMAP_REV3_ORDER it says that
+     * the codec ids are advertised in the MS-RDPBCGR section 2.2.7.2.10 
+     * TS_BITMAPCODECS_CAPABILITYSET structure, which has already been included
+     * in this message.
+     * This "capability 6" was added in commit 05a2b54 with no additional context.
+     * https://github.com/neutrinolabs/xrdp/commit/05a2b54a173f8673cd5d040e1537acf8a597f939
+     */
+    // /* 6 - bitmap cache v3 codecid */
+    // caps_count++;
+    // out_uint16_le(s, 0x0006);
+    // out_uint16_le(s, 5);
+    // out_uint8(s, 0); /* client sets */
+    // LOG_DEVEL(LOG_LEVEL_TRACE, "xrdp_caps_send_demand_active: Server Capability "
+    //           "0x0006 = 0");
 
     if (self->client_info.use_fast_path & FASTPATH_OUTPUT_SUPPORTED) /* fastpath output on */
     {

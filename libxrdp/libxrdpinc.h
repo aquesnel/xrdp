@@ -227,6 +227,8 @@ libxrdp_query_channel(struct xrdp_session *session, int channel_id,
  */
 int
 libxrdp_get_channel_id(struct xrdp_session *session, const char *name);
+const char *
+libxrdp_get_channel_name(struct xrdp_session *session, int channel_id);
 int
 libxrdp_send_to_channel(struct xrdp_session *session, int channel_id,
                         char *data, int data_len,

@@ -155,6 +155,14 @@ struct stream
 #define s_mark_end(s) \
     (s)->end = (s)->p
 
+/******************************************************************************/
+int
+out_utf16_le(struct stream *s, const char *src, int src_length);
+
+int
+in_utf16_le(struct stream *s, char *dest, int num_src_bytes, int num_dest_bytes);
+
+/******************************************************************************/
 #define in_sint8(s, v) do \
     { \
         (v) = *((signed char*)((s)->p)); \

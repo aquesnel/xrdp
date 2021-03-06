@@ -455,7 +455,19 @@ main(int argc, char **argv)
     const char *pid_file = XRDP_PID_PATH "/xrdp.pid";
     struct log_config *bootstrap_log_config;
     int errored_argc;
-
+// xrdp_iso_recv()=INFO
+// #xrdp_sec_recv()=INFO
+// xrdp_iso_send()=INFO
+// xrdp_sec_send()=INFO
+// xrdp_mcs_send()=INFO
+// xrdp_bitmap32_compress.c=INFO
+// xrdp_mppc_enc.c=INFO
+// xrdp_bitmap.c=INFO
+// xrdp_cache.c=INFO
+// os_calls.c=TRACE
+// compress_rdp_5()=INFO
+// fout()=INFO
+// fpack()=INFO
     g_init("xrdp");
     ssl_init();
 
@@ -576,7 +588,12 @@ main(int argc, char **argv)
         g_deinit();
         g_exit(1);
     }
-
+LOG_DEVEL(LOG_LEVEL_TRACE, "log test trace");
+LOG_DEVEL(LOG_LEVEL_DEBUG, "log test debug");
+LOG_DEVEL(LOG_LEVEL_INFO, "log test info");
+LOG_DEVEL(LOG_LEVEL_WARNING, "log test warn");
+LOG_DEVEL(LOG_LEVEL_ERROR, "log test error");
+        
     if (g_file_exist(pid_file)) /* xrdp.pid */
     {
         LOG_DEVEL(LOG_LEVEL_TRACE, "It looks like xrdp is already running.");

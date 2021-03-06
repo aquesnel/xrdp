@@ -16,60 +16,60 @@
  * limitations under the License.
  */
 
-#if !defined(_RAIL_H)
-#define _RAIL_H
+#if !defined(_XRDP_RAIL_H)
+#define _XRDP_RAIL_H
 
+#include "ms-rdperp.h"
+
+/* Xrdp-Chansrv RAIL_DRAWING_ORDERS */
+#define RAIL_CREATE_WINDOW          2
+#define RAIL_DESTROY_WINDOW         4
+#define RAIL_SHOW_WINDOW            6
+#define RAIL_UPDATE_WINDOW_TITLE    8
+#define RAIL_CONFIGURE_WINDOW      10
+#define RAIL_SYNC                  12
+
+#define RAIL_DRAWING_ORDER_TO_STR(rail_order_type) \
+    ((rail_order_type) == RAIL_CREATE_WINDOW ? "RAIL_CREATE_WINDOW" : \
+     (rail_order_type) == RAIL_DESTROY_WINDOW ? "RAIL_DESTROY_WINDOW" : \
+     (rail_order_type) == RAIL_SHOW_WINDOW ? "RAIL_SHOW_WINDOW" : \
+     (rail_order_type) == RAIL_UPDATE_WINDOW_TITLE ? "RAIL_UPDATE_WINDOW_TITLE" : \
+     (rail_order_type) == RAIL_CONFIGURE_WINDOW ? "RAIL_CONFIGURE_WINDOW" : \
+     (rail_order_type) == RAIL_SYNC ? "RAIL_SYNC" : \
+     "unknown" \
+     )
+
+/******************************************************************************/
 /*
-  ORDER_TYPE_WINDOW
-    WINDOW_ORDER_TYPE_WINDOW
-      WINDOW_ORDER_ICON
-      WINDOW_ORDER_CACHED_ICON
-      WINDOW_ORDER_STATE_DELETED
-      WINDOW_ORDER_STATE_NEW on
-      WINDOW_ORDER_STATE_NEW off
-    WINDOW_ORDER_TYPE_NOTIFY
-      WINDOW_ORDER_STATE_DELETED
-      WINDOW_ORDER_STATE_NEW on
-      WINDOW_ORDER_STATE_NEW off
-    WINDOW_ORDER_TYPE_DESKTOP
-      WINDOW_ORDER_FIELD_DESKTOP_NONE on
-      WINDOW_ORDER_FIELD_DESKTOP_NONE off
-*/
+ * [Win32] Window Styles and Extended Window Styles
+ */
 
-/* Window Order Header Flags */
-#define WINDOW_ORDER_TYPE_WINDOW                        0x01000000
-#define WINDOW_ORDER_TYPE_NOTIFY                        0x02000000
-#define WINDOW_ORDER_TYPE_DESKTOP                       0x04000000
-#define WINDOW_ORDER_STATE_NEW                          0x10000000
-#define WINDOW_ORDER_STATE_DELETED                      0x20000000
-#define WINDOW_ORDER_FIELD_OWNER                        0x00000002
-#define WINDOW_ORDER_FIELD_STYLE                        0x00000008
-#define WINDOW_ORDER_FIELD_SHOW                         0x00000010
-#define WINDOW_ORDER_FIELD_TITLE                        0x00000004
-#define WINDOW_ORDER_FIELD_CLIENT_AREA_OFFSET           0x00004000
-#define WINDOW_ORDER_FIELD_CLIENT_AREA_SIZE             0x00010000
-#define WINDOW_ORDER_FIELD_RP_CONTENT                   0x00020000
-#define WINDOW_ORDER_FIELD_ROOT_PARENT                  0x00040000
-#define WINDOW_ORDER_FIELD_WND_OFFSET                   0x00000800
-#define WINDOW_ORDER_FIELD_WND_CLIENT_DELTA             0x00008000
-#define WINDOW_ORDER_FIELD_WND_SIZE                     0x00000400
-#define WINDOW_ORDER_FIELD_WND_RECTS                    0x00000100
-#define WINDOW_ORDER_FIELD_VIS_OFFSET                   0x00001000
-#define WINDOW_ORDER_FIELD_VISIBILITY                   0x00000200
-#define WINDOW_ORDER_FIELD_ICON_BIG                     0x00002000
-#define WINDOW_ORDER_ICON                               0x40000000
-#define WINDOW_ORDER_CACHED_ICON                        0x80000000
-#define WINDOW_ORDER_FIELD_NOTIFY_VERSION               0x00000008
-#define WINDOW_ORDER_FIELD_NOTIFY_TIP                   0x00000001
-#define WINDOW_ORDER_FIELD_NOTIFY_INFO_TIP              0x00000002
-#define WINDOW_ORDER_FIELD_NOTIFY_STATE                 0x00000004
-#define WINDOW_ORDER_FIELD_DESKTOP_NONE                 0x00000001
-#define WINDOW_ORDER_FIELD_DESKTOP_HOOKED               0x00000002
-#define WINDOW_ORDER_FIELD_DESKTOP_ARC_COMPLETED        0x00000004
-#define WINDOW_ORDER_FIELD_DESKTOP_ARC_BEGAN            0x00000008
-#define WINDOW_ORDER_FIELD_DESKTOP_ZORDER               0x00000010
-#define WINDOW_ORDER_FIELD_DESKTOP_ACTIVE_WND           0x00000020
+/* for tooltips */
+#define RAIL_STYLE_TOOLTIP (0x80000000)
+#define RAIL_EXT_STYLE_TOOLTIP (0x00000080 | 0x00000008)
 
+/* for normal desktop windows */
+#define RAIL_STYLE_NORMAL (0x00C00000 | 0x00080000 | 0x00040000 | 0x00010000 | 0x00020000)
+#define RAIL_EXT_STYLE_NORMAL (0x00040000)
+
+/* for dialogs */
+#define RAIL_STYLE_DIALOG (0x80000000)
+#define RAIL_EXT_STYLE_DIALOG (0x00040000)
+
+#define RAIL_STYLE_TO_STR(code) \
+    ((code) == RAIL_STYLE_TOOLTIP     ? "RAIL_STYLE_TOOLTIP" : \
+     (code) == RAIL_STYLE_NORMAL      ? "RAIL_STYLE_NORMAL" : \
+     (code) == RAIL_STYLE_DIALOG      ? "RAIL_STYLE_DIALOG" : \
+     "unknown" \
+    )
+    
+#define RAIL_EXT_STYLE_TO_STR(code) \
+    ((code) == RAIL_EXT_STYLE_TOOLTIP ? "RAIL_EXT_STYLE_TOOLTIP" : \
+     (code) == RAIL_EXT_STYLE_NORMAL  ? "RAIL_EXT_STYLE_NORMAL" : \
+     (code) == RAIL_EXT_STYLE_DIALOG  ? "RAIL_EXT_STYLE_DIALOG" : \
+     "unknown" \
+    )
+    
 struct rail_icon_info
 {
     int bpp;

@@ -20,7 +20,8 @@ fork=true
 ;   port=tcp6://:3389                           *:3389
 ;   port=tcp6://{<any ipv6 format addr>}:3389   {FC00:0:0:0:0:0:0:1}:3389
 ;   port=vsock://<cid>:<port>
-port=3389
+#port=3389
+port=3390
 
 ; 'port' above should be connected to with vsock instead of tcp
 ; use this only with number alone in port above
@@ -162,22 +163,30 @@ EnableConsole=true
 ConsoleLevel=TRACE
 EnableSyslog=false
 SyslogLevel=DEBUG
-EnableProcessId=false
+EnableProcessId=true
 
 [LoggingPerLogger]
 ; Note: per logger configuration is only used in XRDP_DEBUG builds of XRDP.
 #xrdp.c=DEBUG
 #xrdp_listen_process_startup_params()=DEBUG
-xrdp_iso_recv()=INFO
+#xrdp_iso_recv()=INFO
 #xrdp_sec_recv()=INFO
-xrdp_iso_send()=INFO
-xrdp_sec_send()=INFO
-xrdp_mcs_send()=INFO
+#xrdp_iso_send()=INFO
+#xrdp_sec_send()=INFO
+#xrdp_mcs_send()=INFO
 xrdp_bitmap32_compress.c=INFO
 xrdp_mppc_enc.c=INFO
 xrdp_bitmap.c=INFO
 xrdp_cache.c=INFO
-os_calls.c=TRACE
+#os_calls.c=TRACE
+#compress_rdp_5()=INFO
+#fout()=INFO
+#fpack()=INFO
+#main()=INFO
+#libxrdp_send_bitmap()=INFO
+#xrdp_painter.c=INFO
+#xrdp_sec.c=INFO
+#xrdp_rdp.c=INFO
 
 [Channels]
 ; Channel names not listed here will be blocked by XRDP.
@@ -212,6 +221,7 @@ username=ask
 password=ask
 ip=127.0.0.1
 port=-1
+;port=/tmp/.xrdp/xrdp_display_10
 code=20
 
 [Xvnc]

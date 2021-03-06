@@ -132,18 +132,20 @@ libxrdp_force_read(struct trans *trans)
 
     if (trans_force_read(trans, 4) != 0)
     {
-        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: header read error");
+        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: header read error. Expected to receive at least 4 bytes");
         return NULL;
     }
     bytes = libxrdp_get_pdu_bytes(s->data);
     if (bytes < 4 || bytes > s->size)
     {
-        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: bad header length %d", bytes);
+        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: invalid length in header. "
+            "Expected min 4, max %d; Received %d", s->size, bytes);
         return NULL;
     }
     if (trans_force_read(trans, bytes - 4) != 0)
     {
-        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: Can't read PDU");
+        LOG(LOG_LEVEL_ERROR, "libxrdp_force_read: PDU read error. "
+            "Expected to receive at least %d bytes (length field in header)", bytes);
         return NULL;
     }
     return s;
@@ -1354,6 +1356,17 @@ libxrdp_get_channel_id(struct xrdp_session *session, const char *name)
 }
 
 /*****************************************************************************/
+/* returns */
+const char * EXPORT_CC
+libxrdp_get_channel_name(struct xrdp_session *session, int channel_id)
+{
+    struct xrdp_rdp *rdp = (struct xrdp_rdp *)session->rdp;
+
+    return xrdp_channel_get_channel_name(rdp->sec_layer->chan_layer, 
+                                         channel_id);
+}
+
+/*****************************************************************************/
 int EXPORT_CC
 libxrdp_send_to_channel(struct xrdp_session *session, int channel_id,
                         char *data, int data_len,
@@ -1381,7 +1394,7 @@ libxrdp_send_to_channel(struct xrdp_session *session, int channel_id,
     out_uint8a(s, data, data_len);
     s_mark_end(s);
     LOG_DEVEL(LOG_LEVEL_TRACE, "Sending [MS-RDPBCGR] Virtual Channel PDU "
-              "data <omitted from log>");
+              "virtualChannelData <omitted from log>");
 
     if (xrdp_channel_send(chan, s, channel_id, total_data_len, flags) != 0)
     {

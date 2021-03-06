@@ -70,8 +70,8 @@ LogLevel=TRACE
 EnableSyslog=false
 #SyslogLevel=INFO
 EnableConsole=true
-#ConsoleLevel=INFO
-#EnableProcessId=false
+ConsoleLevel=TRACE
+EnableProcessId=true
 
 [LoggingPerLogger]
 ; Note: per logger configuration is only used in XRDP_DEBUG builds of XRDP.
@@ -136,7 +136,7 @@ EnableSyslog=false
 #SyslogLevel=INFO
 EnableConsole=true
 ConsoleLevel=TRACE
-#EnableProcessId=false
+EnableProcessId=true
 
 [ChansrvLoggingPerLogger]
 ; Note: per logger configuration is only used in XRDP_DEBUG builds of XRDP.
