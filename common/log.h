@@ -113,12 +113,6 @@ enum logReturns
 #define LOG(log_level, args...) \
     log_message_with_location(__func__, __FILE__, __LINE__, log_level, args)
 
-#define LOG_WITH_LOCATION(func, file, line, log_level, args...) \
-        log_message_with_location(func, file, line, log_level, args);
-
-#define LOG_USER(mod, log_level, args...) \
-        (mod)->server_msg_v2_with_location(mod, __func__, __FILE__, __LINE__, log_level, args);
-
 /**
  * @brief Logging macro for logging the contents of a byte array using a hex
  * dump format.
@@ -157,11 +151,6 @@ enum logReturns
  */
 #define LOG_DEVEL(log_level, args...) UNUSED_VAR(LOG_STARTUP_OK)
 #define LOG_DEVEL_HEXDUMP(log_level, message, buffer, length) UNUSED_VAR(LOG_STARTUP_OK)
-
-#define LOG_WITH_LOCATION(func, file, line, log_level, args...) \
-        log_message(log_level, args);
-#define LOG_USER(mod, log_level, args...) \
-        (mod)->server_msg_v2(mod, log_level, args);
 
 #endif
 

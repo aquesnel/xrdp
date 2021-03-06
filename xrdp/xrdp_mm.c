@@ -3301,43 +3301,6 @@ server_msg(struct xrdp_mod *mod, char *msg, int code)
     return xrdp_wm_log_msg(wm, LOG_LEVEL_DEBUG, "%s", msg);
 }
 
-int
-server_msg_v2(struct xrdp_mod *mod, 
-                       enum logLevels loglevel, 
-                       const char *msg, ...)
-{
-    va_list ap;
-    struct xrdp_wm *wm;
-    int rv;
-
-    wm = (struct xrdp_wm *)(mod->wm);
-    va_start(ap, fmt);
-    rv = xrdp_wm_log_msg_va(wm, loglevel, msg, msg);
-    va_end(ap);
-    
-    return rv;
-}
-
-int
-server_msg_v2_with_location(struct xrdp_mod *v, 
-                          const char *function_name, 
-                          const char *file_name, 
-                          const int line_number, 
-                          enum logLevels loglevel, 
-                            const char *msg, ...)
-{
-    va_list ap;
-    struct xrdp_wm *wm;
-    int rv;
-
-    wm = (struct xrdp_wm *)(mod->wm);
-    va_start(ap, fmt);
-    rv = xrdp_wm_log_msg_with_location(wm, function_name, file_name, line_number, loglevel, msg, ap);
-    va_end(ap);
-    
-    return rv;
-}
-
 /*****************************************************************************/
 int
 server_is_term(struct xrdp_mod *mod)
