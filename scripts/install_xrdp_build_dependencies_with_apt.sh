@@ -98,7 +98,7 @@ apt-get \
     --no-install-suggests \
     --no-install-recommends \
     -o Debug::pkgProblemResolver=yes \
-    -o Debug::Acquire::https \
-    -o Debug::pkgDepCache::Marker \
+    -o Debug::Acquire::https=yes \
+    -o Debug::pkgDepCache::Marker=yes \
     $APT_EXTRA_ARGS \
     install $PACKAGES
