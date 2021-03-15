@@ -91,8 +91,12 @@ in
         ;;
 esac
 
-apt-get -yq \
+apt-get \
+    --assume-yes \
+    --quiet \
+    --verbose-versions \
     --no-install-suggests \
     --no-install-recommends \
+    -o Debug::pkgProblemResolver=yes \
     $APT_EXTRA_ARGS \
     install $PACKAGES
