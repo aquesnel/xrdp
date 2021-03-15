@@ -91,6 +91,8 @@ in
         ;;
 esac
 
+apt list -a $PACKAGES
+
 apt-get \
     --assume-yes \
     --quiet \
