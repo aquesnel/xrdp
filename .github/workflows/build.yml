@@ -16,48 +16,48 @@ jobs:
       matrix:
         include:
 
-          # Minimal 64-bit arch builds
-          - CC: gcc
-            feature_set: min
-            arch: amd64
-            os: ubuntu-latest
+          # # Minimal 64-bit arch builds
+          # - CC: gcc
+          #   feature_set: min
+          #   arch: amd64
+          #   os: ubuntu-latest
 
-          - CC: g++
-            feature_set: min
-            arch: amd64
-            os: ubuntu-latest
+          # - CC: g++
+          #   feature_set: min
+          #   arch: amd64
+          #   os: ubuntu-latest
 
-          - CC: clang
-            feature_set: min
-            arch: amd64
-            os: ubuntu-latest
+          # - CC: clang
+          #   feature_set: min
+          #   arch: amd64
+          #   os: ubuntu-latest
 
-          # Maximal 64-bit arch builds
-          - CC: gcc
-            feature_set: max
-            arch: amd64
-            os: ubuntu-latest
-            DISTCHECK: true
+          # # Maximal 64-bit arch builds
+          # - CC: gcc
+          #   feature_set: max
+          #   arch: amd64
+          #   os: ubuntu-latest
+          #   DISTCHECK: true
 
-          - CC: g++
-            feature_set: max
-            arch: amd64
-            os: ubuntu-latest
-            DISTCHECK: true
+          # - CC: g++
+          #   feature_set: max
+          #   arch: amd64
+          #   os: ubuntu-latest
+          #   DISTCHECK: true
 
-          - CC: clang
-            feature_set: max
-            arch: amd64
-            os: ubuntu-latest
-            DISTCHECK: true
+          # - CC: clang
+          #   feature_set: max
+          #   arch: amd64
+          #   os: ubuntu-latest
+          #   DISTCHECK: true
 
-          # Maximal debug 64-bit arch builds
-          - CC: gcc
-            feature_set: max
-            arch: amd64
-            os: ubuntu-latest
-            name_extra: and DEBUG
-            CONF_FLAGS_EXTRA: "--enable-xrdpdebug"
+          # # Maximal debug 64-bit arch builds
+          # - CC: gcc
+          #   feature_set: max
+          #   arch: amd64
+          #   os: ubuntu-latest
+          #   name_extra: and DEBUG
+          #   CONF_FLAGS_EXTRA: "--enable-xrdpdebug"
 
           # Maximal 32-bit arch builds
           - CC: gcc
@@ -66,17 +66,17 @@ jobs:
             os: ubuntu-16.04
             name_extra: for 32-bit arch (legacy OS)
 
-          - CC: g++
-            feature_set: max
-            arch: i386
-            os: ubuntu-16.04
-            name_extra: for 32-bit arch (legacy OS)
+          # - CC: g++
+          #   feature_set: max
+          #   arch: i386
+          #   os: ubuntu-16.04
+          #   name_extra: for 32-bit arch (legacy OS)
 
-          - CC: clang
-            feature_set: max
-            arch: i386
-            os: ubuntu-16.04
-            name_extra: for 32-bit arch (legacy OS)
+          # - CC: clang
+          #   feature_set: max
+          #   arch: i386
+          #   os: ubuntu-16.04
+          #   name_extra: for 32-bit arch (legacy OS)
 
     name: ${{ matrix.feature_set }} features with ${{ matrix.CC }} ${{ matrix.name_extra }}
     runs-on: ${{ matrix.os }}
@@ -120,29 +120,29 @@ jobs:
       - if: ${{ matrix.DISTCHECK }}
         run: make distcheck
 
-  cppcheck:
-    name: cppcheck
-    runs-on: ubuntu-latest
-    env:
-      CC: gcc
-      # This is required to use a version of cppcheck other than that
-      # supplied with the operating system
-      CPPCHECK_VER: 2.3
-      CPPCHECK_REPO: https://github.com/danmar/cppcheck.git
-    steps:
-      # This is currently the only way to get a version into
-      # the cache tag name - see https://github.com/actions/cache/issues/543
-      - run: |
-          echo "OS_VERSION=`lsb_release -sr`" >> $GITHUB_ENV
-      - uses: actions/checkout@v2
-      - name: Cache cppcheck
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cppcheck
-        with:
-          path: ~/cppcheck.local
-          key: ${{ runner.os }}-${{ env.OS_VERSION }}-build-${{ env.cache-name }}-${{ env.CPPCHECK_VER }}
-      - run: sudo scripts/install_cppcheck_dependencies_with_apt.sh
-      - run: ./bootstrap
-      - run: scripts/install_cppcheck.sh $CPPCHECK_REPO $CPPCHECK_VER
-      - run: scripts/run_cppcheck.sh -v $CPPCHECK_VER
+  # cppcheck:
+  #   name: cppcheck
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     CC: gcc
+  #     # This is required to use a version of cppcheck other than that
+  #     # supplied with the operating system
+  #     CPPCHECK_VER: 2.3
+  #     CPPCHECK_REPO: https://github.com/danmar/cppcheck.git
+  #   steps:
+  #     # This is currently the only way to get a version into
+  #     # the cache tag name - see https://github.com/actions/cache/issues/543
+  #     - run: |
+  #         echo "OS_VERSION=`lsb_release -sr`" >> $GITHUB_ENV
+  #     - uses: actions/checkout@v2
+  #     - name: Cache cppcheck
+  #       uses: actions/cache@v2
+  #       env:
+  #         cache-name: cache-cppcheck
+  #       with:
+  #         path: ~/cppcheck.local
+  #         key: ${{ runner.os }}-${{ env.OS_VERSION }}-build-${{ env.cache-name }}-${{ env.CPPCHECK_VER }}
+  #     - run: sudo scripts/install_cppcheck_dependencies_with_apt.sh
+  #     - run: ./bootstrap
+  #     - run: scripts/install_cppcheck.sh $CPPCHECK_REPO $CPPCHECK_VER
+  #     - run: scripts/run_cppcheck.sh -v $CPPCHECK_VER
