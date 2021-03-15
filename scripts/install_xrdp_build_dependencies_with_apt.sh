@@ -91,7 +91,7 @@ in
         ;;
 esac
 
-apt list -a $PACKAGES
+apt-cache madison $PACKAGES
 
 apt-get \
     --assume-yes \
