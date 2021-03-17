@@ -91,7 +91,11 @@ in
         ;;
 esac
 
-apt-cache madison $PACKAGES
+apt-cache policy $PACKAGES
+apt-cache policy $(dpkg --get-selections | grep -v deinstall | cut -f1 | paste -s)
+
+apt-cache madison $PACKAGES 
+#apt-cache madison $(apt-cache depends $PACKAGES | grep Depends: | cut -d: -f2- | paste -s)
 
 apt-get \
     --assume-yes \
