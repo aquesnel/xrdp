@@ -914,11 +914,11 @@ g_tcp_connect(int sck, const char *address, const char *port)
     {
         res = 0;
     }
-    if(res == -1)
+    if (res == -1)
     {
         LOG(LOG_LEVEL_ERROR, "g_sck_local_connect received error code %s when connecting to %s %s", strerror(errno), address, port);
     }
-    
+
     return res;
 }
 #endif
@@ -940,7 +940,7 @@ g_sck_local_connect(int sck, const char *port)
     s.sun_path[sizeof(s.sun_path) - 1] = 0;
 
     retval = connect(sck, (struct sockaddr *)&s, sizeof(struct sockaddr_un));
-    if(retval == -1)
+    if (retval == -1)
     {
         LOG(LOG_LEVEL_ERROR, "g_sck_local_connect received error code %s when connecting to %s", strerror(errno), port);
     }
@@ -2628,7 +2628,7 @@ g_execvp(const char *p1, char *args[])
         p1, args_str);
 
     g_rm_temp_dir();
-    
+
     int index = 0;
     int totalLen = 0;
     int len = 2048;
@@ -2646,7 +2646,7 @@ g_execvp(const char *p1, char *args[])
         }
     }
     LOG(LOG_LEVEL_DEBUG, "Exec-ing from pid %d: %s", g_getpid(), logstr);
-    
+
     rv = execvp(p1, args);
 
     /* should not get here */
@@ -3047,7 +3047,7 @@ g_getenv(const char *name)
 int
 g_exit(int exit_code)
 {
-    /* at this point the logs have been de-initialized, so the only place left 
+    /* at this point the logs have been de-initialized, so the only place left
        to log to is the console
     */
     g_writeln("Exiting process %d with exit code %d", g_getpid(), exit_code);

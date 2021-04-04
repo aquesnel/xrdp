@@ -82,20 +82,20 @@ unicode_utf16_in(struct stream *s, int src_bytes, char *dst, int dst_len)
 
 /*****************************************************************************/
 /** Read a UTF-16-LE encoded unicode string.
- * 
- * [MS-RDPBCGR] defines all "unicode characters and string" to be encoded 
+ *
+ * [MS-RDPBCGR] defines all "unicode characters and string" to be encoded
  * using UTF-16 LE unless otherwise noted.
  * https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpbcgr/ab35aee7-1cf7-42dc-ac74-d0d7f4ca64f7#gt_34715e6f-1612-4b2d-a4bb-3305c56e96f5
- * 
- * Note: this function only handles 16-bit UTF-16 encoding since Microsoft 
+ *
+ * Note: this function only handles 16-bit UTF-16 encoding since Microsoft
  * Windows only supports 16-bit UTF-16 encoding.
- * 
- * Internally xrdp represents string using the standard multi byte strings 
+ *
+ * Internally xrdp represents string using the standard multi byte strings
  * approch. For details see:
  * https://www.gnu.org/software/libc/manual/html_node/Character-Set-Handling.html
- * 
+ *
  * See also: xrdp_orders_get_unicode_bytes()
- * 
+ *
  * @return 0 on success, else 1
  */
 int
@@ -124,7 +124,7 @@ in_utf16_le(struct stream *s, char *dest, int num_src_bytes, int num_dest_bytes)
         return 1;
     }
     num_chars = num_src_bytes / 2;
-    
+
     if (s_rem(s) < num_src_bytes)
     {
         LOG(LOG_LEVEL_ERROR, "Not enough bytes in the stream. "
@@ -147,7 +147,7 @@ in_utf16_le(struct stream *s, char *dest, int num_src_bytes, int num_dest_bytes)
     }
     else
     {
-        LOG(LOG_LEVEL_ERROR, 
+        LOG(LOG_LEVEL_ERROR,
             "Not enough space available in the destination buffer. "
             "Expected %d, Actual %d", mbs_length, num_dest_bytes);
         rv = 1;
@@ -159,13 +159,13 @@ in_utf16_le(struct stream *s, char *dest, int num_src_bytes, int num_dest_bytes)
 }
 
 /*****************************************************************************/
-/** 
+/**
  * Write a UTF-16-LE encoded unicode string to the stream.
- * 
+ *
  * @param[out] s
  * @param src - the string to encode and copy into the stream.
- * @param src_length - number of bytes to encode and copy to the stream. 
- *      No NULL terminator is added to the output. If a NULL terminator is 
+ * @param src_length - number of bytes to encode and copy to the stream.
+ *      No NULL terminator is added to the output. If a NULL terminator is
  *      desired, then it must be included in the src string and the src_length.
  * @return number of bytes written to the stream
  */
@@ -188,7 +188,7 @@ out_utf16_le(struct stream *s, const char *src, int src_length)
     }
     g_memcpy(src_cpy, src, src_length);
     src_cpy[src_length] = 0;
-    
+
     wcs_length = g_mbstowcs(0, src_cpy, 0);
     byte_length = (wcs_length + 1) * 2;
     if (s_rem_out(s) < byte_length)
@@ -198,7 +198,7 @@ out_utf16_le(struct stream *s, const char *src, int src_length)
         g_free(src_cpy);
         return 0;
     }
-    
+
     wdst = (twchar *) g_malloc(sizeof(twchar) * (wcs_length + 1), 1);
     if (wdst == NULL)
     {
@@ -206,7 +206,7 @@ out_utf16_le(struct stream *s, const char *src, int src_length)
         g_free(src_cpy);
         return 0;
     }
-    
+
     g_mbstowcs(wdst, src_cpy, wcs_length);
     for (index = 0; index < wcs_length; index++)
     {
