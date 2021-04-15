@@ -167,6 +167,17 @@ AM_COND_IF([XRDP_DEBUG],
   [AX_APPEND_COMPILE_FLAGS([-g -O0])],
   [AX_APPEND_COMPILE_FLAGS([-O2])])
 
+AM_COND_IF([XRDP_DEBUG],
+  [AX_APPEND_COMPILE_FLAGS([-ggdb -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak])])
+AM_COND_IF([XRDP_DEBUG],
+  [AX_APPEND_COMPILE_FLAGS([-fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow ])])
+# AM_COND_IF([XRDP_DEBUG],
+#   [AX_APPEND_COMPILE_FLAGS([-fsanitize=undefined -fsanitize=shift -fsanitize=shift-exponent -fsanitize=shift-base -fsanitize=integer-divide-by-zero -fsanitize=unreachable -fsanitize=vla-bound -fsanitize=null -fsanitize=return -fsanitize=signed-integer-overflow -fsanitize=bounds -fsanitize=bounds-strict -fsanitize=alignment -fsanitize=object-size -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow ])])
+AM_COND_IF([XRDP_DEBUG],
+  [AX_APPEND_COMPILE_FLAGS([-fsanitize-address-use-after-scope])])
+
+
+
 # Don't fail without working nasm if rfxcodec is not enabled
 if test "x$enable_rfxcodec" != xyes; then
   with_simd=no
