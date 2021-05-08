@@ -674,6 +674,10 @@ log_config_free(struct log_config *config)
             list_delete(config->per_logger_level);
             config->per_logger_level = NULL;
         }
+        if (config->log_file != NULL)
+        {
+            g_free(config->log_file);
+        }
         g_free(config);
     }
 
