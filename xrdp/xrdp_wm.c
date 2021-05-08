@@ -105,6 +105,38 @@ xrdp_wm_delete(struct xrdp_wm *self)
 }
 
 /*****************************************************************************/
+
+static const char *
+wm_login_state_to_str(enum wm_login_state login_state)
+{
+    const char *result = "unknown";
+    /* Use a switch for this, as some compilers will warn about missing states
+     */
+    switch (login_state)
+    {
+        case WMLS_RESET:
+            result = "WMLS_RESET";
+            break;
+        case WMLS_USER_PROMPT:
+            result = "WMLS_USER_PROMPT";
+            break;
+        case WMLS_START_CONNECT:
+            result = "WMLS_START_CONNECT";
+            break;
+        case WMLS_CONNECT_IN_PROGRESS:
+            result = "WMLS_CONNECT_IN_PROGRESS";
+            break;
+        case WMLS_CLEANUP:
+            result = "WMLS_CLEANUP";
+            break;
+        case WMLS_INACTIVE:
+            result = "WMLS_INACTIVE";
+    }
+
+    return result;
+}
+
+/*****************************************************************************/
 int
 xrdp_wm_send_palette(struct xrdp_wm *self)
 {
@@ -2256,43 +2288,11 @@ xrdp_wm_check_wait_objs(struct xrdp_wm *self)
 }
 
 /*****************************************************************************/
-
-static const char *
-wm_login_state_to_str(enum wm_login_state login_state)
-{
-    const char *result = "unknown";
-    /* Use a switch for this, as some compilers will warn about missing states
-     */
-    switch (login_state)
-    {
-        case WMLS_RESET:
-            result = "WMLS_RESET";
-            break;
-        case WMLS_USER_PROMPT:
-            result = "WMLS_USER_PROMPT";
-            break;
-        case WMLS_START_CONNECT:
-            result = "WMLS_START_CONNECT";
-            break;
-        case WMLS_CONNECT_IN_PROGRESS:
-            result = "WMLS_CONNECT_IN_PROGRESS";
-            break;
-        case WMLS_CLEANUP:
-            result = "WMLS_CLEANUP";
-            break;
-        case WMLS_INACTIVE:
-            result = "WMLS_INACTIVE";
-    }
-
-    return result;
-}
-
-/*****************************************************************************/
 int
 xrdp_wm_set_login_state(struct xrdp_wm *self, enum wm_login_state login_state)
 {
     LOG(LOG_LEVEL_DEBUG, "Window Manager Login state change: %s (%d) -> %s (%d)",
-        wm_login_state_to_str(self->login_state), self->login_state
+        wm_login_state_to_str(self->login_state), self->login_state,
         wm_login_state_to_str(login_state), login_state);
 
     self->login_state = login_state;

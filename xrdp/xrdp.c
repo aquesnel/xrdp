@@ -455,6 +455,7 @@ main(int argc, char **argv)
     const char *pid_file = XRDP_PID_PATH "/xrdp.pid";
     struct log_config *bootstrap_log_config;
     int errored_argc;
+    int test;
 // xrdp_iso_recv()=INFO
 // #xrdp_sec_recv()=INFO
 // xrdp_iso_send()=INFO
