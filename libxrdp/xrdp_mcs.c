@@ -909,7 +909,7 @@ xrdp_mcs_out_gcc_data(struct xrdp_sec *self)
     out_uint16_be(s, 5); /* = 0x00 0x05
                             t124Identifier choice index = 0 (object) 
                             object length = 5 */
-    out_uint16_be(s, 0x14);  /* t124Identifier.object = ??? (0x00 0x14 0x7c 0x00 0x01) */
+    out_uint16_be(s, 0x14);  /* t124Identifier.object = {itu-t recommendation t 124 version(0) 1} (0x00 0x14 0x7c 0x00 0x01) */
     out_uint8(s, 0x7c);
     out_uint16_be(s, 1); /* -- */
     out_uint8(s, 0x2a);  /* connectPDU length = 42 */
