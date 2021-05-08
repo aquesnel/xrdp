@@ -1387,6 +1387,8 @@ process_server_paint_rect_shmem_ex(struct mod *amod, struct stream *s)
 static int
 send_server_version_message(struct mod *mod, struct stream *s)
 {
+    int len;
+    
     /* send version message */
     /* see nutrinolabs/xorgxrdp rdpClientCon.c rdpClientConProcessMsg() */
     init_stream(s, 8192);
