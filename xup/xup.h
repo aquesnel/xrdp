@@ -26,6 +26,7 @@
 #include "log.h"
 #include "xrdp_client_info.h"
 #include "xrdp_constants.h"
+#include "xorgxrdp_constants.h"
 #include "xrdp_rail.h"
 
 #define CURRENT_MOD_VER 4
